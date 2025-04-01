@@ -21,4 +21,5 @@ model ClothingItem {
   price     Float?
   embedding Json
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

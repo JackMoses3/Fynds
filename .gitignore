@@ -1,2 +1,5 @@
 # .gitignore
 ml/venv/
+
+# prisma migrations
+backend/prisma/migrations/
