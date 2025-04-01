@@ -1,0 +1,39 @@
+# docker-compose.yml
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: ironic-db
+    restart: always
+    environment:
+      POSTGRES_USER: ironicuser
+      POSTGRES_PASSWORD: ironicpass
+      POSTGRES_DB: ironicdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    container_name: ironic-backend
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgres://ironicuser:ironicpass@postgres:5432/ironicdb
+    ports:
+      - "3000:3000"
+
+  ml:
+    build: ./ml
+    container_name: ironic-ml
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
