@@ -4,11 +4,23 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
+// schema.prisma
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["pgVector"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model ClothingItem {
+  id        Int      @id @default(autoincrement())
+  name      String
+  retailer  String
+  imageUrl  String
+  embedding Vector   @db.Vector(768) // For CLIP ViT-B/32 which has 768 dimensions
+  price     Float?
+  createdAt DateTime @default(now())
 }
