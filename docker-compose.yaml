@@ -3,7 +3,7 @@ version: "3.9"
 
 services:
   postgres:
-    image: ankane/pgvector
+    image: postgres:latest
     container_name: ironic-db
     restart: always
     environment:
@@ -22,7 +22,8 @@ services:
     depends_on:
       - postgres
     environment:
-      DATABASE_URL: postgres://ironicuser:ironicpass@postgres:5432/ironicdb
+    env_file:
+      - ./backend/.env.docker 
     ports:
       - "3000:3000"
 
@@ -34,6 +35,8 @@ services:
       - "8000:8000"
     depends_on:
       - postgres
+    env_file:
+      - ./ml/.env.docker 
 
 volumes:
   pgdata:
