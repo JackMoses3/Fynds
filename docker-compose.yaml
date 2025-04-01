@@ -21,7 +21,6 @@ services:
     restart: always
     depends_on:
       - postgres
-    environment:
     env_file:
       - ./backend/.env.docker 
     ports:
