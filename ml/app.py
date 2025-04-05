@@ -1,11 +1,11 @@
 # main.py
 from fastapi import FastAPI
-from embedding.embedding_router import embedding_router
+from embedding.embedding_router import router as embedding_router
 
 
 app = FastAPI()
 
-app.include_router(embedding_router, prefix="/embedding")
+app.include_router(embedding_router)
 
 if __name__ == "__main__":
     import uvicorn

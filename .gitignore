@@ -9,4 +9,5 @@ dist
 node_modules
 
 # pychashe
-__pycache__
+__pycache__/
+*.pyc

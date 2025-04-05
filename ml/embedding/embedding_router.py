@@ -13,4 +13,4 @@ async def generate_embedding(input_data: EmbeddingInput):
     # embedding = generate_embedding_logic(input_data)
     
     # For now, let's just return the input data as a placeholder
-    return 
+    return ""
