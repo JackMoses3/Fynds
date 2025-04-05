@@ -18,7 +18,7 @@ model ProductItem {
   id               Int            @id @default(autoincrement())
   name             String
   url              String
-  metaData         Json?
+  metaData         String
   sex              String
   brand            String
   retailer         String

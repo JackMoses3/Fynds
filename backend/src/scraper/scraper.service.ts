@@ -1,6 +1,6 @@
 import { Page } from 'puppeteer';
 import { ScraperConfig, ProductData } from './scraper.types';
-import { ProductItemService } from 'src/product-item/product-item.service';
+import { ProductItemService } from '../product-item/product-item.service';
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 const puppeteer = require("puppeteer");

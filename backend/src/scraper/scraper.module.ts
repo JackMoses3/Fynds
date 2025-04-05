@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScraperController } from './scraper.controller';
 import { ScraperService } from './scraper.service';
-import { ProductItemModule } from 'src/product-item/product-item.module';
+import { ProductItemModule } from '../product-item/product-item.module';
 
 @Module({
     imports: [ProductItemModule],
