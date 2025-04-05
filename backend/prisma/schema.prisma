@@ -14,26 +14,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model ClothingItem {
-  id              Int             @id @default(autoincrement())
-  name            String
-  metaData        Json?
-  retailer        String
-  price           Float?
-  front_embedding Json?
-  back_embedding  Json?
-  clothingImages  ClothingImage[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+model ProductItem {
+  id               Int            @id @default(autoincrement())
+  name             String
+  url              String
+  metaData         Json?
+  sex              String
+  brand            String
+  retailer         String
+  price            Float
+  frontEmbeddingId Int?
+  backEmbeddingId  Int?
+  productImages    ProductImage[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 }
 
-model ClothingImage {
-  id             Int      @id @default(autoincrement())
-  clothingItemId Int
-  imageUrl       String
-  frontFacing    Boolean
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model ProductImage {
+  id            Int      @id @default(autoincrement())
+  productItemId Int
+  imageUrl      String
+  frontFacing   Boolean?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  clothingItem ClothingItem @relation(fields: [clothingItemId], references: [id], onDelete: Cascade)
+  clothingItem ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
 }

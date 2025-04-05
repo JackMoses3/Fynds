@@ -7,3 +7,6 @@ backend/prisma/migrations/
 # dist files
 dist
 node_modules
+
+# pychashe
+__pycache__

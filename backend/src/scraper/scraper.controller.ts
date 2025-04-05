@@ -1,15 +1,25 @@
-import { Controller, Get } from '@nestjs/common';
-import { ScraperService, ProductData } from './scraper.service';
+import { Controller, Get, Query } from '@nestjs/common';
+import { ScraperService } from './scraper.service';
 
 @Controller('scraper')
 export class ScraperController {
   constructor(private readonly scraperService: ScraperService) {}
 
-  // Single endpoint to scrape both men's and women's product URLs from H&M
-  @Get('combined')
-  async scrapeCombined(): Promise<ProductData[]> {
-    const mensListingUrl = 'https://www2.hm.com/en_gb/men/products/view-all.html';
-    const womensListingUrl = 'https://www2.hm.com/en_gb/women/products/view-all.html';
-    return this.scraperService.scrapeCombinedCategories(mensListingUrl, womensListingUrl);
+  @Get('scrape-single')
+  async scrapeSingleSite(@Query('url') url: string) {
+    if (!url) {
+      return { error: 'URL query parameter is required' };
+    }
+
+    try {
+      const productCount = await this.scraperService.scrapeAndSaveSingleSite(url);
+      return {
+        message: `✅ Scraping completed for: ${url}`,
+        productCount: productCount,
+      };
+    } catch (err) {
+      console.error('❌ Scraping failed:', err);
+      return { error: 'Failed to scrape the provided URL' };
+    }
   }
 }

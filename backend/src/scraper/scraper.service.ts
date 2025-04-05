@@ -1,9 +1,15 @@
 import { Page } from 'puppeteer';
 import { ScraperConfig, ProductData } from './scraper.types';
+import { ProductItemService } from 'src/product-item/product-item.service';
+import { Prisma } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 
+@Injectable()
 export class ScraperService {
+  // importing productItemService 
+  constructor(private readonly productItemService: ProductItemService) {}
   private static websiteConfigs: { [key: string]: ScraperConfig} = {
     "asos.com": {
       retailer: "ASOS",
@@ -213,7 +219,7 @@ export class ScraperService {
   }
   };
 
-  private static async autoPaginate(page: Page, config: ScraperConfig) {
+  private async autoPaginate(page: Page, config: ScraperConfig) {
     const allLinks = new Set();
 
     // Helper to extract product links from the current page
@@ -266,15 +272,13 @@ export class ScraperService {
     return Array.from(allLinks);
   }
 
-  private static async scrapeWebsite(url: string, config: ScraperConfig, browser: any) {
+  private async scrapeWebsite(url: string, config: ScraperConfig, browser: any) {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle2" });
 
-    const productLinks = await ScraperService.autoPaginate(page, config); //function to get all product links then load next page/button
+    const productLinks  = await this.autoPaginate(page, config); //function to get all product links then load next page/button
 
     console.log(`🔗 Found ${productLinks.length} product links on ${url}`);
-
-    const scrapedResults = [];
     
     // Loop through each product link and scrape data
     for (const link of productLinks) {
@@ -313,11 +317,11 @@ export class ScraperService {
           continue;
         }
 
-        /*
-        Extracting the image URLs, taking all of the description of the product and sending it to the python API 
-        To handle getting the category and the embeddings. Sending the data to the python API
-        */
-
+        const sex = url.toLowerCase().includes("women") || url.toLowerCase().includes("woman")
+          ? "women"
+          : url.toLowerCase().includes("men") || url.toLowerCase().includes("man")
+            ? "men"
+            : "men";
 
         const productInfo = {
           retailer: config.retailer,
@@ -327,11 +331,20 @@ export class ScraperService {
           url: link,
           description: productData.description || "",
           imageUrls,
+          sex,
         };
 
-        scrapedResults.push(productInfo);
-        fs.appendFileSync("items.json", JSON.stringify(productInfo, null, 2) + ",\n");
-        console.log("✅ Saved:", productInfo.name);
+        await this.productItemService.createProductWithImages({
+          name: productInfo.name,
+          brand: productInfo.brand,
+          sex: productInfo.sex,
+          price: parseFloat(productInfo.price) || 0,
+          url: productInfo.url as string,
+          metaData: productInfo.description,
+          retailer: productInfo.retailer,
+          imageUrls: productInfo.imageUrls,
+        });
+        console.log("✅ Added to DB:", productInfo.name);
 
         // Go to the next product page
         await productPage.close();
@@ -342,11 +355,22 @@ export class ScraperService {
     }
 
     await page.close();
-    return scrapedResults;
   }
 
-  public async scrapeAll() {
-    const urls = [
+  async scrapeAndSaveSingleSite(url: string) {
+    const domain = new URL(url).hostname.replace("www.", "");
+    const config = ScraperService.websiteConfigs[domain];
+
+    if (!config) {
+      throw new Error(`No scraping configuration found for domain: ${domain}`);
+    }
+
+    const browser = await puppeteer.launch({ headless: false });
+    await this.scrapeWebsite(url, config, browser);
+    await browser.close();
+  }
+}
+/*
       "https://www.gluestore.com.au/collections/mens-clothing",
       "https://www.asos.com/men/t-shirts-vests/cat/?cid=7616",
       "https://www.culturekings.com.au/collections/new-arrivals",
@@ -356,30 +380,4 @@ export class ScraperService {
       "https://www.universalstore.com/collections/mens-clothing",
       "https://www.generalpants.com/collections/mens-clothing",
       "https://fasttimes.com.au/apparel/top-picks",
-    ];
-
-    const browser = await puppeteer.launch({ headless: false, slowMo: 50 });
-    const allResults = [];
-
-    for (const url of urls) {
-      const domain = new URL(url).hostname.replace("www.", "");
-      const config = ScraperService.websiteConfigs[domain];
-
-      if (!config) {
-        const results = await ScraperService.scrapeWebsite(url, config, browser);
-        if (results) {
-          allResults.push(...results);
-        }
-      }
-
-      const results = await ScraperService.scrapeWebsite(url, config, browser);
-      allResults.push(...results);
-
-      const filename = `${config.retailer.replace(/\s+/g, "_").toLowerCase()}-products-${Date.now()}.json`;
-      fs.writeFileSync(filename, JSON.stringify(results, null, 2));
-    }
-
-    await browser.close();
-    console.log("✅ All scraping completed.");
-  }
-}
+*/
