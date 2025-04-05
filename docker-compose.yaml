@@ -1,41 +1,24 @@
-# docker-compose.yml
-version: "3.9"
-
 services:
-  postgres:
-    image: postgres:latest
-    container_name: ironic-db
-    restart: always
-    environment:
-      POSTGRES_USER: ironicuser
-      POSTGRES_PASSWORD: ironicpass
-      POSTGRES_DB: ironicdb
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
-
   backend:
     build: ./backend
     container_name: ironic-backend
     restart: always
-    depends_on:
-      - postgres
     env_file:
-      - ./backend/.env.docker 
+      - ./backend/.env.docker
     ports:
       - "3000:3000"
+    volumes:
+      - ./backend:/app        # Mount local code into container
+      - /app/node_modules     # Prevent node_modules overwrite
+    command: npm run start:dev
 
   ml:
     build: ./ml
     container_name: ironic-ml
     restart: always
-    ports:
-      - "8000:8000"
-    depends_on:
-      - postgres
     env_file:
       - ./ml/.env.docker 
-
-volumes:
-  pgdata:
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ml:/app  # Mount your local ml code into the container

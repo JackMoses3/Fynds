@@ -5,7 +5,8 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -14,12 +15,25 @@ datasource db {
 }
 
 model ClothingItem {
-  id        Int      @id @default(autoincrement())
-  name      String
-  retailer  String
-  imageUrl  String
-  price     Float?
-  embedding Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              Int             @id @default(autoincrement())
+  name            String
+  metaData        Json?
+  retailer        String
+  price           Float?
+  front_embedding Json?
+  back_embedding  Json?
+  clothingImages  ClothingImage[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model ClothingImage {
+  id             Int      @id @default(autoincrement())
+  clothingItemId Int
+  imageUrl       String
+  frontFacing    Boolean
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  clothingItem ClothingItem @relation(fields: [clothingItemId], references: [id], onDelete: Cascade)
 }
