@@ -1,8 +1,6 @@
 # .gitignore
 ml/venv/
 
-# prisma migrations
-backend/prisma/migrations/
 
 # dist files
 dist

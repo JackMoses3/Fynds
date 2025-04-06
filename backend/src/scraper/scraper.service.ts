@@ -281,7 +281,7 @@ export class ScraperService {
     const linksFilePath = path.join(__dirname, 'product-links', `${domain}.json`);
     const progressFilePath = path.join(__dirname, 'product-links', `${domain}.progress.json`);
     let currentIndex = 0;
-    
+
     if (fs.existsSync(progressFilePath)) {
       try {
         const progress = JSON.parse(fs.readFileSync(progressFilePath, 'utf-8'));
@@ -305,87 +305,98 @@ export class ScraperService {
     console.log(`🔗 Found ${productLinks.length} product links on ${url}`);
     
     const BATCH_SIZE = 5;
-    const RESTART_BROWSER_INTERVAL = 300;
+    const RESTART_BROWSER_INTERVAL = 200;
 
     while (currentIndex < productLinks.length) {
-      if (currentIndex > 0 && currentIndex % RESTART_BROWSER_INTERVAL === 0) {
+      try {
+        if (currentIndex > 0 && currentIndex % RESTART_BROWSER_INTERVAL === 0) {
+          await browser.close();
+          browser = await puppeteer.launch({ headless: false, protocolTimeout: 120000 });
+        }
+    
+        const batch = productLinks.slice(currentIndex, currentIndex + BATCH_SIZE);
+    
+        await Promise.all(
+          batch.map(async (link, idx) => {
+            const productPage = await browser.newPage();
+            try {
+              await productPage.goto(link, { waitUntil: "domcontentloaded", timeout: 60000 });
+    
+              const imageUrls = await config.imageScraper(productPage);
+    
+                const jsonLDs: Record<string, any>[] = await productPage.$$eval(
+                'script[type="application/ld+json"]',
+                (scripts: HTMLScriptElement[]) =>
+                  scripts
+                  .map((s: HTMLScriptElement) => {
+                    try {
+                    return JSON.parse(s.textContent || "") as Record<string, any>;
+                    } catch {
+                    return null;
+                    }
+                  })
+                  .filter((item): item is Record<string, any> => Boolean(item))
+                );
+    
+                const productData: ProductData | undefined = jsonLDs.find((ld: Record<string, any>): ld is ProductData => {
+                const type = ld["@type"];
+                return typeof type === "string"
+                  ? type.toLowerCase().includes("product")
+                  : Array.isArray(type) && type.some((t: string) => t.toLowerCase().includes("product"));
+                });
+    
+              if (!productData) {
+                console.warn("❌ No product data found for:", link);
+                return;
+              }
+    
+              const sex = url.toLowerCase().includes("women") || url.toLowerCase().includes("woman")
+                ? "women"
+                : url.toLowerCase().includes("men") || url.toLowerCase().includes("man")
+                  ? "men"
+                  : "men";
+    
+              const productInfo = {
+                retailer: config.retailer,
+                name: productData.name || "",
+                brand: typeof productData.brand === 'object' && 'name' in productData.brand 
+                  ? productData.brand.name 
+                  : productData.brand || config.retailer,
+                price: config.priceExtractor(productData),
+                url: link,
+                description: productData.description || "",
+                imageUrls,
+                sex,
+              };
+    
+              await this.productItemService.createProductWithImages({
+                name: productInfo.name,
+                brand: productInfo.brand,
+                sex: productInfo.sex,
+                price: parseFloat(productInfo.price) || 0,
+                url: productInfo.url,
+                metaData: productInfo.description,
+                retailer: productInfo.retailer,
+                imageUrls: productInfo.imageUrls,
+              });
+    
+              console.log("✅ Added to DB:", productInfo.name);
+            } catch (err) {
+              console.error(`❌ Error scraping product (${link}):`, err);
+            } finally {
+              await productPage.close();
+              currentIndex++;
+              fs.writeFileSync(progressFilePath, JSON.stringify({ currentIndex }), "utf-8");
+            }
+          })
+        );
+      } catch (outerError) {
+        console.error("💥 Batch failed, restarting browser and resuming...", outerError);
         await browser.close();
         browser = await puppeteer.launch({ headless: false, protocolTimeout: 120000 });
       }
-
-      const batch = productLinks.slice(currentIndex, currentIndex + BATCH_SIZE);
-      await Promise.all(batch.map(async (link) => {
-        const productPage = await browser.newPage();
-        try {
-          await productPage.goto(link, { waitUntil: "domcontentloaded" });
-
-          const imageUrls = await config.imageScraper(productPage);
-
-          const jsonLDs: Array<Record<string, any>> = await productPage.$$eval(
-            'script[type="application/ld+json"]',
-            (scripts: HTMLScriptElement[]): Array<Record<string, any>> =>
-              scripts
-                .map((s: HTMLScriptElement) => {
-                  try {
-                    return JSON.parse(s.textContent || "") as Record<string, any>;
-                  } catch {
-                    return null;
-                  }
-                })
-                .filter((json): json is Record<string, any> => Boolean(json))
-          );
-
-          const productData = jsonLDs.find(ld => {
-            const type = ld["@type"];
-            return typeof type === "string"
-              ? type.toLowerCase().includes("product")
-              : Array.isArray(type) && type.some(t => t.toLowerCase().includes("product"));
-          });
-
-          if (!productData) {
-            console.warn("❌ No product data found for:", link);
-            return;
-          }
-
-          const sex = url.toLowerCase().includes("women") || url.toLowerCase().includes("woman")
-            ? "women"
-            : url.toLowerCase().includes("men") || url.toLowerCase().includes("man")
-              ? "men"
-              : "men";
-
-          const productInfo = {
-            retailer: config.retailer,
-            name: productData.name || "",
-            brand: productData.brand?.name || productData.brand || config.retailer,
-            price: config.priceExtractor(productData as ProductData),
-            url: link,
-            description: productData.description || "",
-            imageUrls,
-            sex,
-          };
-
-          await this.productItemService.createProductWithImages({
-            name: productInfo.name,
-            brand: productInfo.brand,
-            sex: productInfo.sex,
-            price: parseFloat(productInfo.price) || 0,
-            url: productInfo.url as string,
-            metaData: productInfo.description,
-            retailer: productInfo.retailer,
-            imageUrls: productInfo.imageUrls,
-          });
-
-          console.log("✅ Added to DB:", productInfo.name);
-        } catch (err) {
-          console.error(`❌ Error scraping product (${link}):`, err);
-        } finally {
-          await productPage.close();
-        }
-      }));
-
-      currentIndex += BATCH_SIZE;
-      fs.writeFileSync(progressFilePath, JSON.stringify({ currentIndex }), 'utf-8');
     }
+
 
     await page.close();
     if (fs.existsSync(progressFilePath)) {

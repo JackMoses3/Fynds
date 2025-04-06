@@ -17,7 +17,7 @@ datasource db {
 model ProductItem {
   id               Int            @id @default(autoincrement())
   name             String
-  url              String
+  url              String         @unique
   metaData         String
   sex              String
   brand            String
