@@ -3,6 +3,7 @@ import { ScraperConfig, ProductData } from './scraper.types';
 import { ProductItemService } from '../product-item/product-item.service';
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
+import * as path from 'path';
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 
@@ -276,85 +277,120 @@ export class ScraperService {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle2" });
 
-    const productLinks  = await this.autoPaginate(page, config); //function to get all product links then load next page/button
-
-    console.log(`🔗 Found ${productLinks.length} product links on ${url}`);
+    const domain = new URL(url).hostname.replace("www.", "");
+    const linksFilePath = path.join(__dirname, 'product-links', `${domain}.json`);
+    const progressFilePath = path.join(__dirname, 'product-links', `${domain}.progress.json`);
+    let currentIndex = 0;
     
-    // Loop through each product link and scrape data
-    for (const link of productLinks) {
+    if (fs.existsSync(progressFilePath)) {
       try {
-        const productPage = await browser.newPage();
-        await productPage.goto(link, { waitUntil: "domcontentloaded" });
-        // get all of the image, URLs
-        const imageUrls = await config.imageScraper(productPage);
-        
-        // get all of the JSON-LD data
-        const jsonLDs: Array<Record<string, any>> = await productPage.$$eval(
-          'script[type="application/ld+json"]',
-          (scripts: HTMLScriptElement[]): Array<Record<string, any>> =>
-            scripts
-          .map((s: HTMLScriptElement) => {
-            try {
-              return JSON.parse(s.textContent || "") as Record<string, any>;
-            } catch {
-              return null;
-            }
-          })
-          .filter((json): json is Record<string, any> => Boolean(json))
-        );
-
-        // find the product data in the JSON-LD
-        const productData = jsonLDs.find(ld => {
-          const type = ld["@type"];
-          return typeof type === "string"
-            ? type.toLowerCase().includes("product")
-            : Array.isArray(type) && type.some(t => t.toLowerCase().includes("product"));
-        });
-        // if no product data is found, log a warning and skip the product
-        if (!productData) {
-          console.warn("❌ No product data found for:", link);
-          await productPage.close();
-          continue;
-        }
-
-        const sex = url.toLowerCase().includes("women") || url.toLowerCase().includes("woman")
-          ? "women"
-          : url.toLowerCase().includes("men") || url.toLowerCase().includes("man")
-            ? "men"
-            : "men";
-
-        const productInfo = {
-          retailer: config.retailer,
-          name: productData.name || "",
-          brand: productData.brand?.name || productData.brand || config.retailer,
-          price: config.priceExtractor(productData as ProductData),
-          url: link,
-          description: productData.description || "",
-          imageUrls,
-          sex,
-        };
-
-        await this.productItemService.createProductWithImages({
-          name: productInfo.name,
-          brand: productInfo.brand,
-          sex: productInfo.sex,
-          price: parseFloat(productInfo.price) || 0,
-          url: productInfo.url as string,
-          metaData: productInfo.description,
-          retailer: productInfo.retailer,
-          imageUrls: productInfo.imageUrls,
-        });
-        console.log("✅ Added to DB:", productInfo.name);
-
-        // Go to the next product page
-        await productPage.close();
-
-      } catch (err) {
-        console.error(`❌ Error scraping product (${link}):`, err);
+        const progress = JSON.parse(fs.readFileSync(progressFilePath, 'utf-8'));
+        currentIndex = progress.currentIndex || 0;
+      } catch {
+        currentIndex = 0;
       }
     }
 
+    let productLinks: string[];
+
+    if (fs.existsSync(linksFilePath)) {
+      productLinks = JSON.parse(fs.readFileSync(linksFilePath, 'utf-8'));
+      console.log(`🔁 Loaded ${productLinks.length} product links from file: ${linksFilePath}`);
+    } else {
+      productLinks = await this.autoPaginate(page, config) as string[];
+      fs.writeFileSync(linksFilePath, JSON.stringify(productLinks, null, 2), 'utf-8');
+      console.log(`💾 Saved ${productLinks.length} product links to file: ${linksFilePath}`);
+    }
+
+    console.log(`🔗 Found ${productLinks.length} product links on ${url}`);
+    
+    const BATCH_SIZE = 5;
+    const RESTART_BROWSER_INTERVAL = 300;
+
+    while (currentIndex < productLinks.length) {
+      if (currentIndex > 0 && currentIndex % RESTART_BROWSER_INTERVAL === 0) {
+        await browser.close();
+        browser = await puppeteer.launch({ headless: false, protocolTimeout: 120000 });
+      }
+
+      const batch = productLinks.slice(currentIndex, currentIndex + BATCH_SIZE);
+      await Promise.all(batch.map(async (link) => {
+        const productPage = await browser.newPage();
+        try {
+          await productPage.goto(link, { waitUntil: "domcontentloaded" });
+
+          const imageUrls = await config.imageScraper(productPage);
+
+          const jsonLDs: Array<Record<string, any>> = await productPage.$$eval(
+            'script[type="application/ld+json"]',
+            (scripts: HTMLScriptElement[]): Array<Record<string, any>> =>
+              scripts
+                .map((s: HTMLScriptElement) => {
+                  try {
+                    return JSON.parse(s.textContent || "") as Record<string, any>;
+                  } catch {
+                    return null;
+                  }
+                })
+                .filter((json): json is Record<string, any> => Boolean(json))
+          );
+
+          const productData = jsonLDs.find(ld => {
+            const type = ld["@type"];
+            return typeof type === "string"
+              ? type.toLowerCase().includes("product")
+              : Array.isArray(type) && type.some(t => t.toLowerCase().includes("product"));
+          });
+
+          if (!productData) {
+            console.warn("❌ No product data found for:", link);
+            return;
+          }
+
+          const sex = url.toLowerCase().includes("women") || url.toLowerCase().includes("woman")
+            ? "women"
+            : url.toLowerCase().includes("men") || url.toLowerCase().includes("man")
+              ? "men"
+              : "men";
+
+          const productInfo = {
+            retailer: config.retailer,
+            name: productData.name || "",
+            brand: productData.brand?.name || productData.brand || config.retailer,
+            price: config.priceExtractor(productData as ProductData),
+            url: link,
+            description: productData.description || "",
+            imageUrls,
+            sex,
+          };
+
+          await this.productItemService.createProductWithImages({
+            name: productInfo.name,
+            brand: productInfo.brand,
+            sex: productInfo.sex,
+            price: parseFloat(productInfo.price) || 0,
+            url: productInfo.url as string,
+            metaData: productInfo.description,
+            retailer: productInfo.retailer,
+            imageUrls: productInfo.imageUrls,
+          });
+
+          console.log("✅ Added to DB:", productInfo.name);
+        } catch (err) {
+          console.error(`❌ Error scraping product (${link}):`, err);
+        } finally {
+          await productPage.close();
+        }
+      }));
+
+      currentIndex += BATCH_SIZE;
+      fs.writeFileSync(progressFilePath, JSON.stringify({ currentIndex }), 'utf-8');
+    }
+
     await page.close();
+    if (fs.existsSync(progressFilePath)) {
+      fs.unlinkSync(progressFilePath);
+    }
   }
 
   async scrapeAndSaveSingleSite(url: string) {
@@ -365,7 +401,7 @@ export class ScraperService {
       throw new Error(`No scraping configuration found for domain: ${domain}`);
     }
 
-    const browser = await puppeteer.launch({ headless: false });
+    const browser = await puppeteer.launch({ headless: false, protocolTimeout: 120000 });
     await this.scrapeWebsite(url, config, browser);
     await browser.close();
   }
