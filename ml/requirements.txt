@@ -4,3 +4,9 @@ torch
 transformers
 pgvector
 sqlalchemy
+faiss-cpu
+numpy
+pillow
+requests
+python-dotenv
+marqo
