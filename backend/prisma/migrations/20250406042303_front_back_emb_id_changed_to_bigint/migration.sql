@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "ProductItem" ALTER COLUMN "frontEmbeddingId" SET DATA TYPE BIGINT,
+ALTER COLUMN "backEmbeddingId" SET DATA TYPE BIGINT;
