@@ -7,7 +7,6 @@ async function bootstrap() {
   const scraperService = app.get(ScraperService);
 
   const urls = [
-    "https://www.gluestore.com.au/collections/womens-clothing",
     "https://www.gluestore.com.au/collections/mens-clothing",
     "https://www.asos.com/men/t-shirts-vests/cat/?cid=7616",
     "https://www.culturekings.com.au/collections/new-arrivals",
@@ -20,11 +19,11 @@ async function bootstrap() {
   ];
 
   for (const url of urls) {
-    console.log(`🚀 Starting scrape for: ${url}`);
+    console.log(` Starting scrape for: ${url}`);
     try {
       await scraperService.scrapeAndSaveSingleSite(url);
     } catch (err) {
-      console.error(`❌ Failed to scrape ${url}`, err);
+      console.error(` Failed to scrape ${url}`, err);
     }
   }
 

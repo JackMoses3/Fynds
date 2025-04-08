@@ -20,7 +20,10 @@ model ProductItem {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   backEmbeddingId  BigInt?
+  textEmbeddingId  BigInt?
   brand            String
+  category         String?
+  subCategory      String?
   productImages    ProductImage[]
 }
 
