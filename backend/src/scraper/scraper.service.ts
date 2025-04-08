@@ -322,7 +322,10 @@ export class ScraperService {
             try {
               await productPage.goto(link, { waitUntil: "domcontentloaded", timeout: 60000 });
     
-              const imageUrls = await config.imageScraper(productPage);
+              const rawImageUrls = await config.imageScraper(productPage);
+              const imageUrls = rawImageUrls.map(url =>
+                url.startsWith('http') ? url : `https:${url}`
+              );
     
                 const jsonLDs: Record<string, any>[] = await productPage.$$eval(
                 'script[type="application/ld+json"]',
@@ -390,10 +393,33 @@ export class ScraperService {
             }
           })
         );
-      } catch (outerError) {
-        console.error("💥 Batch failed, restarting browser and resuming...", outerError);
-        await browser.close();
-        browser = await puppeteer.launch({ headless: false, protocolTimeout: 120000 });
+      } catch (batchError) {
+        console.error("💥 Batch failed, restarting browser and resuming...", batchError);
+        try {
+          await browser.close();
+        } catch (e) {
+          console.warn("⚠️ Error closing browser:", e);
+        }
+        browser = await puppeteer.launch({
+          headless: false,
+          protocolTimeout: 180000,
+          timeout: 180000,
+          args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+      }
+    
+      if (currentIndex > 0 && currentIndex % RESTART_BROWSER_INTERVAL === 0) {
+        try {
+          await browser.close();
+        } catch (e) {
+          console.warn("⚠️ Error closing browser:", e);
+        }
+        browser = await puppeteer.launch({
+          headless: false,
+          protocolTimeout: 180000,
+          timeout: 180000,
+          args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
       }
     }
 

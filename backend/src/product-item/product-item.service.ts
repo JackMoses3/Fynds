@@ -24,4 +24,10 @@ export class ProductItemService {
       },
     });
   }
+  async findById(id: number) {
+    return this.db.productItem.findUnique({
+      where: { id },
+      include: { productImages: true },
+    });
+  }
 }
