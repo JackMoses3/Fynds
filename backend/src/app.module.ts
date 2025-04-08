@@ -6,6 +6,7 @@ import { ScraperModule } from './scraper/scraper.module';
 import { ProductItemModule } from './product-item/product-item.module';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { HealthResolver } from './graphql/health.resolver';
 
 @Module({
   imports: [DatabaseModule, ScraperModule, ProductItemModule,GraphQLModule.forRoot<ApolloDriverConfig>({
@@ -15,6 +16,6 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
     introspection: true, // optional: useful for tools like Apollo Studio
   }),],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, HealthResolver],
 })
 export class AppModule {}
