@@ -84,19 +84,27 @@ front_index = faiss.IndexIDMap(faiss.IndexFlatL2(DIM))
 back_index = faiss.IndexIDMap(faiss.IndexFlatL2(DIM))
 
 # --- Utility Functions ---
-def classify_front_or_back(image_url):
+def classify_front_or_back_with_score(image_url):
     try:
+        if not image_url.startswith("http"):
+            image_url = "https:" + image_url
+
         resp = requests.get(image_url, timeout=10)
         resp.raise_for_status()
         img = Image.open(BytesIO(resp.content)).convert('RGB')
         tensor_img = classifier_transform(img).unsqueeze(0).to(device)
+
         with torch.no_grad():
             outputs = front_back_model(tensor_img)
-            _, predicted = torch.max(outputs, 1)
-        return ['front', 'back'][predicted.item()]  # 0 = front, 1 = back
+            probs = torch.nn.functional.softmax(outputs, dim=1)
+            confidence, predicted = torch.max(probs, 1)
+
+        return ['front', 'back'][predicted.item()], probs[0, 1].item()  # probability of 'back'
+
     except Exception as e:
         print(f"Failed to classify image {image_url}: {e}")
-        return 'front'
+        return 'front', 0.0
+
 
 def create_clip_embedding(image_url):
     try:
@@ -122,8 +130,12 @@ def create_clip_embedding(image_url):
 
 
 
-def generate_faiss_id():
-    return uuid.uuid4().int >> 65
+def generate_faiss_id(id, label):
+    id_num = id
+    if label == 'front': 
+        return id_num + id_num-1
+    else: 
+        return 2*id_num
 
 # --- Main Pipeline ---
 def process():
@@ -135,19 +147,24 @@ def process():
 
     for item in items:
         print(f"🔍 Processing item {item.id} - {item.name}")
+        back_candidates = []
 
         for img in item.productImages:
-            label = classify_front_or_back(img.imageUrl)
+            label, back_conf = classify_front_or_back_with_score(img.imageUrl)
 
             is_front = label == "front"
             img.frontFacing = is_front
             session.add(img)
 
+            #if label is front and not the first front label, add to possible back options
+            #if is_front and item.frontEmbeddingId is None and back_conf>.18:
+            #    back_candidates.append((img, back_conf))
+
             # FRONT embedding
-            if is_front and item.frontEmbeddingId is None:
+            if is_front and item.frontEmbeddingId is None and back_conf <=.05:
                 emb = create_clip_embedding(img.imageUrl)
                 if emb is not None:
-                    vector_id = generate_faiss_id()
+                    vector_id = generate_faiss_id(item.id, label)
                     front_index.add_with_ids(np.array([emb]), np.array([vector_id], dtype="int64"))
                     item.frontEmbeddingId = vector_id
 
@@ -155,13 +172,24 @@ def process():
             if not is_front and item.backEmbeddingId is None:
                 emb = create_clip_embedding(img.imageUrl)
                 if emb is not None:
-                    vector_id = generate_faiss_id()
+                    vector_id = generate_faiss_id(item.id, label)
                     back_index.add_with_ids(np.array([emb]), np.array([vector_id], dtype="int64"))
                     item.backEmbeddingId = vector_id
+
+        # If backEmbeddingId still not set, try using the best back candidate
+        if item.backEmbeddingId is None and back_candidates:
+            best_img, _ = max(back_candidates, key=lambda x: x[1])  # Highest confidence
+            emb = create_clip_embedding(best_img.imageUrl)
+            if emb is not None:
+                vector_id = generate_faiss_id(item.id, "back")
+                back_index.add_with_ids(np.array([emb]), np.array([vector_id], dtype="int64"))
+                item.backEmbeddingId = vector_id
+                print(f"⚠️ Used fallback back image for item {item.id}")
 
         session.add(item)
         session.commit()
         print(f"✅ Updated embeddings for item {item.id}")
+
 
     # Save the FAISS indexes to disk
     faiss.write_index(front_index, "faiss_front.index")

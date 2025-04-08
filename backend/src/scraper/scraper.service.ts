@@ -418,8 +418,9 @@ export class ScraperService {
   }
 }
 /*
-      "https://www.gluestore.com.au/collections/mens-clothing",
       "https://www.asos.com/men/t-shirts-vests/cat/?cid=7616",
+      "https://www.gluestore.com.au/collections/womens-clothing",
+      "https://www.gluestore.com.au/collections/mens-clothing",
       "https://www.culturekings.com.au/collections/new-arrivals",
       "https://www.theiconic.com.au/mens-clothing/",
       "https://www2.hm.com/en_au/men/products/view-all.html",
