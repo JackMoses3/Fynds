@@ -1,21 +1,49 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { DatabaseModule } from './database/database.module';
+import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
+
+// Do not convert to default import
+import * as Joi from 'joi';
+
+import { AuthModule } from './auth/auth.module';
+import { UserModule } from './user/user.module';
 import { ScraperModule } from './scraper/scraper.module';
-import { ProductItemModule } from './product-item/product-item.module';
-import { GraphQLModule } from '@nestjs/graphql';
-import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { HealthResolver } from './graphql/health.resolver';
 
 @Module({
-  imports: [DatabaseModule, ScraperModule, ProductItemModule,GraphQLModule.forRoot<ApolloDriverConfig>({
-    driver: ApolloDriver,
-    autoSchemaFile: 'schema.gql', // or true to generate in-memory
-    playground: true, // optional: enable GraphQL playground in dev
-    introspection: true, // optional: useful for tools like Apollo Studio
-  }),],
-  controllers: [AppController],
-  providers: [AppService, HealthResolver],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: Joi.object({
+        NODE_ENV: Joi.string().valid(
+          'development',
+          'production',
+          'test',
+          'provision',
+        ),
+        PORT: Joi.number().port().default(3000),
+        DATABASE_URL: Joi.string().required(),
+        AUTH_SECRET: Joi.string().required(),
+        GOOGLE_CLIENT_ID: Joi.string().required(),
+        GOOGLE_CLIENT_SECRET: Joi.string().required(),
+        GOOGLE_CALLBACK_URL: Joi.string().required(),
+      }),
+      validationOptions: {
+        allowUnknown: true,
+        abortEarly: false,
+      },
+    }),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60, // Time to live in seconds
+          limit: 10, // Maximum number of requests per minute per IP
+        },
+      ],
+    }),
+    AuthModule,
+    UserModule,
+    ScraperModule,
+    
+  ],
 })
 export class AppModule {}
