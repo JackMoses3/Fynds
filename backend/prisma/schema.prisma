@@ -9,22 +9,27 @@ datasource db {
 }
 
 model ProductItem {
-  id               Int            @id @default(autoincrement())
+  id               Int               @id @default(autoincrement())
   sex              String
   name             String
-  url              String         @unique
+  url              String            @unique
   metaData         String
   retailer         String
   price            Float
   frontEmbeddingId BigInt?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   backEmbeddingId  BigInt?
   textEmbeddingId  BigInt?
   brand            String
   category         String?
   subCategory      String?
   productImages    ProductImage[]
+  TrolleyItem      TrolleyItem[]
+  Like             Like[]
+  CollectionItem   CollectionItem[]
+  ViewingHistory   ViewingHistory[]
+  PurchaseHistory  PurchaseHistory[]
 }
 
 model ProductImage {
@@ -34,5 +39,95 @@ model ProductImage {
   frontFacing   Boolean?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
-  clothingItem  ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+  productItem   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                  Int               @id @default(autoincrement())
+  firstName           String
+  lastName            String
+  clothingPreferences String[]
+  verifyCode          Int?
+  isVerified          Boolean           @default(false)
+  email               String            @unique
+  passwordHash        String? // optional if using OAuth
+  provider            String // 'google', 'instagram', or 'Local
+  providerId          String? // ID from OAuth provider
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  ShoppingTrolley     ShoppingTrolley[]
+  Like                Like[]
+  Collection          Collection[]
+  ViewingHistory      ViewingHistory[]
+  PurchaseHistory     PurchaseHistory[]
+
+  @@unique([provider, providerId])
+}
+
+model ShoppingTrolley {
+  id        Int           @id @default(autoincrement())
+  userId    Int
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     TrolleyItem[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model TrolleyItem {
+  id                Int             @id @default(autoincrement())
+  shoppingTrolleyId Int
+  productItemId     Int
+  quantity          Int             @default(1)
+  shoppingTrolley   ShoppingTrolley @relation(fields: [shoppingTrolleyId], references: [id], onDelete: Cascade)
+  product           ProductItem     @relation(fields: [productItemId], references: [id])
+}
+
+model Like {
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  productItemId Int
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product       ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([userId, productItemId])
+}
+
+model Collection {
+  id        Int              @id @default(autoincrement())
+  name      String
+  userId    Int
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CollectionItem[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model CollectionItem {
+  id            Int         @id @default(autoincrement())
+  collectionId  Int
+  productItemId Int
+  collection    Collection  @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product       ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, productItemId])
+}
+
+model ViewingHistory {
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  productItemId Int
+  viewedAt      DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product       ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+}
+
+model PurchaseHistory {
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  productItemId Int
+  purchasedAt   DateTime    @default(now())
+  quantity      Int         @default(1)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product       ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
 }
