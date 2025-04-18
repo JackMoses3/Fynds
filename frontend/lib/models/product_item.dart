@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class ProductItem {
   final int id;
   final String name;
@@ -16,17 +18,19 @@ class ProductItem {
   });
 
   factory ProductItem.fromJson(Map<String, dynamic> json) {
-    List<dynamic>? imageList = json['productImages'];
     List<String> safeImages = [];
 
-    if (imageList != null) {
-      for (var img in imageList) {
-        final url = img['imageUrl'];
-        if (url != null && url is String && url.isNotEmpty) {
-          safeImages.add(url);
+    if (json['productImages'] != null && json['productImages'] is List) {
+      for (var img in json['productImages']) {
+        if (img is Map &&
+            img['imageUrl'] != null &&
+            img['imageUrl'] is String) {
+          safeImages.add(img['imageUrl']);
         }
       }
     }
+
+    debugPrint("✅ Safe Images extracted (${safeImages.length}): $safeImages");
 
     return ProductItem(
       id: json['id'],
