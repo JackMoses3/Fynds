@@ -6,11 +6,13 @@ import { ProductItem } from '@prisma/client';
 export class ProductItemController {
   constructor(private readonly productItemService: ProductItemService) { }
 
+  //gets a random product from DB
   @Get('random')
   async getRandomProduct(): Promise<ProductItem> {
     return this.productItemService.getRandomProduct();
   }
 
+  //gets a list of unique categories from DB
   @Get('options/categories')
   getCategories(): Promise<string[]> {
     return this.productItemService.getUniqueCategories();
@@ -26,7 +28,7 @@ export class ProductItemController {
     return this.productItemService.getUniqueRetailers();
   }
 
-  // ✅ NEW: Post route for filters
+  //post request to get a random product from DB with filtered criteria
   @Post('random-with-filters')
   async getFilteredRandom(@Body() filters: any): Promise<ProductItem | null> {
     return this.productItemService.getRandomProductWithFilters(filters);
