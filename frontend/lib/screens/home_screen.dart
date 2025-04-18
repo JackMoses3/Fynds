@@ -1,12 +1,16 @@
+// lib/screens/home_screen.dart
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'preferences_screen.dart';
 import 'package:http/http.dart' as http;
 import '../models/product_item.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeScreen extends StatefulWidget {
-  final Map<String, dynamic>? initialFilters; // Define the optional filters
-  const HomeScreen({super.key, this.initialFilters}); // Single constructor
+  final Map<String, dynamic>? initialFilters;
+  const HomeScreen({super.key, this.initialFilters});
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -14,41 +18,39 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   final List<ProductItem> _productHistory = [];
-  int _currentProductIndex = -1; //-1 as initially no product is selected
-  bool _isFetching =
-      false; //ensures a new product fetch doesn't occur while one is occuring
+  int _currentProductIndex = -1;
+  bool _isFetching = false;
   Map<String, dynamic>? filters;
-
-  ProductItem? get product =>
-      (_currentProductIndex >= 0 &&
-              _currentProductIndex < _productHistory.length)
-          ? _productHistory[_currentProductIndex] //gets the current product
-          : null;
 
   bool isLiked = false;
   bool isSaved = false;
   bool isInBasket = false;
-  int _currentImageIndex = 0; //tracks which image of product is being displayed
-  late final PageController
-  _pageController; // used for image carousel (left and white swipping)
-  final PageController _verticalController =
-      PageController(); //controls up down scrolling
+  int _currentImageIndex = 0;
+
+  // Only the vertical controller lives at state level:
+  final PageController _verticalController = PageController();
 
   late final AnimationController _basketController;
   late final Animation<double> _scaleAnimation;
 
+  ProductItem? get product =>
+      (_currentProductIndex >= 0 &&
+              _currentProductIndex < _productHistory.length)
+          ? _productHistory[_currentProductIndex]
+          : null;
+
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
 
-    // Initialize animation controller for the shopping bag button
+    // Bring in any passed‑in filters
+    filters = widget.initialFilters;
+
+    // Basket “pop” animation
     _basketController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
-
-    // Scale animation when the basket button is pressed
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
       CurvedAnimation(
         parent: _basketController,
@@ -57,26 +59,17 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
 
-    filters =
-        widget
-            .initialFilters; //Filters are passed from the parent widget (preferences screen).
-    //NOTE: receiving correct preferences but not able to put onto home page yet, some error occurs.
-
-    fetchAndAddProduct().then(
-      (_) => fetchAndAddProduct(),
-    ); //Fetch a product on start
+    // Prime the feed with two products
+    fetchAndAddProduct().then((_) => fetchAndAddProduct());
   }
 
-  //fetcha and adds a new product to the history
   Future<void> fetchAndAddProduct() async {
     if (_isFetching) return;
     _isFetching = true;
 
     http.Response? response;
-
     try {
       if (filters != null && filters!.isNotEmpty) {
-        //if filters are set, requests filtered products from API. request works successfully, however not loading onto home page
         response = await http.post(
           Uri.parse(
             'http://10.0.2.2:3000/api/product-item/random-with-filters',
@@ -91,74 +84,56 @@ class _HomeScreenState extends State<HomeScreen>
           }),
         );
       } else {
-        // If no filters, fetch a random product
         response = await http.get(
           Uri.parse('http://10.0.2.2:3000/api/product-item/random'),
         );
       }
 
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        final newProduct = ProductItem.fromJson(json);
-
-        //if product doesn't have any images, skip
-        if (newProduct.images.isEmpty) {
-          debugPrint("⚠️ Product has no images. Skipping.");
-          return;
-        }
+      // Accept any 2xx (NestJS POST default is 201)
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (!mounted) return; // avoid using context after dispose
+        final Map<String, dynamic> jsonMap =
+            jsonDecode(response.body) as Map<String, dynamic>;
+        final newProduct = ProductItem.fromJson(jsonMap);
+        if (newProduct.images.isEmpty) return;
 
         setState(() {
-          _productHistory.add(newProduct); // Add the new product to history
+          _productHistory.add(newProduct);
           if (_currentProductIndex == -1) {
-            _currentProductIndex =
-                0; // If no product selected, set the first one
+            _currentProductIndex = 0;
             _resetState();
           }
         });
-
-        debugPrint("✅ First image URL: ${newProduct.images.first}");
-        debugPrint("✅ First product: ${response.body}");
+      } else if (response.statusCode == 404) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No matching products found.")),
+        );
       } else {
-        debugPrint('❌ Failed to load product: ${response.body}');
+        debugPrint(
+          '❌ Failed to load product: ${response.statusCode} ${response.body}',
+        );
       }
     } catch (e, stack) {
-      debugPrint('❌ Error fetching product: $e');
-      if (response != null) {
-        debugPrint('📦 Response body: ${response.body}');
-      }
-      debugPrint('🪵 Stacktrace: $stack');
+      debugPrint('❌ Error fetching product: $e\n$stack');
     } finally {
       _isFetching = false;
     }
   }
 
   void _resetState() {
-    // Resets the UI and state whenever a new product is displayed
     isLiked = false;
     isSaved = false;
     isInBasket = false;
     _currentImageIndex = 0;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_pageController.hasClients &&
-          product != null &&
-          product!.images.isNotEmpty) {
-        _pageController.jumpToPage(
-          0,
-        ); // Reset the image carousel to the first image
-      }
-    });
   }
 
   void toggleBasket() {
     setState(() {
       isInBasket = !isInBasket;
     });
-
-    _basketController.forward().then(
-      (_) => _basketController.reverse(),
-    ); // Animate basket button press
-
+    _basketController.forward().then((_) => _basketController.reverse());
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(isInBasket ? 'Added to basket' : 'Removed from basket'),
@@ -168,10 +143,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   List<Widget> buildDots(int count, int activeIndex) {
-    int totalDots = count > 5 ? 5 : count;
+    final int totalDots = count > 5 ? 5 : count;
     int startIndex = 0;
-
-    //adjusts the current dot for the active image
     if (count > 5) {
       if (activeIndex <= 2) {
         startIndex = 0;
@@ -181,15 +154,14 @@ class _HomeScreenState extends State<HomeScreen>
         startIndex = activeIndex - 2;
       }
     }
-
-    return List<Widget>.generate(totalDots, (index) {
-      final isActive = startIndex + index == activeIndex;
+    return List<Widget>.generate(totalDots, (i) {
+      final bool isActive = startIndex + i == activeIndex;
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         width: 10,
         height: 10,
         decoration: BoxDecoration(
-          color: isActive ? Colors.white : Colors.black.withOpacity(0.6),
+          color: isActive ? Colors.white : Colors.black.withAlpha(153),
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white),
         ),
@@ -200,7 +172,6 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void dispose() {
     _basketController.dispose();
-    _pageController.dispose();
     _verticalController.dispose();
     super.dispose();
   }
@@ -212,46 +183,67 @@ class _HomeScreenState extends State<HomeScreen>
           product == null
               ? const Center(child: CircularProgressIndicator())
               : PageView.builder(
-                scrollDirection: Axis.vertical, //swipe up or down
                 controller: _verticalController,
+                scrollDirection: Axis.vertical,
                 itemCount: _productHistory.length,
-                onPageChanged: (index) {
+                onPageChanged: (verticalIndex) {
                   setState(() {
-                    _currentProductIndex =
-                        index; // Update the current product index
-                    _resetState(); //reset UI for new product (like, save, basket)
+                    _currentProductIndex = verticalIndex;
+                    _resetState();
                   });
-                  if (index >= _productHistory.length - 2) {
+                  if (verticalIndex >= _productHistory.length - 2) {
                     fetchAndAddProduct();
                   }
                 },
                 itemBuilder: (context, verticalIndex) {
                   final current = _productHistory[verticalIndex];
+                  // Give each horizontal pager its own controller & key
+                  final horController = PageController();
+
                   return Stack(
                     children: [
+                      // IMAGE CAROUSEL
                       PageView.builder(
-                        controller: _pageController,
+                        key: ValueKey(current.id),
+                        controller: horController,
                         itemCount: current.images.length,
-                        onPageChanged: (index) {
+                        onPageChanged: (hIndex) {
                           setState(() {
-                            _currentImageIndex = index;
+                            _currentImageIndex = hIndex;
                           });
                         },
-                        itemBuilder: (context, index) {
-                          return Image.network(
-                            current.images[index],
+                        itemBuilder: (ctx, hIndex) {
+                          return CachedNetworkImage(
+                            imageUrl: current.images[hIndex],
                             fit: BoxFit.cover,
-                            headers: {
-                              "User-Agent":
-                                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                            },
-                            errorBuilder:
-                                (context, error, stackTrace) => const Center(
-                                  child: Text('❌ Failed to load image'),
+                            httpHeaders: {"User-Agent": "Mozilla/5.0"},
+                            placeholder:
+                                (_, __) => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                            errorWidget:
+                                (_, __, ___) => const Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.broken_image,
+                                        color: Colors.red,
+                                        size: 50,
+                                      ),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        'Image failed to load',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                           );
                         },
                       ),
+
+                      // PAGE INDICATOR DOTS
                       Align(
                         alignment: Alignment.bottomCenter,
                         child: Padding(
@@ -265,6 +257,8 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                         ),
                       ),
+
+                      // FILTER BUTTON
                       Positioned(
                         top: 40,
                         left: 20,
@@ -275,33 +269,35 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                           iconSize: 30,
                           onPressed: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => PreferenceScreen(
-                                      initialFilters: filters,
-                                    ),
-                              ),
-                            );
-                            if (result is Map<String, dynamic>) {
-                              setState(() {
-                                filters = result;
-                                _productHistory.clear();
-                                _currentProductIndex = -1;
-                              });
-                              fetchAndAddProduct();
-                            }
+                            final result =
+                                await Navigator.push<Map<String, dynamic>>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => PreferenceScreen(
+                                          initialFilters: filters,
+                                        ),
+                                  ),
+                                );
+                            if (!mounted) return;
+                            setState(() {
+                              filters = result;
+                              _productHistory.clear();
+                              _currentProductIndex = -1;
+                            });
+                            fetchAndAddProduct();
                           },
                         ),
                       ),
+
+                      // PRODUCT INFO CARD
                       Positioned(
                         bottom: 20,
                         left: 20,
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color.fromRGBO(0, 0, 0, 153),
+                            color: Colors.black.withAlpha(153),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Column(
@@ -341,21 +337,19 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                         ),
                       ),
+
+                      // ACTION BUTTONS (like, save, basket)
                       Positioned(
                         right: 12,
                         bottom: MediaQuery.of(context).size.height * 0.25,
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.favorite),
                               iconSize: 36,
                               color: isLiked ? Colors.red : Colors.white,
                               onPressed: () {
-                                setState(() {
-                                  isLiked = !isLiked;
-                                });
-                                debugPrint(isLiked ? '❤️ Liked' : '💔 Unliked');
+                                setState(() => isLiked = !isLiked);
                               },
                             ),
                             const SizedBox(height: 24),
@@ -364,16 +358,13 @@ class _HomeScreenState extends State<HomeScreen>
                               iconSize: 36,
                               color: isSaved ? Colors.black : Colors.white,
                               onPressed: () {
-                                setState(() {
-                                  isSaved = !isSaved;
-                                });
-                                debugPrint(isSaved ? '🔖 Saved' : '❌ Unsaved');
+                                setState(() => isSaved = !isSaved);
                               },
                             ),
                             const SizedBox(height: 24),
                             AnimatedBuilder(
                               animation: _scaleAnimation,
-                              builder: (context, child) {
+                              builder: (_, child) {
                                 return Transform.scale(
                                   scale: _scaleAnimation.value,
                                   child: IconButton(
@@ -398,5 +389,3 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 }
-
-//semi working. Filters cant be applied

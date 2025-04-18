@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+// src/product-item/product-item.controller.ts
+
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  NotFoundException,
+  HttpCode,
+} from '@nestjs/common';
 import { ProductItemService } from './product-item.service';
 import { ProductItem } from '@prisma/client';
 
@@ -6,13 +15,11 @@ import { ProductItem } from '@prisma/client';
 export class ProductItemController {
   constructor(private readonly productItemService: ProductItemService) { }
 
-  //gets a random product from DB
   @Get('random')
   async getRandomProduct(): Promise<ProductItem> {
     return this.productItemService.getRandomProduct();
   }
 
-  //gets a list of unique categories from DB
   @Get('options/categories')
   getCategories(): Promise<string[]> {
     return this.productItemService.getUniqueCategories();
@@ -28,9 +35,13 @@ export class ProductItemController {
     return this.productItemService.getUniqueRetailers();
   }
 
-  //post request to get a random product from DB with filtered criteria
   @Post('random-with-filters')
-  async getFilteredRandom(@Body() filters: any): Promise<ProductItem | null> {
-    return this.productItemService.getRandomProductWithFilters(filters);
+  @HttpCode(200)  // <— ensure 200 OK, not 201
+  async getFilteredRandom(@Body() filters: any): Promise<ProductItem> {
+    const product = await this.productItemService.getRandomProductWithFilters(filters);
+    if (!product) {
+      throw new NotFoundException('No product matched the filters');
+    }
+    return product;
   }
 }
