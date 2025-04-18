@@ -43,10 +43,8 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
 
-    // Bring in any passed‑in filters
     filters = widget.initialFilters;
 
-    // Basket “pop” animation
     _basketController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
@@ -59,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
 
-    // Prime the feed with two products
+    // Prime the feed with two products immediately
     fetchAndAddProduct().then((_) => fetchAndAddProduct());
   }
 
@@ -91,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen>
 
       // Accept any 2xx (NestJS POST default is 201)
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        if (!mounted) return; // avoid using context after dispose
+        if (!mounted) return;
         final Map<String, dynamic> jsonMap =
             jsonDecode(response.body) as Map<String, dynamic>;
         final newProduct = ProductItem.fromJson(jsonMap);
@@ -197,7 +195,6 @@ class _HomeScreenState extends State<HomeScreen>
                 },
                 itemBuilder: (context, verticalIndex) {
                   final current = _productHistory[verticalIndex];
-                  // Give each horizontal pager its own controller & key
                   final horController = PageController();
 
                   return Stack(
@@ -258,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                       ),
 
-                      // FILTER BUTTON
+                      // FILTER BUTTON (now seeds two items on apply)
                       Positioned(
                         top: 40,
                         left: 20,
@@ -266,8 +263,8 @@ class _HomeScreenState extends State<HomeScreen>
                           icon: const Icon(
                             Icons.filter_alt,
                             color: Colors.white,
+                            size: 30,
                           ),
-                          iconSize: 30,
                           onPressed: () async {
                             final result =
                                 await Navigator.push<Map<String, dynamic>>(
@@ -285,7 +282,9 @@ class _HomeScreenState extends State<HomeScreen>
                               _productHistory.clear();
                               _currentProductIndex = -1;
                             });
-                            fetchAndAddProduct();
+                            // seed two filtered products so vertical scrolling works
+                            await fetchAndAddProduct();
+                            await fetchAndAddProduct();
                           },
                         ),
                       ),
