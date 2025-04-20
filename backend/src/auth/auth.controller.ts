@@ -14,6 +14,7 @@ import { GoogleOAuthGuard } from './strategies/google/google-oauth.guard';
 import { AuthService } from './auth.service';
 import { User } from '@prisma/client';
 import { RegisterDto } from './dto/register.dto';
+import { VerifyEmailDto } from './dto/verify.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -26,6 +27,11 @@ export class AuthController {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...userWithoutPassword } = user;
     return userWithoutPassword;
+  }
+
+  @Post('verify')
+  async verify(@Body() verifyEmailDto: VerifyEmailDto) {
+    return this.authService.verifyEmail(verifyEmailDto.email, verifyEmailDto.code);
   }
 
   @UseGuards(LocalAuthGuard)
@@ -46,6 +52,11 @@ export class AuthController {
   @UseGuards(GoogleOAuthGuard)
   googleAuthRedirect(@Request() req: ExpressRequest & { user: User }) {
     return this.authService.login(req.user);
+  }
+
+  @Get('google/token')
+  loginWithGoogleToken(@Body('idToken') idToken: string) {
+    return this.authService.validateGoogleToken(idToken)
   }
 
   @Post('refresh')

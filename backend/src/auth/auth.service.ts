@@ -8,6 +8,8 @@ import { RegisterDto } from 'src/auth/dto/register.dto';
 import { Profile } from 'passport-google-oauth20';
 import { randomInt } from 'crypto';
 import { ConfigService } from '@nestjs/config';
+import { MailerService } from '../mailer/mailer.service';
+import { OAuth2Client } from 'google-auth-library';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +17,8 @@ export class AuthService {
     private configService: ConfigService,
     private userService: UserService,
     private jwtService: JwtService,
+    private mailerService: MailerService,
+    private googleClient: OAuth2Client,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<User> {
@@ -24,13 +28,12 @@ export class AuthService {
     // If in development mode, log the verification code
     if (this.configService.get<string>('NODE_ENV') === 'development') {
       console.log(`Verification code for ${registerDto.email}: ${verifyCode}`);
-    } else {
-      // Email the verification code to the user
-      // await this.mailerService.sendVerificationEmail(
-      //   registerDto.email,
-      //   verifyCode,
-      // );
     }
+
+    await this.mailerService.sendVerificationEmail(
+      registerDto.email,
+      verifyCode,
+    );
 
     return this.userService.create({
       firstName: registerDto.firstName,
@@ -91,7 +94,7 @@ export class AuthService {
     });
   }
 
-  login(user: User) {
+  async login(user: User) {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -104,7 +107,7 @@ export class AuthService {
     };
   }
 
-  refreshAccessToken(token: string) {
+  async refreshAccessToken(token: string) {
     try {
       const payload = this.jwtService.verify<JwtPayload>(token, {
         ignoreExpiration: false,
@@ -116,4 +119,29 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired refresh token.');
     }
   }
+
+  async validateGoogleToken(token: string): Promise<{ access_token: string; refresh_token: string } | null> {
+    const ticket = await this.googleClient.verifyIdToken({
+      idToken: token,
+      audience: [
+        this.configService.get<string>('GOOGLE_CLIENT_ID_ANDROID') || '',
+        this.configService.get<string>('GOOGLE_CLIENT_ID_IOS') || '',
+      ],
+    });
+    const payload = ticket.getPayload();
+    if (!payload) return null;
+
+    const profile = {
+      id: payload.sub,
+      emails: [{ value: payload.email }],
+      name: {
+        givenName: payload.given_name,
+        familyName: payload.family_name,
+      },
+    } as Profile;
+      
+    const user = await this.validateOrCreateGoogleUser(profile);
+    return this.login(user);
+  }
+
 }

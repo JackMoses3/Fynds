@@ -8,6 +8,7 @@ import * as Joi from 'joi';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { ScraperModule } from './scraper/scraper.module';
+import { MailerModule } from './mailer/mailer.module';
 
 @Module({
   imports: [
@@ -26,6 +27,10 @@ import { ScraperModule } from './scraper/scraper.module';
         GOOGLE_CLIENT_ID: Joi.string().required(),
         GOOGLE_CLIENT_SECRET: Joi.string().required(),
         GOOGLE_CALLBACK_URL: Joi.string().required(),
+        GOOGLE_CLIENT_ID_ANDROID: Joi.string().required(),
+        GOOGLE_CLIENT_ID_IOS: Joi.string().required(),
+        MAIL_USER: Joi.string().email().required(),
+        MAIL_PASS: Joi.string().required(),
       }),
       validationOptions: {
         allowUnknown: true,
@@ -43,7 +48,8 @@ import { ScraperModule } from './scraper/scraper.module';
     AuthModule,
     UserModule,
     ScraperModule,
-    
+    MailerModule,
+
   ],
 })
 export class AppModule {}
