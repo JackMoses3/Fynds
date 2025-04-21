@@ -115,10 +115,10 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: clearPreferences,
-                            child: const Text('Clear'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.grey,
                             ),
+                            child: const Text('Clear'),
                           ),
                         ),
                         const SizedBox(width: 16),

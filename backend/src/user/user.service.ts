@@ -29,4 +29,8 @@ export class UserService {
   async remove(id: number) {
     return this.db.user.delete({ where: { id } });
   }
+
+  async removeByEmail(email: string) {
+    return this.db.user.delete({ where: { email } });
+  }
 }

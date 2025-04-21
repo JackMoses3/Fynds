@@ -10,6 +10,7 @@ import { randomInt } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '../mailer/mailer.service';
 import { OAuth2Client } from 'google-auth-library';
+import { AuthTokens } from './dto/types';
 
 @Injectable()
 export class AuthService {
@@ -30,15 +31,17 @@ export class AuthService {
       console.log(`Verification code for ${registerDto.email}: ${verifyCode}`);
     }
 
-    await this.mailerService.sendVerificationEmail(
-      registerDto.email,
-      verifyCode,
-    );
+    try {
+      await this.mailerService.sendVerificationEmail(registerDto.email, verifyCode);
+    } catch (err) {
+      console.error('Failed to send verification email:', err);
+    }
 
     return this.userService.create({
       firstName: registerDto.firstName,
       lastName: registerDto.lastName,
       email: registerDto.email,
+      clothingPreferences: "null",
       passwordHash,
       provider: 'local',
       isVerified: false,
@@ -46,16 +49,35 @@ export class AuthService {
     });
   }
 
-  async verifyEmail(email: string, code: number): Promise<User | null> {
+  async verifyEmail(email: string, code: number): Promise<AuthTokens| null> {
     const user = await this.userService.findOneByEmail(email);
+    
     if (!user) return null;
     if (user.isVerified) return null;
-    if (user?.verifyCode !== code) return null;
-
+    if (user.verifyCode !== Number(code)) return null;
     await this.userService.update(user.id, {
       isVerified: true,
       verifyCode: null,
     });
+
+    return this.login(user);
+  }
+
+  async newValidationCode(email: string): Promise<User | null> {
+    const user = await this.userService.findOneByEmail(email);
+    if (!user) return null;
+    if (user.isVerified) return null;
+    if (user.provider !== 'local') return null; // they should use their existing provider
+    if (user.providerId) return null; // they should use their existing provider
+    if (!user.verifyCode) return null;
+    const newCode = randomInt(10000000, 99999999);
+    user.verifyCode = newCode;
+    await this.userService.update(user.id, { verifyCode: newCode });
+    try {
+      await this.mailerService.sendNewVerificationEmail(email, newCode);
+    } catch (err) {
+      console.error('Failed to send new verification email:', err);
+    }
     return user;
   }
 
@@ -87,6 +109,7 @@ export class AuthService {
       email,
       firstName,
       lastName,
+      clothingPreferences: "null",
       passwordHash: null, // No password for Google users
       provider: 'google',
       providerId,

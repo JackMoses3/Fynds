@@ -46,13 +46,15 @@ model User {
   id                  Int               @id @default(autoincrement())
   firstName           String
   lastName            String
-  clothingPreferences String[]
+  clothingPreferences String
   verifyCode          Int?
   isVerified          Boolean           @default(false)
   email               String            @unique
   passwordHash        String? // optional if using OAuth
   provider            String // 'google', 'instagram', or 'Local
   providerId          String? // ID from OAuth provider
+  birthdate           DateTime?
+  location            String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   ShoppingTrolley     ShoppingTrolley[]

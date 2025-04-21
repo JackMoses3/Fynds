@@ -1,27 +1,31 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/screens/onboarding/user_details_screen.dart';
 import 'package:frontend/services/auth/auth_service.dart';
+import 'package:frontend/screens/auth/verify_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class EmailSignUpScreen extends StatefulWidget {
+  const EmailSignUpScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<EmailSignUpScreen> createState() => _EmailSignUpScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _authService = AuthService();
 
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  final firstNameController = TextEditingController();
+  final lastNameController = TextEditingController();
 
   String? _errorMessage;
   bool _isLoading = false;
 
-  void _login(BuildContext context) async {
+  void _register(BuildContext context) async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
+    final firstName = firstNameController.text.trim();
+    final lastName = lastNameController.text.trim();
 
     setState(() {
       _isLoading = true;
@@ -29,17 +33,34 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final success = await _authService.loginWithEmail(email, password);
+      final success = await _authService.registerWithEmail(
+        email,
+        firstName,
+        lastName,
+        password,
+      );
       if (success) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => UserDetailsScreen()),
+          MaterialPageRoute(builder: (_) => VerifyScreen(email: email)),
         );
       } else {
-        setState(() => _errorMessage = 'Invalid credentials.');
+        setState(
+          () => _errorMessage = 'Email already exists or registration failed.',
+        );
       }
     } catch (e) {
-      setState(() => _errorMessage = 'An unexpected error occurred.');
+      if (e.toString().contains('email already exists')) {
+        setState(() => _errorMessage = 'This email is already in use.');
+      } else if (e.toString().contains('password too weak')) {
+        setState(
+          () =>
+              _errorMessage =
+                  'Password is too weak. Must include letters, numbers, and symbols.',
+        );
+      } else {
+        setState(() => _errorMessage = 'An unexpected error occurred.');
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -60,6 +81,8 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
+    firstNameController.dispose();
+    lastNameController.dispose();
     super.dispose();
   }
 
@@ -86,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const Text(
-                      'Log in',
+                      'Sign up',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -95,6 +118,30 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: firstNameController,
+                        decoration: _inputDecoration('First Name'),
+                        validator:
+                            (val) =>
+                                val == null || val.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: lastNameController,
+                        decoration: _inputDecoration('Last Name'),
+                        validator:
+                            (val) =>
+                                val == null || val.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: emailController,
                   decoration: _inputDecoration('Email'),
@@ -111,8 +158,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: passwordController,
                   decoration: _inputDecoration('Password'),
                   obscureText: true,
-                  validator:
-                      (val) => val == null || val.isEmpty ? 'Required' : null,
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return 'Required';
+                    if (val.length < 8 ||
+                        !RegExp(r'[0-9A-Za-z!@#\$%^&*()]').hasMatch(val)) {
+                      return 'Password must be at least 8 characters with letters, numbers, and symbols';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 24),
                 if (_errorMessage != null)
@@ -122,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.center,
                   ),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : () => _login(context),
+                  onPressed: _isLoading ? null : () => _register(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -134,7 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child:
                       _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Log in'),
+                          : const Text('Continue'),
                 ),
               ],
             ),

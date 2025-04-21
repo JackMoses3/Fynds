@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class DioClient {
   final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: 'http://localhost:3000/api',
+      baseUrl: 'http://192.168.0.33:3000/api',
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
     ),
@@ -45,7 +45,7 @@ class DioClient {
                 final clonedRequest = await _dio.fetch(e.requestOptions);
                 return handler.resolve(clonedRequest);
               } catch (refreshError) {
-                return handler.reject(refreshError as DioError);
+                return handler.reject(refreshError as DioException);
               }
             }
           }

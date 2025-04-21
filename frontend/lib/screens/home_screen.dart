@@ -70,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen>
       if (filters != null && filters!.isNotEmpty) {
         response = await http.post(
           Uri.parse(
-            'http://10.0.2.2:3000/api/product-item/random-with-filters',
+            'http://192.168.0.33:3000/api/product-item/random-with-filters',
           ),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
