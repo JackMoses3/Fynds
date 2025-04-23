@@ -1,5 +1,3 @@
-// lib/screens/home_screen.dart
-
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'preferences_screen.dart';
@@ -9,7 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic>? initialFilters;
-  const HomeScreen({super.key, this.initialFilters});
+  const HomeScreen({Key? key, this.initialFilters}) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -19,30 +17,24 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   final List<ProductItem> _productHistory = [];
   int _currentProductIndex = -1;
-  bool _isFetching = false;
   Map<String, dynamic>? filters;
 
-  bool isLiked = false;
-  bool isSaved = false;
-  bool isInBasket = false;
+  bool isLiked = false, isSaved = false, isInBasket = false;
   int _currentImageIndex = 0;
 
-  // Only the vertical controller lives at state level:
-  final PageController _verticalController = PageController();
+  Offset? _doubleTapPosition;
+  bool _showHeart = false;
 
   late final AnimationController _basketController;
   late final Animation<double> _scaleAnimation;
+  final PageController _verticalController = PageController();
 
-  ProductItem? get product =>
-      (_currentProductIndex >= 0 &&
-              _currentProductIndex < _productHistory.length)
-          ? _productHistory[_currentProductIndex]
-          : null;
+  static const int _lookahead = 6;
+  int _inFlightFetches = 0;
 
   @override
   void initState() {
     super.initState();
-
     filters = widget.initialFilters;
 
     _basketController = AnimationController(
@@ -57,65 +49,78 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
 
-    // Prime the feed with two products immediately
-    fetchAndAddProduct().then((_) => fetchAndAddProduct());
+    _fetchOne().then((_) {
+      for (int i = 1; i < _lookahead; i++) {
+        _startFetch();
+      }
+    });
   }
 
-  Future<void> fetchAndAddProduct() async {
-    if (_isFetching) return;
-    _isFetching = true;
+  void _startFetch() {
+    if (_inFlightFetches >= _lookahead) return;
+    _inFlightFetches++;
+    _fetchOne().whenComplete(() => _inFlightFetches--);
+  }
 
-    http.Response? response;
+  Future<void> _fetchOne() async {
+    final ctx = context;
+    ProductItem? candidate;
+
     try {
-      if (filters != null && filters!.isNotEmpty) {
-        response = await http.post(
-          Uri.parse(
-            'http://192.168.0.33:3000/api/product-item/random-with-filters',
-          ),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'brand': filters!['brands'],
-            'retailer': filters!['retailers'],
-            'category': filters!['categories'],
-            'minPrice': filters!['minPrice'],
-            'maxPrice': filters!['maxPrice'],
-          }),
-        );
-      } else {
-        response = await http.get(
-          Uri.parse('http://10.0.2.2:3000/api/product-item/random'),
-        );
-      }
+      final useFilters = filters != null && filters!.isNotEmpty;
+      final uri =
+          useFilters
+              ? Uri.parse(
+                'http://10.0.2.2:3000/api/product-item/random-with-filters',
+              )
+              : Uri.parse('http://10.0.2.2:3000/api/product-item/random');
 
-      // Accept any 2xx (NestJS POST default is 201)
+      final response =
+          useFilters
+              ? await http.post(
+                uri,
+                headers: {'Content-Type': 'application/json'},
+                body: jsonEncode({
+                  'brand': filters!['brands'],
+                  'retailer': filters!['retailers'],
+                  'category': filters!['categories'],
+                  'minPrice': filters!['minPrice'],
+                  'maxPrice': filters!['maxPrice'],
+                }),
+              )
+              : await http.get(uri);
+
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        if (!mounted) return;
-        final Map<String, dynamic> jsonMap =
-            jsonDecode(response.body) as Map<String, dynamic>;
-        final newProduct = ProductItem.fromJson(jsonMap);
-        if (newProduct.images.isEmpty) return;
-
-        setState(() {
-          _productHistory.add(newProduct);
-          if (_currentProductIndex == -1) {
-            _currentProductIndex = 0;
-            _resetState();
-          }
-        });
-      } else if (response.statusCode == 404) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("No matching products found.")),
-        );
-      } else {
-        debugPrint(
-          '❌ Failed to load product: ${response.statusCode} ${response.body}',
-        );
+        final map = jsonDecode(response.body) as Map<String, dynamic>;
+        final p = ProductItem.fromJson(map);
+        if (p.images.isNotEmpty) {
+          final provider = CachedNetworkImageProvider(
+            p.images[0],
+            headers: {"User-Agent": "Mozilla/5.0"},
+          );
+          await precacheImage(provider, ctx);
+          candidate = p;
+        }
       }
-    } catch (e, stack) {
-      debugPrint('❌ Error fetching product: $e\n$stack');
-    } finally {
-      _isFetching = false;
+    } catch (e) {
+      debugPrint('❌ Error fetching product: $e');
+    }
+
+    if (!mounted || candidate == null) return;
+    setState(() {
+      _productHistory.add(candidate!);
+      if (_currentProductIndex == -1) {
+        _currentProductIndex = 0;
+        _resetState();
+      }
+    });
+
+    for (var url in candidate.images.skip(1)) {
+      final provider = CachedNetworkImageProvider(
+        url,
+        headers: {"User-Agent": "Mozilla/5.0"},
+      );
+      precacheImage(provider, ctx);
     }
   }
 
@@ -126,10 +131,8 @@ class _HomeScreenState extends State<HomeScreen>
     _currentImageIndex = 0;
   }
 
-  void toggleBasket() {
-    setState(() {
-      isInBasket = !isInBasket;
-    });
+  void _toggleBasket() {
+    setState(() => isInBasket = !isInBasket);
     _basketController.forward().then((_) => _basketController.reverse());
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -140,32 +143,68 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  List<Widget> buildDots(int count, int activeIndex) {
-    final int totalDots = count > 5 ? 5 : count;
-    int startIndex = 0;
+  List<Widget> _buildDots(int count, int active) {
+    final total = count > 5 ? 5 : count;
+    int start = 0;
     if (count > 5) {
-      if (activeIndex <= 2) {
-        startIndex = 0;
-      } else if (activeIndex >= count - 3) {
-        startIndex = count - 5;
-      } else {
-        startIndex = activeIndex - 2;
-      }
+      if (active <= 2)
+        start = 0;
+      else if (active >= count - 3)
+        start = count - 5;
+      else
+        start = active - 2;
     }
-    return List<Widget>.generate(totalDots, (i) {
-      final bool isActive = startIndex + i == activeIndex;
+    return List.generate(total, (i) {
+      final idx = start + i;
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         width: 10,
         height: 10,
         decoration: BoxDecoration(
-          color: isActive ? Colors.white : Colors.black.withAlpha(153),
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white),
+          color: idx == active ? Colors.white : Colors.white54,
+          border: Border.all(color: Colors.black),
         ),
       );
     });
   }
+
+  void _onDoubleTap(TapDownDetails details) {
+    setState(() {
+      isLiked = true;
+      _doubleTapPosition = details.globalPosition;
+      _showHeart = true;
+    });
+
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        setState(() {
+          _showHeart = false;
+        });
+      }
+    });
+  }
+
+  Widget _outlinedIcon({
+    required IconData icon,
+    required VoidCallback onPressed,
+    Color iconColor = Colors.white,
+    double iconSize = 30,
+    double outlineWidth = 2,
+    Color outlineColor = Colors.black,
+  }) => Stack(
+    alignment: Alignment.center,
+    children: [
+      Icon(icon, size: iconSize + outlineWidth * 2, color: outlineColor),
+      IconButton(
+        icon: Icon(icon),
+        iconSize: iconSize,
+        color: iconColor,
+        onPressed: onPressed,
+        splashRadius: iconSize,
+      ),
+    ],
+  );
 
   @override
   void dispose() {
@@ -177,211 +216,192 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body:
-          product == null
+          _productHistory.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : PageView.builder(
                 controller: _verticalController,
                 scrollDirection: Axis.vertical,
+                allowImplicitScrolling: true,
                 itemCount: _productHistory.length,
-                onPageChanged: (verticalIndex) {
+                onPageChanged: (vidx) {
                   setState(() {
-                    _currentProductIndex = verticalIndex;
+                    _currentProductIndex = vidx;
                     _resetState();
                   });
-                  if (verticalIndex >= _productHistory.length - 2) {
-                    fetchAndAddProduct();
+                  if (_productHistory.length - vidx <= _lookahead) {
+                    _startFetch();
                   }
                 },
-                itemBuilder: (context, verticalIndex) {
-                  final current = _productHistory[verticalIndex];
-                  final horController = PageController();
+                itemBuilder: (_, vidx) {
+                  final prod = _productHistory[vidx];
+                  final horCtrl = PageController();
 
-                  return Stack(
-                    children: [
-                      // IMAGE CAROUSEL
-                      PageView.builder(
-                        key: ValueKey(current.id),
-                        controller: horController,
-                        itemCount: current.images.length,
-                        onPageChanged: (hIndex) {
-                          setState(() {
-                            _currentImageIndex = hIndex;
-                          });
-                        },
-                        itemBuilder: (ctx, hIndex) {
-                          return CachedNetworkImage(
-                            imageUrl: current.images[hIndex],
-                            fit: BoxFit.cover,
-                            httpHeaders: {"User-Agent": "Mozilla/5.0"},
-                            placeholder:
-                                (_, __) => const Center(
-                                  child: CircularProgressIndicator(),
+                  return GestureDetector(
+                    onDoubleTapDown: _onDoubleTap,
+                    onDoubleTap: () => setState(() => isLiked = true),
+                    child: Stack(
+                      children: [
+                        PageView.builder(
+                          key: ValueKey(prod.id),
+                          controller: horCtrl,
+                          allowImplicitScrolling: true,
+                          itemCount: prod.images.length,
+                          onPageChanged:
+                              (h) => setState(() => _currentImageIndex = h),
+                          itemBuilder:
+                              (_, h) => Image(
+                                image: CachedNetworkImageProvider(
+                                  prod.images[h],
+                                  headers: {"User-Agent": "Mozilla/5.0"},
                                 ),
-                            errorWidget:
-                                (_, __, ___) => const Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.broken_image,
-                                        color: Colors.red,
-                                        size: 50,
-                                      ),
-                                      SizedBox(height: 8),
-                                      Text(
-                                        'Image failed to load',
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                          );
-                        },
-                      ),
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                              ),
+                        ),
 
-                      // PAGE INDICATOR DOTS
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 130),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: buildDots(
-                              current.images.length,
-                              _currentImageIndex,
+                        if (_showHeart && _doubleTapPosition != null)
+                          Positioned(
+                            left: _doubleTapPosition!.dx - 40,
+                            top: _doubleTapPosition!.dy - 40,
+                            child: AnimatedOpacity(
+                              opacity: _showHeart ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 300),
+                              child: const Icon(
+                                Icons.favorite,
+                                color: Colors.red,
+                                size: 80,
+                              ),
+                            ),
+                          ),
+
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 160),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: _buildDots(
+                                prod.images.length,
+                                _currentImageIndex,
+                              ),
                             ),
                           ),
                         ),
-                      ),
 
-                      // FILTER BUTTON (now seeds two items on apply)
-                      Positioned(
-                        top: 40,
-                        left: 20,
-                        child: IconButton(
-                          icon: const Icon(
-                            Icons.filter_alt,
-                            color: Colors.white,
-                            size: 30,
+                        Positioned(
+                          top: 60,
+                          right: 12,
+                          child: _outlinedIcon(
+                            icon: Icons.filter_alt,
+                            onPressed: () async {
+                              final result =
+                                  await Navigator.push<Map<String, dynamic>>(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (_) => PreferenceScreen(
+                                            initialFilters: filters,
+                                          ),
+                                    ),
+                                  );
+                              if (!mounted) return;
+                              setState(() {
+                                filters = result;
+                                _productHistory.clear();
+                                _currentProductIndex = -1;
+                              });
+                              _fetchOne().then((_) {
+                                for (int i = 1; i < _lookahead; i++) {
+                                  _startFetch();
+                                }
+                              });
+                            },
                           ),
-                          onPressed: () async {
-                            final result =
-                                await Navigator.push<Map<String, dynamic>>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (_) => PreferenceScreen(
-                                          initialFilters: filters,
-                                        ),
-                                  ),
-                                );
-                            if (!mounted) return;
-                            setState(() {
-                              filters = result;
-                              _productHistory.clear();
-                              _currentProductIndex = -1;
-                            });
-                            // seed two filtered products so vertical scrolling works
-                            await fetchAndAddProduct();
-                            await fetchAndAddProduct();
-                          },
                         ),
-                      ),
 
-                      // PRODUCT INFO CARD
-                      Positioned(
-                        bottom: 20,
-                        left: 20,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withAlpha(153),
-                            borderRadius: BorderRadius.circular(8),
+                        Positioned(
+                          bottom: 20,
+                          left: 20,
+                          right: 100,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  prod.retailer,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  prod.name,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                Text(
+                                  prod.brand,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                Text(
+                                  '\$${prod.price.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                        ),
+
+                        Positioned(
+                          right: 12,
+                          bottom: MediaQuery.of(context).size.height * 0.25,
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                current.retailer,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              _outlinedIcon(
+                                icon: Icons.favorite,
+                                onPressed:
+                                    () => setState(() => isLiked = !isLiked),
+                                iconColor: isLiked ? Colors.red : Colors.white,
                               ),
-                              Text(
-                                current.name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
+                              const SizedBox(height: 24),
+                              _outlinedIcon(
+                                icon: Icons.bookmark,
+                                onPressed:
+                                    () => setState(() => isSaved = !isSaved),
+                                iconColor:
+                                    isSaved ? Colors.black : Colors.white,
                               ),
-                              Text(
-                                current.brand,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              Text(
-                                '\$${current.price.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                              const SizedBox(height: 24),
+                              AnimatedBuilder(
+                                animation: _scaleAnimation,
+                                builder:
+                                    (_, child) => Transform.scale(
+                                      scale: _scaleAnimation.value,
+                                      child: _outlinedIcon(
+                                        icon: Icons.shopping_bag,
+                                        onPressed: _toggleBasket,
+                                        iconColor:
+                                            isInBasket
+                                                ? Colors.lightGreen
+                                                : Colors.white,
+                                      ),
+                                    ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-
-                      // ACTION BUTTONS (like, save, basket)
-                      Positioned(
-                        right: 12,
-                        bottom: MediaQuery.of(context).size.height * 0.25,
-                        child: Column(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.favorite),
-                              iconSize: 36,
-                              color: isLiked ? Colors.red : Colors.white,
-                              onPressed: () {
-                                setState(() => isLiked = !isLiked);
-                              },
-                            ),
-                            const SizedBox(height: 24),
-                            IconButton(
-                              icon: const Icon(Icons.bookmark),
-                              iconSize: 36,
-                              color: isSaved ? Colors.black : Colors.white,
-                              onPressed: () {
-                                setState(() => isSaved = !isSaved);
-                              },
-                            ),
-                            const SizedBox(height: 24),
-                            AnimatedBuilder(
-                              animation: _scaleAnimation,
-                              builder: (_, child) {
-                                return Transform.scale(
-                                  scale: _scaleAnimation.value,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.shopping_bag),
-                                    iconSize: 36,
-                                    color:
-                                        isInBasket
-                                            ? Colors.greenAccent
-                                            : Colors.white,
-                                    onPressed: toggleBasket,
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   );
                 },
               ),

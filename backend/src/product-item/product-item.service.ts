@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma, ProductItem } from '@prisma/client';
+// src/product-item/product-item.service.ts
+
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, ProductItem, ProductImage } from '@prisma/client';
 import { DatabaseService } from '../database/database.service';
 
-interface CreateProductInput extends Omit<Prisma.ProductItemCreateInput, 'productImages'> {
+interface CreateProductInput
+  extends Omit<Prisma.ProductItemCreateInput, 'productImages'> {
   imageUrls: string[];
 }
 
@@ -10,94 +13,83 @@ interface CreateProductInput extends Omit<Prisma.ProductItemCreateInput, 'produc
 export class ProductItemService {
   constructor(private readonly db: DatabaseService) { }
 
-  //create a product with its associated images
-  async createProductWithImages(data: CreateProductInput) {
-    const { imageUrls, ...productData } = data;
-
+  /**
+   * Create a new product along with its images, returning images sorted by ID.
+   */
+  async createProductWithImages(
+    data: CreateProductInput
+  ): Promise<ProductItem & { productImages: ProductImage[] }> {
+    const { imageUrls, ...payload } = data;
     return this.db.productItem.create({
       data: {
-        ...productData,
+        ...payload,
         productImages: {
-          create: imageUrls.map((url) => ({
-            imageUrl: url, // Creates product images using the provided image URLs
-          })),
+          create: imageUrls.map((url) => ({ imageUrl: url })),
+        },
+      },
+      include: {
+        productImages: {
+          orderBy: { id: 'asc' },
         },
       },
     });
   }
 
-  // Fetches a product by its ID, including its associated images
-  async findById(id: number) {
+  /**
+   * Fetch a single product by ID, including its images sorted by ID.
+   */
+  async findById(
+    id: number
+  ): Promise<(ProductItem & { productImages: ProductImage[] }) | null> {
     return this.db.productItem.findUnique({
       where: { id },
-      include: { productImages: true },
+      include: {
+        productImages: {
+          orderBy: { id: 'asc' },
+        },
+      },
     });
   }
 
-  // Fetches a random product from the database
-  async getRandomProduct() {
+  /**
+   * Fetch a random product, including images sorted by ID.
+   */
+  async getRandomProduct(): Promise<ProductItem & { productImages: ProductImage[] }> {
     const count = await this.db.productItem.count();
+    if (count === 0) {
+      throw new NotFoundException('No products in database');
+    }
     const randomIndex = Math.floor(Math.random() * count);
     const [randomProduct] = await this.db.productItem.findMany({
       skip: randomIndex,
       take: 1,
       include: {
-        productImages: true,
+        productImages: {
+          orderBy: { id: 'asc' },
+        },
       },
     });
-
     return randomProduct;
   }
 
-  // Fetches unique categories from the products
-  async getUniqueCategories(): Promise<string[]> {
-    const categories = await this.db.productItem.findMany({
-      where: { category: { not: '' } },
-      distinct: ['category'],
-      select: { category: true },
-    });
-    return categories.map(c => c.category!).filter(Boolean);
-  }
-
-  async getUniqueBrands(): Promise<string[]> {
-    const brands = await this.db.productItem.findMany({
-      where: { brand: { not: '' } },
-      distinct: ['brand'],
-      select: { brand: true },
-    });
-    return brands.map(b => b.brand!).filter(Boolean);
-  }
-
-  async getUniqueRetailers(): Promise<string[]> {
-    const retailers = await this.db.productItem.findMany({
-      where: { retailer: { not: '' } },
-      distinct: ['retailer'],
-      select: { retailer: true },
-    });
-    return retailers.map(r => r.retailer!).filter(Boolean);
-  }
-
-  // Gets a random product that alligns with filters
-  async getRandomProductWithFilters(filters: any): Promise<ProductItem | null> {
+  
+  /**
+   * Fetch a random product matching the given filters, including images sorted by ID.
+   */
+  async getRandomProductWithFilters(filters: {
+    brand?: string[];
+    retailer?: string[];
+    category?: string[];
+    minPrice?: number;
+    maxPrice?: number;
+  }): Promise<(ProductItem & { productImages: ProductImage[] }) | null> {
     const where: any = {};
-
-    //if filter length for below is > 0, then a filter has occured. So apply it
-    if (filters.brand?.length > 0) {
-      where.brand = { in: filters.brand };
-    }
-
-    if (filters.retailer?.length > 0) {
-      where.retailer = { in: filters.retailer };
-    }
-
-    if (filters.category?.length > 0) {
-      where.category = { in: filters.category }; // ✅ Add this!
-    }
-
+    if (filters.brand?.length) where.brand = { in: filters.brand };
+    if (filters.retailer?.length) where.retailer = { in: filters.retailer };
+    if (filters.category?.length) where.category = { in: filters.category };
     if (typeof filters.minPrice === 'number') {
       where.price = { ...(where.price || {}), gte: filters.minPrice };
     }
-
     if (typeof filters.maxPrice === 'number') {
       where.price = { ...(where.price || {}), lte: filters.maxPrice };
     }
@@ -110,12 +102,69 @@ export class ProductItemService {
       skip: randomIndex,
       take: 1,
       where,
-      include: { productImages: true },
+      include: {
+        productImages: {
+          orderBy: { id: 'asc' },
+        },
+      },
     });
-
     return randomProduct;
   }
 
+  /**
+   * Return all distinct categories, optionally filtered by brand/retailer. Used for filters
+   */
+  async getUniqueCategories(filters?: {
+    brand?: string[];
+    retailer?: string[];
+  }): Promise<string[]> {
+    const where: any = {};
+    if (filters?.brand?.length) where.brand = { in: filters.brand };
+    if (filters?.retailer?.length) where.retailer = { in: filters.retailer };
 
+    const rows = await this.db.productItem.findMany({
+      where,
+      distinct: ['category'], //groups by distinct category
+      select: { category: true },
+    });
+    return rows.map((r) => r.category!).filter(Boolean);
+  }
 
+  /**
+   * Return all distinct brands, optionally filtered by retailer/category.
+   */
+  async getUniqueBrands(filters?: {
+    retailer?: string[];
+    category?: string[];
+  }): Promise<string[]> {
+    const where: any = {};
+    if (filters?.retailer?.length) where.retailer = { in: filters.retailer };
+    if (filters?.category?.length) where.category = { in: filters.category };
+
+    const rows = await this.db.productItem.findMany({
+      where,
+      distinct: ['brand'],
+      select: { brand: true },
+    });
+    return rows.map((r) => r.brand!).filter(Boolean);
+  }
+
+  /**
+   * Return all distinct retailers, optionally filtered by brand/category.
+   */
+  async getUniqueRetailers(filters?: {
+    brand?: string[];
+    category?: string[];
+  }): Promise<string[]> {
+    const where: any = {};
+    if (filters?.brand?.length) where.brand = { in: filters.brand };
+    if (filters?.category?.length) where.category = { in: filters.category };
+
+    const rows = await this.db.productItem.findMany({
+      where,
+      distinct: ['retailer'],
+      select: { retailer: true },
+    });
+    return rows.map((r) => r.retailer!).filter(Boolean);
+  }
 }

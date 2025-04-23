@@ -11,6 +11,7 @@ import { ScraperModule } from './scraper/scraper.module';
 import { MailerModule } from './mailer/mailer.module';
 import { StyleModule } from './style/style.module';
 import { CollectionModule } from './collection/collection.module';
+import { ProductItemModule } from './product-item/product-item.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { CollectionModule } from './collection/collection.module';
     MailerModule,
     StyleModule,
     CollectionModule,
+    ProductItemModule,
 
   ],
 })

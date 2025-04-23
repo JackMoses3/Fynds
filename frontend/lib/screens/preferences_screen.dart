@@ -4,64 +4,109 @@ import 'package:http/http.dart' as http;
 import 'package:dropdown_search/dropdown_search.dart';
 
 class PreferenceScreen extends StatefulWidget {
-  final Map<String, dynamic>? initialFilters; //filters passed from home screen
-
-  const PreferenceScreen({
-    super.key,
-    this.initialFilters,
-  }); //accept filters from home screen
+  final Map<String, dynamic>? initialFilters;
+  const PreferenceScreen({Key? key, this.initialFilters}) : super(key: key);
 
   @override
   State<PreferenceScreen> createState() => _PreferenceScreenState();
 }
 
 class _PreferenceScreenState extends State<PreferenceScreen> {
-  List<String> categories = [];
-  List<String> selectedCategories =
-      []; // Stores selected categories for filtering
-
-  List<String> brands = [];
-  List<String> selectedBrands = []; // Stores selected brands for filtering
-
-  List<String> retailers = [];
-  List<String> selectedRetailers =
-      []; // Stores selected retailers for filtering
-
-  double? minPrice;
-  double? maxPrice;
-
-  bool isLoading = true; // indicates if data is still loading
+  List<String> categories = [], brands = [], retailers = [];
+  List<String> selectedCategories = [],
+      selectedBrands = [],
+      selectedRetailers = [];
+  double? minPrice, maxPrice;
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchOptions(); // Fetch category, brand, and retailer options from the backend
-  }
-
-  Future<void> fetchOptions() async {
-    try {
-      final categoryRes = await http.get(
-        Uri.parse('http://10.0.2.2:3000/api/product-item/options/categories'),
-      );
-      final brandRes = await http.get(
-        Uri.parse('http://10.0.2.2:3000/api/product-item/options/brands'),
-      );
-      final retailerRes = await http.get(
-        Uri.parse('http://10.0.2.2:3000/api/product-item/options/retailers'),
-      );
-
-      setState(() {
-        categories = List<String>.from(jsonDecode(categoryRes.body)..sort());
-        brands = List<String>.from(jsonDecode(brandRes.body)..sort());
-        retailers = List<String>.from(jsonDecode(retailerRes.body)..sort());
-        isLoading = false;
-      });
-    } catch (e) {
-      debugPrint("❌ Error fetching options: $e");
+    final init = widget.initialFilters;
+    if (init != null) {
+      selectedCategories = List<String>.from(init['categories'] ?? <String>[]);
+      selectedBrands = List<String>.from(init['brands'] ?? <String>[]);
+      selectedRetailers = List<String>.from(init['retailers'] ?? <String>[]);
+      minPrice = init['minPrice'] as double?;
+      maxPrice = init['maxPrice'] as double?;
     }
+    _loadAllOptions();
   }
 
-  // Apply the selected preferences and pass them back to HomeScreen
+  Future<void> _loadAllOptions() async {
+    await Future.wait([_fetchRetailers(), _fetchBrands(), _fetchCategories()]);
+    setState(() => isLoading = false);
+  }
+
+  Future<void> _fetchCategories() async {
+    final params = <String>[];
+    if (selectedBrands.isNotEmpty) {
+      params.addAll(
+        selectedBrands.map((b) => 'brand=${Uri.encodeComponent(b)}'),
+      );
+    }
+    if (selectedRetailers.isNotEmpty) {
+      params.addAll(
+        selectedRetailers.map((r) => 'retailer=${Uri.encodeComponent(r)}'),
+      );
+    }
+    final url =
+        'http://10.0.2.2:3000/api/product-item/options/categories' +
+        (params.isEmpty ? '' : '?${params.join('&')}');
+    final res = await http.get(Uri.parse(url));
+    final list = (jsonDecode(res.body) as List).cast<String>()..sort();
+    setState(() {
+      categories = list;
+      selectedCategories = selectedCategories.where(list.contains).toList();
+    });
+  }
+
+  Future<void> _fetchBrands() async {
+    final params = <String>[];
+    if (selectedCategories.isNotEmpty) {
+      params.addAll(
+        selectedCategories.map((c) => 'category=${Uri.encodeComponent(c)}'),
+      );
+    }
+    if (selectedRetailers.isNotEmpty) {
+      params.addAll(
+        selectedRetailers.map((r) => 'retailer=${Uri.encodeComponent(r)}'),
+      );
+    }
+    final url =
+        'http://10.0.2.2:3000/api/product-item/options/brands' +
+        (params.isEmpty ? '' : '?${params.join('&')}');
+    final res = await http.get(Uri.parse(url));
+    final list = (jsonDecode(res.body) as List).cast<String>()..sort();
+    setState(() {
+      brands = list;
+      selectedBrands = selectedBrands.where(list.contains).toList();
+    });
+  }
+
+  Future<void> _fetchRetailers() async {
+    final params = <String>[];
+    if (selectedCategories.isNotEmpty) {
+      params.addAll(
+        selectedCategories.map((c) => 'category=${Uri.encodeComponent(c)}'),
+      );
+    }
+    if (selectedBrands.isNotEmpty) {
+      params.addAll(
+        selectedBrands.map((b) => 'brand=${Uri.encodeComponent(b)}'),
+      );
+    }
+    final url =
+        'http://10.0.2.2:3000/api/product-item/options/retailers' +
+        (params.isEmpty ? '' : '?${params.join('&')}');
+    final res = await http.get(Uri.parse(url));
+    final list = (jsonDecode(res.body) as List).cast<String>()..sort();
+    setState(() {
+      retailers = list;
+      selectedRetailers = selectedRetailers.where(list.contains).toList();
+    });
+  }
+
   void applyPreferences() {
     Navigator.pop(context, {
       'categories': selectedCategories,
@@ -72,155 +117,193 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
     });
   }
 
-  // When clear is clicked, clear all selected preferences and return null to HomeScreen
+  /// Clears all filters in-place and reloads options; stays on screen.
   void clearPreferences() {
-    Navigator.pop(context, null); // Null means no filters
+    setState(() {
+      selectedCategories.clear();
+      selectedBrands.clear();
+      selectedRetailers.clear();
+      minPrice = null;
+      maxPrice = null;
+      isLoading = true;
+    });
+    _loadAllOptions();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Preferences")),
-      body:
-          isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                children: [
-                  Expanded(
-                    child: ListView(
+    return WillPopScope(
+      onWillPop: () async {
+        final hasAnyFilter =
+            selectedCategories.isNotEmpty ||
+            selectedBrands.isNotEmpty ||
+            selectedRetailers.isNotEmpty ||
+            minPrice != null ||
+            maxPrice != null;
+        // If no filters, send null; otherwise send current filters
+        Navigator.pop(
+          context,
+          hasAnyFilter
+              ? {
+                'categories': selectedCategories,
+                'brands': selectedBrands,
+                'retailers': selectedRetailers,
+                'minPrice': minPrice,
+                'maxPrice': maxPrice,
+              }
+              : null,
+        );
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Preferences')),
+        body:
+            isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : Column(
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          _buildDropdown(
+                            label: 'Category',
+                            items: categories,
+                            selected: selectedCategories,
+                            onChanged: (vals) async {
+                              setState(() => selectedCategories = vals);
+                              await Future.wait([
+                                _fetchRetailers(),
+                                _fetchBrands(),
+                              ]);
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildDropdown(
+                            label: 'Brand',
+                            items: brands,
+                            selected: selectedBrands,
+                            onChanged: (vals) async {
+                              setState(() => selectedBrands = vals);
+                              await Future.wait([
+                                _fetchCategories(),
+                                _fetchRetailers(),
+                              ]);
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildDropdown(
+                            label: 'Retailer',
+                            items: retailers,
+                            selected: selectedRetailers,
+                            onChanged: (vals) async {
+                              setState(() => selectedRetailers = vals);
+                              await Future.wait([
+                                _fetchCategories(),
+                                _fetchBrands(),
+                              ]);
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildPriceFilter(),
+                        ],
+                      ),
+                    ),
+                    Padding(
                       padding: const EdgeInsets.all(16),
-                      children: [
-                        buildMultiSelect(
-                          "Category",
-                          categories,
-                          selectedCategories,
-                        ),
-                        const SizedBox(height: 20),
-                        buildPriceFilter(),
-                        const SizedBox(height: 20),
-                        buildDropdownMulti("Brand", brands, selectedBrands),
-                        const SizedBox(height: 20),
-                        buildDropdownMulti(
-                          "Retailer",
-                          retailers,
-                          selectedRetailers,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: clearPreferences,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: clearPreferences,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey,
+                              ),
+                              child: const Text('Clear'),
                             ),
-                            child: const Text('Clear'),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: applyPreferences,
-                            child: const Text('Apply'),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: applyPreferences,
+                              child: const Text('Apply'),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+      ),
     );
   }
 
-  Widget buildMultiSelect(
-    String label,
-    List<String> options,
-    List<String> selected,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Wrap(
-          spacing: 8,
-          children:
-              options.map((option) {
-                return FilterChip(
-                  label: Text(option),
-                  selected: selected.contains(option),
-                  onSelected: (bool value) {
-                    setState(() {
-                      value ? selected.add(option) : selected.remove(option);
-                    });
-                  },
-                );
-              }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget buildDropdownMulti(
-    String label,
-    List<String> options,
-    List<String> selected,
-  ) {
+  Widget _buildDropdown({
+    required String label,
+    required List<String> items,
+    required List<String> selected,
+    required Future<void> Function(List<String>) onChanged,
+  }) {
     return DropdownSearch<String>.multiSelection(
-      items: options,
+      key: ValueKey('$label:${items.join(",")}'),
+      items: items,
       selectedItems: selected,
-      popupProps: const PopupPropsMultiSelection.modalBottomSheet(
+      popupProps: PopupPropsMultiSelection.modalBottomSheet(
         showSearchBox: true,
+        searchFieldProps: const TextFieldProps(
+          decoration: InputDecoration(
+            hintText: 'Search…',
+            border: OutlineInputBorder(),
+          ),
+        ),
       ),
       dropdownDecoratorProps: DropDownDecoratorProps(
-        dropdownSearchDecoration: InputDecoration(labelText: label),
+        dropdownSearchDecoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
       ),
-      onChanged: (value) {
-        setState(() {
-          selected.clear();
-          selected.addAll(value);
-        });
-      },
+      onChanged: onChanged,
+      clearButtonProps: const ClearButtonProps(isVisible: true),
     );
   }
 
-  Widget buildPriceFilter() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Price Range",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                decoration: const InputDecoration(labelText: 'Min Price'),
-                keyboardType: TextInputType.number,
-                onChanged:
-                    (value) => setState(() {
-                      minPrice = double.tryParse(value);
-                    }),
+  Widget _buildPriceFilter() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text('Price Range', style: TextStyle(fontWeight: FontWeight.bold)),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: TextField(
+              decoration: const InputDecoration(
+                labelText: 'Min Price',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+              onChanged: (v) => setState(() => minPrice = double.tryParse(v)),
+              controller: TextEditingController(
+                text: minPrice?.toString() ?? '',
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                decoration: const InputDecoration(labelText: 'Max Price'),
-                keyboardType: TextInputType.number,
-                onChanged:
-                    (value) => setState(() {
-                      maxPrice = double.tryParse(value);
-                    }),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              decoration: const InputDecoration(
+                labelText: 'Max Price',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+              onChanged: (v) => setState(() => maxPrice = double.tryParse(v)),
+              controller: TextEditingController(
+                text: maxPrice?.toString() ?? '',
               ),
             ),
-          ],
-        ),
-      ],
-    );
-  }
+          ),
+        ],
+      ),
+    ],
+  );
 }
