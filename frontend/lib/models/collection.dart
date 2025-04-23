@@ -1,4 +1,4 @@
-import 'product_item.dart';
+import 'product_item/product_item.dart';
 
 class Collection {
   final int id;

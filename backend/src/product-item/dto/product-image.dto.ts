@@ -6,3 +6,8 @@ export class ProductImageDto {
     createdAt!: Date;
     updatedAt!: Date;
 }
+
+export class ProductImageTransferDto {
+    id: number;
+    imageUrl: string;
+}

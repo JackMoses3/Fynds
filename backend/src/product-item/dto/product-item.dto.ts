@@ -1,4 +1,4 @@
-import { ProductImageDto } from './product-image.dto';
+import { ProductImageDto, ProductImageTransferDto } from './product-image.dto';
 
 export class ProductItemDto {
     id!: string;
@@ -19,4 +19,13 @@ export class ProductItemDto {
 
     // <-- notice the capital “I” here
     productImages!: ProductImageDto[];
+}
+
+export class ProductItemTransferDto {
+    id: number;
+    name: string;
+    brand: string;
+    retailer: string;
+    price: number;
+    images: ProductImageTransferDto[];
 }

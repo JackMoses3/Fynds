@@ -3,6 +3,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ProductItem, ProductImage } from '@prisma/client';
 import { DatabaseService } from '../database/database.service';
+import { ProductItemTransferDto } from './dto/product-item.dto';
 
 interface CreateProductInput
   extends Omit<Prisma.ProductItemCreateInput, 'productImages'> {
@@ -54,35 +55,59 @@ export class ProductItemService {
   /**
    * Fetch a random product, including images sorted by ID.
    */
-  async getRandomProduct(): Promise<ProductItem & { productImages: ProductImage[] }> {
-    const count = await this.db.productItem.count();
-    if (count === 0) {
-      throw new NotFoundException('No products in database');
-    }
-    const randomIndex = Math.floor(Math.random() * count);
-    const [randomProduct] = await this.db.productItem.findMany({
-      skip: randomIndex,
-      take: 1,
-      include: {
-        productImages: {
-          orderBy: { id: 'asc' },
+
+async getRandomProducts(): Promise<ProductItemTransferDto[]> {
+  const count = await this.db.productItem.count();
+  if (count === 0) {
+    throw new NotFoundException('No products in database');
+  }
+  const randomIndex = Math.floor(Math.random() * count);
+
+  // Only grab the columns you care about, plus the images
+  const items = await this.db.productItem.findMany({
+    skip: randomIndex,
+    take: 10,
+    select: {
+      id: true,
+      name: true,
+      brand: true,
+      retailer: true,
+      price: true,
+      productImages: {
+        orderBy: { id: 'asc' },
+        select: {
+          id: true,
+          imageUrl: true,
         },
       },
-    });
-    return randomProduct;
-  }
+    },
+  });
 
-  
+  // Map to your DTO shape
+  return items.map((p) => ({
+    id: p.id,
+    name: p.name,
+    brand: p.brand,
+    retailer: p.retailer,
+    price: p.price,
+    images: p.productImages.map((img) => ({
+      id: img.id,    // if your DTO expects string IDs
+      imageUrl: img.imageUrl,
+    })),
+  }));
+}
+ 
+
   /**
    * Fetch a random product matching the given filters, including images sorted by ID.
    */
-  async getRandomProductWithFilters(filters: {
+  async getFilteredProducts(filters: {
     brand?: string[];
     retailer?: string[];
     category?: string[];
     minPrice?: number;
     maxPrice?: number;
-  }): Promise<(ProductItem & { productImages: ProductImage[] }) | null> {
+  }): Promise<ProductItemTransferDto[]| null> {
     const where: any = {};
     if (filters.brand?.length) where.brand = { in: filters.brand };
     if (filters.retailer?.length) where.retailer = { in: filters.retailer };
@@ -98,17 +123,37 @@ export class ProductItemService {
     if (count === 0) return null;
 
     const randomIndex = Math.floor(Math.random() * count);
-    const [randomProduct] = await this.db.productItem.findMany({
+    const items = await this.db.productItem.findMany({
       skip: randomIndex,
-      take: 1,
-      where,
-      include: {
+      take: 10,
+      select: {
+        id: true,
+        name: true,
+        brand: true,
+        retailer: true,
+        price: true,
         productImages: {
           orderBy: { id: 'asc' },
+          select: {
+            id: true,
+            imageUrl: true,
+          },
         },
       },
     });
-    return randomProduct;
+
+    // Map to your DTO shape
+    return items.map((p) => ({
+      id: p.id,
+      name: p.name,
+      brand: p.brand,
+      retailer: p.retailer,
+      price: p.price,
+      images: p.productImages.map((img) => ({
+        id: img.id,    // if your DTO expects string IDs
+        imageUrl: img.imageUrl,
+      })),
+    }));
   }
 
   /**

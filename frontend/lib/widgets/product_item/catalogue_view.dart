@@ -18,14 +18,10 @@ class CatalogueView extends StatelessWidget {
       ),
       itemBuilder: (context, index) {
         final item = items[index];
-        final imageUrl =
-            item.product.images.isNotEmpty ? item.product.images[0] : null;
+        final imageUrl = item.product.images[0].imageUrl;
         return ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child:
-              imageUrl != null
-                  ? Image.network(imageUrl, fit: BoxFit.cover)
-                  : Container(color: Colors.grey),
+          child: Image.network(imageUrl, fit: BoxFit.cover),
         );
       },
     );
