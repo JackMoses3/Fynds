@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/onboarding/style_choice_screen.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:frontend/services/onboarding/onboarding_service.dart';
 
 class UserDetailsScreen extends StatefulWidget {
   const UserDetailsScreen({super.key});
@@ -13,6 +15,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   String? _preference;
   String? _location;
   bool _isLoadingLocation = false;
+  final OnboardingService _onboardingService = OnboardingService();
 
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
@@ -52,18 +55,34 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     });
   }
 
-  void _submitDetails() {
-    if (_birthDate == null || _preference == null) {
+  Future<void> _submitDetails() async {
+    if (_birthDate == null || _preference == null || _location == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please complete all fields")),
       );
       return;
     }
 
-    // Continue to next screen or send data to backend
-    print("Birthdate: $_birthDate");
-    print("Preference: $_preference");
-    print("Location: $_location");
+    final success = await _onboardingService.additionalUserInformation(
+      clothingPreferences: _preference!,
+      birthDate: _birthDate!,
+      location: _location!,
+    );
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Info submitted successfully")),
+      );
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Submission failed")));
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const StyleChoiceScreen()),
+    );
   }
 
   @override
@@ -149,7 +168,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                           : "Use my location",
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -165,7 +184,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                 onPressed: _submitDetails,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
-                  backgroundColor: Colors.black,
+                  backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),

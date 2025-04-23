@@ -1,5 +1,5 @@
 import * as argon2 from 'argon2';
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, Inject } from '@nestjs/common';
 import { UserService } from '../user/user.service';
 import { User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
@@ -20,6 +20,7 @@ export class AuthService {
     private jwtService: JwtService,
     private mailerService: MailerService,
     private googleClient: OAuth2Client,
+    @Inject('REFRESH_SERVICE') private refreshJwtService: JwtService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<User> {
@@ -125,21 +126,26 @@ export class AuthService {
       lastName: user.lastName,
     };
     return {
-      access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
-      refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
+      access_token: this.jwtService.sign(payload, { expiresIn: '45m' }),
+      refresh_token: this.refreshJwtService.sign(payload, { expiresIn: '7d' }),
     };
   }
 
-  async refreshAccessToken(token: string) {
+  async refreshAccessToken(token: string): Promise<{ access_token: string }> {
     try {
-      const payload = this.jwtService.verify<JwtPayload>(token, {
+      const { sub, email, firstName, lastName } =
+      this.jwtService.verify<JwtPayload>(token, {
         ignoreExpiration: false,
+        secret: this.configService.get<string>('REFRESH_SECRET'),
       });
-      return {
-        access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
-      };
-    } catch {
-      throw new BadRequestException('Invalid or expired refresh token.');
+      const access_token = this.jwtService.sign(
+        { sub, email, firstName, lastName },
+        { expiresIn: '45m' },
+      );
+      return { access_token };
+    } catch (error) {
+      console.error('❌ [AuthService] refreshAccessToken error:', error);
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }
 

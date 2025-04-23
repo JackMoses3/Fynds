@@ -22,7 +22,7 @@ class AuthService {
     try {
       print('Attempting login with email: $email');
       final response = await _dio.post(
-        '/auth/login',
+        'auth/login',
         data: {'email': email, 'password': password},
       );
       print('Received response: ${response.data}');
@@ -55,7 +55,7 @@ class AuthService {
 
       // Send id_token to your backend
       final response = await _dio.post(
-        '/auth/google/token',
+        'auth/google/token',
         data: {'idToken': googleAuth.idToken},
       );
 
@@ -81,7 +81,7 @@ class AuthService {
         'Registration payload: {email: $email, firstName: $firstName, lastName: $lastName, password: $password}',
       );
       final response = await _dio.post(
-        '/auth/register',
+        'auth/register',
         data: {
           'email': email,
           'firstName': firstName,
@@ -101,10 +101,11 @@ class AuthService {
     try {
       print('Verifying email: $email with code: $code');
       final response = await _dio.post(
-        '/auth/verify',
+        'auth/verify',
         data: {'email': email, 'code': code},
       );
       print('Verification response status: ${response.statusCode}');
+      print('Received response: ${response.data}');
       await _saveTokens(response.data);
       return true;
     } catch (e) {
@@ -116,7 +117,7 @@ class AuthService {
   Future<bool> deleteAccount(String email) async {
     try {
       print('Attempting to delete account for: $email');
-      final response = await _dio.post('/auth/delete', data: {'email': email});
+      final response = await _dio.post('auth/delete', data: {'email': email});
       print('Account deletion response: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
@@ -129,7 +130,7 @@ class AuthService {
     try {
       print('Requesting new verification for: $email');
       final response = await _dio.post(
-        '/auth/new-verification',
+        'auth/new-verification',
         data: {'email': email},
       );
       print('New verification response: ${response.statusCode}');

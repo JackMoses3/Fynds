@@ -24,6 +24,7 @@ model ProductItem {
   brand            String
   category         String?
   subCategory      String?
+  productStyles    ProductStyle[]
   productImages    ProductImage[]
   TrolleyItem      TrolleyItem[]
   Like             Like[]
@@ -57,13 +58,49 @@ model User {
   location            String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
-  ShoppingTrolley     ShoppingTrolley[]
-  Like                Like[]
-  Collection          Collection[]
-  ViewingHistory      ViewingHistory[]
-  PurchaseHistory     PurchaseHistory[]
+  userStyle           UserStyle[]
+  shoppingTrolleys    ShoppingTrolley[]
+  likes               Like[]
+  collections         Collection[]
+  viewingHistory      ViewingHistory[]
+  purchaseHistory     PurchaseHistory[]
 
   @@unique([provider, providerId])
+}
+
+model Style {
+  id           Int            @id @default(autoincrement())
+  name         String
+  description  String
+  embeddingId  BigInt?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  productItems ProductStyle[]
+  userStyle    UserStyle[]
+}
+
+model ProductStyle {
+  id            Int         @id @default(autoincrement())
+  productItemId Int
+  styleId       Int
+  productItem   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+  style         Style       @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([productItemId, styleId])
+}
+
+model UserStyle {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  styleId   Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  style     Style    @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, styleId])
 }
 
 model ShoppingTrolley {

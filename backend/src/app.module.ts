@@ -9,6 +9,8 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { ScraperModule } from './scraper/scraper.module';
 import { MailerModule } from './mailer/mailer.module';
+import { StyleModule } from './style/style.module';
+import { CollectionModule } from './collection/collection.module';
 
 @Module({
   imports: [
@@ -24,6 +26,7 @@ import { MailerModule } from './mailer/mailer.module';
         PORT: Joi.number().port().default(3000),
         DATABASE_URL: Joi.string().required(),
         AUTH_SECRET: Joi.string().required(),
+        REFRESH_SECRET: Joi.string().required(),
         GOOGLE_CLIENT_ID: Joi.string().required(),
         GOOGLE_CLIENT_SECRET: Joi.string().required(),
         GOOGLE_CALLBACK_URL: Joi.string().required(),
@@ -49,6 +52,8 @@ import { MailerModule } from './mailer/mailer.module';
     UserModule,
     ScraperModule,
     MailerModule,
+    StyleModule,
+    CollectionModule,
 
   ],
 })

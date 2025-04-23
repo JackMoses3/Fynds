@@ -6,6 +6,7 @@ import {
   UseGuards,
   Body,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Request as ExpressRequest } from 'express';
 import { LocalAuthGuard } from './strategies/local/local-auth.guard';
@@ -67,7 +68,7 @@ export class AuthController {
   @Post('refresh')
   refreshToken(@Body('refresh_token') refreshToken: string) {
     if (!refreshToken) {
-      throw new BadRequestException('Refresh token is required.');
+      throw new UnauthorizedException('Refresh token is required.');
     }
     return this.authService.refreshAccessToken(refreshToken);
   }
