@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:frontend/core/dio_client.dart';
 import 'package:frontend/models/collection.dart';
+import 'package:frontend/models/product_item/product_item.dart';
 
 class CollectionService {
   final Dio _dio = DioClient().client;
@@ -33,12 +34,12 @@ class CollectionService {
     }
   }
 
-  Future<List<CollectionItem>> getCollectionById(int id) async {
+  Future<List<ProductItem>> getCollectionById(int id) async {
     try {
       print('📤 Sending request to get collection items...');
       final response = await _dio.get('collection/$id');
-      final itemsJson = response.data['items'] as List;
-      return itemsJson.map((item) => CollectionItem.fromJson(item)).toList();
+      final List data = response.data;
+      return data.map((item) => ProductItem.fromJson(item)).toList();
     } catch (e) {
       print('❌ Error loading collection items: $e');
       if (e is DioException) {

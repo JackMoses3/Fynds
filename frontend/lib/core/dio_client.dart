@@ -7,7 +7,7 @@ class DioClient {
 
   final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: 'http://192.168.0.33:3000/api/',
+      baseUrl: 'http://localhost:3000/api/',
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       validateStatus: (status) => status != null && status < 400,

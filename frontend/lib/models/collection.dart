@@ -30,23 +30,16 @@ class Collection {
 
 class CollectionItem {
   final int id;
-  final int collectionId;
-  final int productItemId;
   final ProductItem product;
 
-  CollectionItem({
-    required this.id,
-    required this.collectionId,
-    required this.productItemId,
-    required this.product,
-  });
+  CollectionItem({required this.id, required this.product});
 
   factory CollectionItem.fromJson(Map<String, dynamic> json) {
     return CollectionItem(
       id: json['id'] as int,
-      collectionId: json['collectionId'] as int,
-      productItemId: json['productItemId'] as int,
-      product: ProductItem.fromJson(json['product'] as Map<String, dynamic>),
+      product: ProductItem.fromJson(
+        json['productItem'] as Map<String, dynamic>,
+      ),
     );
   }
 }

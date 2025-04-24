@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/models/collection.dart';
+import 'package:frontend/models/product_item/product_item.dart';
 import 'package:frontend/widgets/product_item/catalogue_view.dart';
 import 'package:frontend/services/collection/collection_service.dart';
 
 class CollectionWidget extends StatefulWidget {
   final List<CollectionList> collections;
-  final Future<List<CollectionItem>> Function(int collectionId) loadItems;
+  final Future<List<ProductItem>> Function(int collectionId) loadItems;
 
   const CollectionWidget({
     Key? key,
@@ -19,7 +20,7 @@ class CollectionWidget extends StatefulWidget {
 
 class _CollectionWidgetState extends State<CollectionWidget> {
   int? _selectedCollectionId;
-  Future<List<CollectionItem>>? _itemsFuture;
+  Future<List<ProductItem>>? _itemsFuture;
   late List<CollectionList> _collections;
   final CollectionService _collectionService = CollectionService();
 
@@ -123,7 +124,7 @@ class _CollectionWidgetState extends State<CollectionWidget> {
         ],
       );
     } else {
-      return FutureBuilder<List<CollectionItem>>(
+      return FutureBuilder<List<ProductItem>>(
         future: _itemsFuture,
         builder: (context, snapshot) {
           Widget body;

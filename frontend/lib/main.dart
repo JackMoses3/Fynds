@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/auth/onboarding_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/profile/profile_screen.dart';
@@ -18,7 +19,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         scaffoldBackgroundColor: const Color(0xFFF6FCFA),
       ),
-      home: HomeScreen(),
+      home: OnboardingScreen(),
     );
   }
 }

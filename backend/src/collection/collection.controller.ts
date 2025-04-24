@@ -31,7 +31,7 @@ export class CollectionController {
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   findOne(@Param('id') id: string) {
-    return this.collectionService.findOne(+id);
+    return this.collectionService.getProductsByCollectionId(+id);
   }
 
 }

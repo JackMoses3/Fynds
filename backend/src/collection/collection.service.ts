@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { CreateCollectionDto } from './dto/create-collection.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { CreateCollectionDto, getCollectionItemDto, getCollectionsDto } from './dto/create-collection.dto';
 import { UpdateCollectionDto } from './dto/update-collection.dto';
 import { DatabaseService } from '../database/database.service';
 import { Prisma } from '@prisma/client';
+import { ProductItemTransferDto } from 'src/product-item/dto/product-item.dto';
 
 @Injectable()
 export class CollectionService {
@@ -31,28 +32,7 @@ export class CollectionService {
       },});
   }
 
-  async findOne(id: number) {
-    return this.db.collection.findUnique({
-      where: { id },
-      include: {
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
-                retailer: true,
-                productImages: true,
-                // anything else you need — but NOT the embedding IDs
-              }
-            }
-          },
-        },
-      },
-    });
-  }
-
+  
   async update(id: number, updateCollectionDto: Prisma.CollectionUpdateInput) {
     return this.db.collection.update({
       where: { id },
@@ -65,4 +45,48 @@ export class CollectionService {
       where: { id },
     });
   }
+
+  /**
+   * Get all products belonging to a given collection ID.
+   * Returns an array of ProductItemTransferDto.
+   */
+  async getProductsByCollectionId(collectionId: number): Promise<ProductItemTransferDto[]> {
+    const collection = await this.db.collectionItem.findMany({
+      where: { collectionId },
+      include: {
+        product: {
+          select: {
+            id : true,
+            name: true,
+            price: true,
+            brand: true,
+            retailer: true,
+            productImages: {
+              orderBy: { id: 'asc' },
+              select: {
+                id: true,
+                imageUrl: true,
+            },
+          },
+        },
+      },
+    }
+    });
+    if (!collection) {
+      throw new NotFoundException('Collection not found');
+    }
+    return collection.map((item) => ({
+      id: item.product.id,
+      name: item.product.name,
+      brand: item.product.brand,
+      retailer: item.product.retailer,
+      price: item.product.price,
+      images: item.product.productImages.map((image) => ({
+        id: image.id,
+        imageUrl: image.imageUrl,
+      })),
+    }));
+  }
+    // Fetch the collection with its items and their products
+   
 }
