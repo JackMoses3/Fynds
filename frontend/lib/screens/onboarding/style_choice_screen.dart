@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/screens/profile/profile_screen.dart';
 import 'package:frontend/services/onboarding/onboarding_service.dart';
 import 'package:frontend/models/style.dart';
+import 'package:frontend/widgets/main_shell.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class StyleChoiceScreen extends StatefulWidget {
   const StyleChoiceScreen({super.key});
@@ -62,10 +63,11 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
       ).showSnackBar(const SnackBar(content: Text("Submission failed")));
     }
 
-    Navigator.push(
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboardingComplete', true);
+    Navigator.of(
       context,
-      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-    );
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const MainShell()));
   }
 
   @override

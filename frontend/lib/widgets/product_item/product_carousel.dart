@@ -35,22 +35,30 @@ class _ProductCarouselScreenState extends State<ProductCarouselScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: BackButton(color: Colors.white),
-      ),
-      body: PageView.builder(
-        controller: _pageController,
-        scrollDirection: Axis.vertical,
-        itemCount: widget.products.length,
-        itemBuilder: (context, index) {
-          return ProductItemWidget(
-            key: ValueKey(widget.products[index].id),
-            product: widget.products[index],
-          );
-        },
+      body: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            scrollDirection: Axis.vertical,
+            itemCount: widget.products.length,
+            itemBuilder: (context, index) {
+              return ProductItemWidget(
+                key: ValueKey(widget.products[index].id),
+                product: widget.products[index],
+              );
+            },
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 8,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ],
       ),
     );
   }

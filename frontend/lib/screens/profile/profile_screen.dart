@@ -80,10 +80,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   IconButton(
                     icon: Icon(
-                      Icons.grid_view,
+                      Icons.bookmark,
                       color: _selectedSection == 0 ? Colors.blue : Colors.grey,
                     ),
-                    tooltip: 'Selections',
+                    tooltip: 'collections',
                     onPressed: () {
                       setState(() {
                         _selectedSection = 0;

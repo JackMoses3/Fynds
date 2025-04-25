@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/screens/auth/onboarding_screen.dart';
+import 'package:frontend/widgets/main_shell.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const MyApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final done = prefs.getBool('onboardingComplete') ?? false;
+  runApp(MyApp(onboardingDone: done));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool onboardingDone;
+  const MyApp({Key? key, required this.onboardingDone}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +25,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         scaffoldBackgroundColor: const Color(0xFFF6FCFA),
       ),
-      home: OnboardingScreen(),
+      home: onboardingDone ? const MainShell() : OnboardingScreen(),
     );
   }
 }
