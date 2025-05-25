@@ -1,8 +1,8 @@
 import os
-print('starting this embedding file')
 import asyncio
 import logging
 import torch
+import faiss
 import numpy as np
 import aiohttp
 from PIL import Image
@@ -17,15 +17,13 @@ from torchvision.models import convnext_tiny
 import torch.nn as nn
 from torchvision import transforms
 
-from vector_store import collection
-
 # --- Configure logging ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # --- Setup Environment and DB ---
 load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = "postgresql://postgres:H98bbv%3A6ABsk.V92hrppK%3F26Wh@jrt-shopping.cfooe6oceksm.ap-southeast-2.rds.amazonaws.com:5432/JRT_Shopping"
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
@@ -68,10 +66,13 @@ def load_front_back_model(path="best_front_back_model_convnext_82.3_88.19.pth"):
 
 front_back_model = load_front_back_model()
 
-# --- Load CLIP Model ---
+# --- Load CLIP Model & FAISS Indexes ---
 clip_model = AutoModel.from_pretrained('Marqo/marqo-fashionCLIP').to(device)
 clip_processor = AutoProcessor.from_pretrained('Marqo/marqo-fashionCLIP')
 DIM = 512
+front_index = faiss.IndexIDMap(faiss.IndexFlatL2(DIM))
+back_index = faiss.IndexIDMap(faiss.IndexFlatL2(DIM))
+text_index = faiss.IndexIDMap(faiss.IndexFlatL2(DIM))
 
 # --- Async Image Fetching ---
 async def fetch_image(session, url: str):
@@ -123,18 +124,14 @@ def process_batch(item_ids, batch_index):
     session = Session()
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-
     async def runner():
         async with aiohttp.ClientSession() as http_sess:
-            upsert_ids, upsert_vecs, upsert_names, upsert_fronts = [], [], [], []
-
             for item_id in item_ids:
                 item = session.get(ProductItem, item_id, options=[selectinload(ProductItem.productImages)])
                 if not item:
                     continue
                 urls = [img.imageUrl for img in item.productImages]
                 images = await fetch_images(http_sess, urls)
-
                 # classify
                 front_cands, back_cands = [], []
                 for img_rec, pil in zip(item.productImages, images):
@@ -144,68 +141,35 @@ def process_batch(item_ids, batch_index):
                     img_rec.frontFacing = (label == 'front')
                     session.add(img_rec)
                     (front_cands if label=='front' else back_cands).append((pil, conf))
-
                 # select best
                 best_front = min(front_cands, key=lambda x: x[1])[0] if front_cands else None
                 best_back  = max(back_cands,  key=lambda x: x[1])[0] if back_cands else None
-                chosen, vids, fronts = [], [], []
-                if best_front is not None:
-                    vids.append(item.id*2-1)
-                    chosen.append(best_front)
-                    fronts.append(True)
-                    item.frontEmbeddingId = vids[-1]
-                if best_back is not None:
-                    vids.append(item.id*2)
-                    chosen.append(best_back)
-                    fronts.append(False)
-                    item.backEmbeddingId = vids[-1]
-
-                # embed and collect
+                chosen, vids = [], []
+                if best_front:
+                    vids.append(item.id*2-1); chosen.append(best_front); item.frontEmbeddingId = vids[-1]
+                if best_back:
+                    vids.append(item.id*2);   chosen.append(best_back);  item.backEmbeddingId  = vids[-1]
+                # embed
                 if chosen:
                     texts = [item.name] * len(chosen)
                     img_embs, txt_embs = batch_embed(chosen, texts)
-
-                    # prepare upsert
-                    for emb, vid, front_flag in zip(img_embs, vids, fronts):
-                        upsert_ids.append(vid)
-                        upsert_vecs.append(emb)
-                        upsert_names.append(item.name)
-                        upsert_fronts.append(front_flag)
-
-                    # text embedding
+                    for emb, vid in zip(img_embs, vids):
+                        idx = np.array([vid], dtype='int64')
+                        (front_index if vid%2==1 else back_index).add_with_ids(emb.reshape(1,-1), idx)
                     if txt_embs.shape[0] > 0:
-                        upsert_ids.append(item.id)
-                        upsert_vecs.append(txt_embs[0])
-                        upsert_names.append(item.name)
-                        upsert_fronts.append(False)
+                        text_index.add_with_ids(txt_embs[0].reshape(1,-1), np.array([item.id],dtype='int64'))
                         item.textEmbeddingId = item.id
-
                 session.add(item)
-
-            # flush DB changes
             session.commit()
-
-            # upsert vectors to Milvus
-            if upsert_ids:
-                collection.insert([
-                    upsert_ids,
-                    np.vstack(upsert_vecs).tolist(),
-                    upsert_names,
-                    upsert_fronts,
-                ])
-                collection.flush()
-
     try:
         loop.run_until_complete(runner())
-        logger.info(f"✅ Batch {batch_index} committed ({len(item_ids)} items) and upserted {len(upsert_ids)} vectors")
+        logger.info(f"✅ Batch {batch_index} committed ({len(item_ids)} items)")
     except Exception as e:
         session.rollback()
         logger.error(f"Error in batch {batch_index}: {e}")
     finally:
-        loop.close()
-        session.close()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        loop.close(); session.close()
+        if torch.cuda.is_available(): torch.cuda.empty_cache()
 
 # --- Main ---
 def main(batch_size=20):
@@ -216,11 +180,13 @@ def main(batch_size=20):
         ProductItem.textEmbeddingId==None
     ).all()]
     session.close()
-
     batches = [all_ids[i:i+batch_size] for i in range(0, len(all_ids), batch_size)]
     with ThreadPoolExecutor(max_workers=2) as executor:
         for idx, b in enumerate(batches, 1):
             executor.submit(process_batch, b, idx)
+    faiss.write_index(front_index, "faiss_front.index")
+    faiss.write_index(back_index,  "faiss_back.index")
+    faiss.write_index(text_index,  "faiss_text.index")
 
 if __name__ == '__main__':
     main()
