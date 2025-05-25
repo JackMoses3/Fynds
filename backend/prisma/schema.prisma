@@ -16,14 +16,20 @@ model ProductItem {
   metaData         String
   retailer         String
   price            Float
-  frontEmbeddingId BigInt?
+  standardPrice    Float?
+  sale             Boolean?          @default(false)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  frontEmbeddingId BigInt?
   backEmbeddingId  BigInt?
   textEmbeddingId  BigInt?
   brand            String
+  storeId          BigInt?
   category         String?
   subCategory      String?
+  lastModified     DateTime?
+  siteDataConfigId Int?
+  itemVideos       ItemVideo[]
   productStyles    ProductStyle[]
   productImages    ProductImage[]
   TrolleyItem      TrolleyItem[]
@@ -31,6 +37,10 @@ model ProductItem {
   CollectionItem   CollectionItem[]
   ViewingHistory   ViewingHistory[]
   PurchaseHistory  PurchaseHistory[]
+  siteDataConfig   SiteDataConfig?   @relation(fields: [siteDataConfigId], references: [id])
+  productItemLook  ProductItemLook[]
+
+  @@unique([retailer, storeId])
 }
 
 model ProductImage {
@@ -38,6 +48,49 @@ model ProductImage {
   productItemId Int
   imageUrl      String
   frontFacing   Boolean?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  productItem   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+}
+
+model SiteDataConfig {
+  id                Int           @id @default(autoincrement())
+  domain            String        @unique
+  retailerName      String
+  siteMapUrl        String[]
+  ecommercePlatform String
+  created           DateTime      @default(now())
+  lastCrawled       DateTime      @updatedAt
+  looks             Look[]
+  productItems      ProductItem[]
+}
+
+model Look {
+  id               Int               @id @default(autoincrement())
+  name             String
+  description      String
+  siteDataConfigId Int?
+  createdAt        DateTime          @default(now())
+  SiteDataConfig   SiteDataConfig?   @relation(fields: [siteDataConfigId], references: [id])
+  productItemLook  ProductItemLook[]
+}
+
+model ProductItemLook {
+  id            Int         @id @default(autoincrement())
+  productItemId Int
+  lookId        Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  look          Look        @relation(fields: [lookId], references: [id])
+  productItem   ProductItem @relation(fields: [productItemId], references: [id])
+
+  @@unique([productItemId, lookId])
+}
+
+model ItemVideo {
+  id            Int         @id @default(autoincrement())
+  productItemId Int
+  videoUrl      String
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   productItem   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
