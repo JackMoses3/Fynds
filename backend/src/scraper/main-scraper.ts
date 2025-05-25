@@ -10,6 +10,7 @@ async function bootstrap() {
   const scraperService = app.get(ScraperService);
 
   const urls = [
+    "https://www.platypusshoes.com.au/shop/mens/clothing/tops",
     //"https://www.gluestore.com.au/collections/womens-clothing",
     //"https://www.generalpants.com/collections/mens-jackets-coats",
     //"https://www.generalpants.com/collections/mens-clothing-singlets",

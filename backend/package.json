@@ -52,6 +52,7 @@
     "pgvector": "^0.2.0",
     "playwright": "^1.51.1",
     "puppeteer": "^24.5.0",
+    "python-shell": "^5.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

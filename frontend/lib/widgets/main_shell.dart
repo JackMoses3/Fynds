@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/screens/explore/explore_screen.dart';
 import 'package:frontend/screens/home/home_screen.dart';
+import 'package:frontend/screens/explore/explore_screen.dart';
+import 'package:frontend/screens/basket/basket_screen.dart';
 import 'package:frontend/screens/profile/profile_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({Key? key}) : super(key: key);
 
   @override
-  _MainShellState createState() => _MainShellState();
+  State<MainShell> createState() => _MainShellState();
 }
 
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
 
-  // Replace with your actual screen widgets
   static final List<Widget> _pages = <Widget>[
-    HomeScreen(),
-    ExploreScreen(),
-    ProfileScreen(),
+    const HomeScreen(),
+    const ExploreScreen(),
+    const BasketScreen(),
+    const ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -29,15 +30,23 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_selectedIndex], // show the active page
+      body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        items: const <BottomNavigationBarItem>[
+        backgroundColor: Colors.white, // white background
+        selectedItemColor: Colors.black, // black for selected icon & text
+        unselectedItemColor: Colors.black45, // lighter black for unselected
+        type: BottomNavigationBarType.fixed,
+        items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
             icon: Icon(Icons.grid_view),
             label: 'Explore',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_bag),
+            label: 'Basket',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],

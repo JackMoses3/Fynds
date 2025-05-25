@@ -7,14 +7,14 @@ class DioClient {
 
   final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: 'http://localhost:3000/api/',
+      baseUrl: 'http://10.0.2.2:3000/api/',
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       validateStatus: (status) => status != null && status < 400,
     ),
   );
 
-  final _storage = FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage();
 
   DioClient._internal() {
     _dio.interceptors.add(
@@ -30,23 +30,16 @@ class DioClient {
         },
         onError: (e, handler) async {
           print('🛑 onError called with status: ${e.response?.statusCode}');
-          print('⚠️ Intercepted error: ${e.response?.statusCode}');
           if (e.response != null) {
             print('🚨 Dio error status code: ${e.response?.statusCode}');
             print('🚨 Dio error data: ${e.response?.data}');
           }
-          if (e.response?.statusCode == 400) {
-            print('🧩 Request caused 400 error');
-            print('🔍 Request path: ${e.requestOptions.path}');
-            print('📦 Request data: ${e.requestOptions.data}');
-            print('📨 Request headers: ${e.requestOptions.headers}');
-          }
+
           if (e.response?.statusCode == 401) {
             final refreshToken = await _storage.read(key: 'refresh_token');
             if (refreshToken != null) {
               try {
                 print('🔁 Attempting token refresh...');
-                print('🔁 Using refresh token: $refreshToken');
                 final refreshResponse = await _dio.post(
                   'auth/refresh',
                   data: {'refresh_token': refreshToken},
@@ -57,16 +50,19 @@ class DioClient {
                   key: 'access_token',
                   value: newAccessToken,
                 );
+
+                // Retry original request with new token
                 e.requestOptions.headers['Authorization'] =
                     'Bearer $newAccessToken';
-                final clonedRequest = await _dio.fetch(e.requestOptions);
-                return handler.resolve(clonedRequest);
+                final cloned = await _dio.fetch(e.requestOptions);
+                return handler.resolve(cloned);
               } catch (refreshError) {
                 print('❌ Refresh failed: $refreshError');
                 return handler.reject(refreshError as DioException);
               }
             }
           }
+
           return handler.next(e);
         },
       ),

@@ -7,7 +7,6 @@ class BrandPerCatRet {
 
   factory BrandPerCatRet.fromJson(Map<String, dynamic> json) {
     List<String> safeBrands = [];
-
     if (json['brands'] != null && json['brands'] is List) {
       for (var brand in json['brands']) {
         if (brand is String) {
@@ -15,9 +14,7 @@ class BrandPerCatRet {
         }
       }
     }
-
     debugPrint("✅ Safe Brands extracted (${safeBrands.length}): $safeBrands");
-
     return BrandPerCatRet(brands: safeBrands);
   }
 }
@@ -29,7 +26,6 @@ class CategoryPerBraRet {
 
   factory CategoryPerBraRet.fromJson(Map<String, dynamic> json) {
     List<String> safeCategories = [];
-
     if (json['categories'] != null && json['categories'] is List) {
       for (var category in json['categories']) {
         if (category is String) {
@@ -37,11 +33,9 @@ class CategoryPerBraRet {
         }
       }
     }
-
     debugPrint(
       "✅ Safe Categories extracted (${safeCategories.length}): $safeCategories",
     );
-
     return CategoryPerBraRet(categories: safeCategories);
   }
 }
@@ -53,7 +47,6 @@ class RetailerPerBraCat {
 
   factory RetailerPerBraCat.fromJson(Map<String, dynamic> json) {
     List<String> safeRetailers = [];
-
     if (json['retailers'] != null && json['retailers'] is List) {
       for (var retailer in json['retailers']) {
         if (retailer is String) {
@@ -61,11 +54,9 @@ class RetailerPerBraCat {
         }
       }
     }
-
     debugPrint(
       "✅ Safe Retailers extracted (${safeRetailers.length}): $safeRetailers",
     );
-
     return RetailerPerBraCat(retailers: safeRetailers);
   }
 }

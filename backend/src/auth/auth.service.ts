@@ -21,7 +21,7 @@ export class AuthService {
     private mailerService: MailerService,
     private googleClient: OAuth2Client,
     @Inject('REFRESH_SERVICE') private refreshJwtService: JwtService,
-  ) {}
+  ) { }
 
   async register(registerDto: RegisterDto): Promise<User> {
     const passwordHash = await argon2.hash(registerDto.password);
@@ -50,9 +50,9 @@ export class AuthService {
     });
   }
 
-  async verifyEmail(email: string, code: number): Promise<AuthTokens| null> {
+  async verifyEmail(email: string, code: number): Promise<AuthTokens | null> {
     const user = await this.userService.findOneByEmail(email);
-    
+
     if (!user) return null;
     if (user.isVerified) return null;
     if (user.verifyCode !== Number(code)) return null;
@@ -134,10 +134,10 @@ export class AuthService {
   async refreshAccessToken(token: string): Promise<{ access_token: string }> {
     try {
       const { sub, email, firstName, lastName } =
-      this.jwtService.verify<JwtPayload>(token, {
-        ignoreExpiration: false,
-        secret: this.configService.get<string>('REFRESH_SECRET'),
-      });
+        this.jwtService.verify<JwtPayload>(token, {
+          ignoreExpiration: false,
+          secret: this.configService.get<string>('REFRESH_SECRET'),
+        });
       const access_token = this.jwtService.sign(
         { sub, email, firstName, lastName },
         { expiresIn: '45m' },
@@ -168,7 +168,7 @@ export class AuthService {
         familyName: payload.family_name,
       },
     } as Profile;
-      
+
     const user = await this.validateOrCreateGoogleUser(profile);
     return this.login(user);
   }
