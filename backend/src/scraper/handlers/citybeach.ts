@@ -31,7 +31,7 @@ const client: AxiosInstance = axios.create({
 /* ------------------------------------------------------------------ */
 const xmlParser = new XMLParser({ ignoreAttributes: true, allowBooleanAttributes: false });
 
-async function extractProductUrls(src: string): Promise<string[]> {
+export async function extractProductUrls(src: string): Promise<string[]> {
     let xml: string;
     if (src.endsWith('.gz')) {
         const resp = await client.get<ArrayBuffer>(src, { responseType: 'arraybuffer', headers: BROWSER_HEADERS });
@@ -57,7 +57,7 @@ interface UpsertPayload {
     create: object;
 }
 
-async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
+export async function buildUpsert(pageUrl: string, config: SiteDataConfig,): Promise<UpsertPayload | null> {
     const match = pageUrl.match(/\/(\d+-\d+)\.html$/);
     if (!match) return null;
     const variantId = match[1];
@@ -108,8 +108,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
         where: { url: pageUrl },
         update: {
             ...baseFields,
-            productImages: { deleteMany: {}, createMany: { data: images.map((u) => ({ imageUrl: u })) } },
-            itemVideos: { deleteMany: {}, createMany: { data: videos.map((u) => ({ videoUrl: u })) } },
         },
         create: {
             ...baseFields,
@@ -143,7 +141,7 @@ export async function handleCityBeach(
         productUrls,
         async (pageUrl) => {
             try {
-                const upsertData = await buildUpsert(pageUrl);
+                const upsertData = await buildUpsert(pageUrl, config);
                 if (!upsertData) return;
                 (upsertData.create as any).siteDataConfigId = config.id;
                 await prisma.$transaction((tx) => tx.productItem.upsert(upsertData as any));

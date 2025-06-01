@@ -26,7 +26,7 @@ const client: AxiosInstance = axios.create({
 /* ------------------------------------------------------------------ */
 const xmlParser = new XMLParser({ ignoreAttributes: true, allowBooleanAttributes: false });
 
-async function extractProductUrls(src: string): Promise<string[]> {
+export async function extractProductUrls(src: string): Promise<string[]> {
     if (!src.endsWith('.xml')) return [src];
 
     console.log(`   • fetching sitemap ${src}`);
@@ -51,7 +51,7 @@ interface UpsertPayload {
     create: object;
 }
 
-async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
+export async function buildUpsert(pageUrl: string, config: SiteDataConfig,): Promise<UpsertPayload | null> {
     // derive json endpoint path
     const { origin, pathname } = new URL(pageUrl);
     const enAuPrefix = '/en-au/';
@@ -59,7 +59,7 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
         ? pathname.slice(enAuPrefix.length)
         : pathname.replace(/^\//, '');
 
-    const BUILD_ID = 'bb06c9562328f49ad1be821796ccf1a1e880b573';
+    const BUILD_ID = 'beed5f0d024af38eb18fc54186c2b1a3e604ec6d';
     const apiUrl = `${origin}/_next/data/${BUILD_ID}/en-au/${uriPath}.json`;
 
     let data: any;
@@ -115,10 +115,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
         where: { url: pageUrl },
         update: {
             ...baseFields,
-            productImages: {
-                deleteMany: {},
-                createMany: { data: images.map((imageUrl) => ({ imageUrl })) },
-            },
         },
         create: {
             ...baseFields,
@@ -153,7 +149,7 @@ export async function handleCos(
         productUrls,
         async (pageUrl) => {
             try {
-                const upsertData = await buildUpsert(pageUrl);
+                const upsertData = await buildUpsert(pageUrl, config);
                 if (!upsertData) return;
                 (upsertData.create as any).siteDataConfigId = config.id;
                 await prisma.$transaction((tx) => tx.productItem.upsert(upsertData as any));

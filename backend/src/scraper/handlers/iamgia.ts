@@ -56,7 +56,7 @@ interface UpsertPayload {
     create: object;
 }
 
-async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
+export async function buildUpsert(pageUrl: string, config: SiteDataConfig,): Promise<UpsertPayload | null> {
 
     const { origin, pathname } = new URL(pageUrl);
     const auPrefix = '/au/';
@@ -109,12 +109,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
         where: { url: pageUrl },
         update: {
             ...baseFields,
-            productImages: {
-                /* compare counts – only touch if changed */
-                ...(images.length
-                    ? { deleteMany: {}, createMany: { data: images.map((u) => ({ imageUrl: u })) } }
-                    : {}),
-            },
         },
         create: {
             ...baseFields,
@@ -152,7 +146,7 @@ export async function handleIAmGia(
         productUrls,
         async (pageUrl) => {
             try {
-                const upsertData = await buildUpsert(pageUrl);
+                const upsertData = await buildUpsert(pageUrl, config);
                 if (!upsertData) return;
 
                 /* attach foreign key that depends on config */

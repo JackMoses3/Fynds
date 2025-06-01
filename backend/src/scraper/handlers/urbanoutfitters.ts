@@ -40,7 +40,7 @@ const EXCLUDED = [
 /* ------------------------------------------------------------------ */
 const xmlParser = new XMLParser({ ignoreAttributes: true, allowBooleanAttributes: false });
 
-async function extractProductUrls(src: string): Promise<string[]> {
+export async function extractProductUrls(src: string): Promise<string[]> {
     if (!src.endsWith('.xml')) return [src];
 
     console.log(`   • fetching sitemap ${src}`);
@@ -59,7 +59,7 @@ interface UpsertPayload {
     create: object;
 }
 
-async function buildUpsert(pageUrl: string): Promise<UpsertPayload[] | null> {
+export async function buildUpsert(pageUrl: string, config: SiteDataConfig,): Promise<UpsertPayload[] | null> {
     const { pathname } = new URL(pageUrl);
     const sku = pathname.split('/').pop() || '';
     if (!/^UO-\d+-\d+$/.test(sku)) return null;
@@ -118,8 +118,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload[] | null> {
                 retailer: 'Urban Outfitters',
                 category,
                 sex,
-                productImages: { deleteMany: {}, create: imgs.map((u: string) => ({ imageUrl: u })) },
-                itemVideos: { deleteMany: {}, create: vids.map((u: string) => ({ videoUrl: u })) },
             },
             create: {
                 url: variantUrl,
@@ -164,7 +162,7 @@ export async function handleUrban(
         productUrls,
         async (pageUrl) => {
             try {
-                const payloads = await buildUpsert(pageUrl);
+                const payloads = await buildUpsert(pageUrl, config);
                 if (!payloads) return;
 
                 for (const upsertData of payloads) {

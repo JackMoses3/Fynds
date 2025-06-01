@@ -6,8 +6,19 @@ import { parseStringPromise, processors } from 'xml2js';
 import { PrismaClient, SiteDataConfig } from '@prisma/client';
 import { BROWSER_HEADERS, inferSex, normalizeCategory } from '../utils/utils';
 
+const CUSTOM_HEADERS = {
+    ...BROWSER_HEADERS,
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    'Accept': 'application/json',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': 'https://www.adidas.com.au/',
+    'Connection': 'keep-alive',
+    'DNT': '1',
+    'Upgrade-Insecure-Requests': '1',
+};
+
 async function extractProductUrls(fromUrl: string): Promise<string[]> {
-    // treat .xml URLs as sitemaps, everything else as a single page
     if (!fromUrl.endsWith('.xml')) {
         console.log(`   • not a sitemap, using single URL: ${fromUrl}`);
         return [fromUrl];
@@ -17,7 +28,7 @@ async function extractProductUrls(fromUrl: string): Promise<string[]> {
     let xml: string;
     try {
         const resp = await axios.get<string>(fromUrl, {
-            headers: BROWSER_HEADERS,
+            headers: CUSTOM_HEADERS,
             timeout: 10000,
         });
         xml = resp.data;
@@ -26,7 +37,6 @@ async function extractProductUrls(fromUrl: string): Promise<string[]> {
         return [];
     }
 
-    // strip whitespace & parse
     const trimmed = xml.trim();
     let parsed: any;
     try {
@@ -50,7 +60,6 @@ async function extractProductUrls(fromUrl: string): Promise<string[]> {
 }
 
 function toProductId(pageUrl: string): string | null {
-    // last path segment before .html
     const seg = new URL(pageUrl).pathname.split('/').pop() || '';
     return seg.endsWith('.html') ? seg.slice(0, -5) : null;
 }
@@ -81,20 +90,18 @@ export async function handleAdidas(
             const apiUrl = `https://www.adidas.com.au/api/products/${productId}`;
             let data: any;
             try {
-                data = (await axios.get(apiUrl, { headers: BROWSER_HEADERS })).data;
+                data = (await axios.get(apiUrl, { headers: CUSTOM_HEADERS })).data;
             } catch (err: any) {
                 console.error(`   • API fetch failed ${apiUrl}:`, err.message || err);
                 continue;
             }
 
-            // skip non-clothing
             const rawCat = data.attribute_list?.category || '';
             if (rawCat.toLowerCase() !== 'clothing') {
                 console.log(`   • skipping non-clothing category: ${rawCat}`);
                 continue;
             }
 
-            // extract fields
             const name: string = data.name || '';
             const metaData: string = data.product_description.text || '';
             const brand: string = data.attribute_list?.brand || 'Adidas';
@@ -104,16 +111,13 @@ export async function handleAdidas(
             const category: string = normalizeCategory(name);
             const sex: string = inferSex(data.attribute_list?.gender || '', []);
 
-            // images
             const images: string[] = (data.view_list as Array<{ image_url: string }> || [])
                 .map(img => img.image_url.replace(/\/w_600,f_auto,q_auto\//, '/'))
-                .filter(u => !!u);
+                .filter(Boolean);
 
-            // optional video
             const videoUrl: string | null =
                 data.product_description?.description_assets?.video_url || null;
 
-            // upsert
             await prisma.productItem.upsert({
                 where: { url: pageUrl },
                 update: {
@@ -121,23 +125,11 @@ export async function handleAdidas(
                     metaData,
                     brand,
                     price: currentPrice,
-                    standardPrice: standardPrice,
+                    standardPrice,
                     sale,
                     retailer: 'Adidas',
                     category,
                     sex,
-                    productImages: {
-                        deleteMany: {},
-                        create: images.map(imageUrl => ({ imageUrl })),
-                    },
-                    ...(videoUrl
-                        ? {
-                            itemVideos: {
-                                deleteMany: {},
-                                create: [{ videoUrl }],
-                            },
-                        }
-                        : {}),
                 },
                 create: {
                     url: pageUrl,
@@ -145,7 +137,7 @@ export async function handleAdidas(
                     metaData,
                     brand,
                     price: currentPrice,
-                    standardPrice: standardPrice,
+                    standardPrice,
                     sale,
                     retailer: 'Adidas',
                     category,
@@ -157,20 +149,15 @@ export async function handleAdidas(
                     productImages: {
                         create: images.map(imageUrl => ({ imageUrl })),
                     },
-                    ...(videoUrl
-                        ? {
-                            itemVideos: {
-                                create: [{ videoUrl }],
-                            },
-                        }
-                        : {}),
+                    ...(videoUrl ? {
+                        itemVideos: {
+                            create: [{ videoUrl }],
+                        },
+                    } : {}),
                 },
             });
 
-            console.log(
-                `   • synced Adidas ${pageUrl} @ $${currentPrice.toFixed(2)}` +
-                (sale ? ' (sale!)' : '')
-            );
+            console.log(`   • synced Adidas ${pageUrl} @ $${currentPrice.toFixed(2)}` + (sale ? ' (sale!)' : ''));
         }
     }
 }

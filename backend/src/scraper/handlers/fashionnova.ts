@@ -43,7 +43,7 @@ function extractFirstJson(str: string): string | null {
 /* ------------------------------------------------------------------ */
 const xmlParser = new XMLParser({ ignoreAttributes: true, allowBooleanAttributes: false });
 
-async function extractProductUrls(src: string): Promise<string[]> {
+export async function extractProductUrls(src: string): Promise<string[]> {
     console.log(`   • fetching sitemap ${src}`);
     let body: string;
     try {
@@ -89,7 +89,7 @@ async function extractProductUrls(src: string): Promise<string[]> {
 /* ------------------------------------------------------------------ */
 interface UpsertPayload { where: { url: string }; update: object; create: object; }
 
-async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
+export async function buildUpsert(pageUrl: string, config: SiteDataConfig,): Promise<UpsertPayload | null> {
     const apiUrl = `${pageUrl}?_data`;
     let raw: any;
     try {
@@ -131,7 +131,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
         where: { url: pageUrl },
         update: {
             ...baseFields,
-            productImages: { deleteMany: {}, createMany: { data: images.map(i => ({ imageUrl: i })) } },
         },
         create: {
             ...baseFields,
@@ -160,7 +159,7 @@ export async function handleFashionNova(
     const CONCURRENT = 12;
     await pMap(productUrls, async (pageUrl) => {
         try {
-            const upsertData = await buildUpsert(pageUrl);
+            const upsertData = await buildUpsert(pageUrl, config);
             if (!upsertData) return;
             (upsertData.create as any).siteDataConfigId = config.id;
             await prisma.$transaction(tx => tx.productItem.upsert(upsertData as any));

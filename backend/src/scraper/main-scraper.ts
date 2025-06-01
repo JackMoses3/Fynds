@@ -22,7 +22,7 @@ async function main() {
   const prisma = new PrismaClient();
 
   // 1. load your siteDataConfig by domain
-  const domain = process.argv[2];
+  const domain = process.argv[2] || 'vici.com';
   const config = await prisma.siteDataConfig.findUnique({
     where: { domain },
   });
@@ -41,6 +41,7 @@ async function main() {
     case 'zara':
       await handleZara(config as SiteDataConfig, prisma);
       break;
+
 
     case 'iamgia':
       await handleIAmGia(config as SiteDataConfig, prisma);

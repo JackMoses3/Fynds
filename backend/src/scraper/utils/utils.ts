@@ -19,8 +19,10 @@ export function inferSex(type: string, tags: string[]): 'men' | 'women' | 'unise
     const normalize = (s: string) => s.toLowerCase();
     const clean = (s: string) => s.replace(/\//g, ' ').toLowerCase();
 
-    const menKeywords = ['men', 'man', 'boy', 'boys', 'mens', 'gentlemen', 'm'];
-    const womenKeywords = ['women', 'woman', 'girl', 'ladies', 'ladie', 'girls', 'w'];
+    const menKeywords = ['men', 'man', 'boy', 'boys', 'mens', 'gentlemen', "men's", "mens", "male", "zanerobe"];
+    const womenKeywords = ['women', 'woman', 'girl', 'ladies', 'ladie', 'girls', "women's", "womens", "female", "princess",
+        "gorman", "glassons", "dissh", "brandy", "beginning boutique", "aje", "edikted", "delilah", "kookai", "motel rocks",
+        "sheike", "sndys", "white fox", "joah brown", "vici"];
 
     const t = clean(type);
     if (womenKeywords.some(k => t.includes(k))) return 'women';
