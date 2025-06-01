@@ -24,7 +24,7 @@ const client: AxiosInstance = axios.create({
 /* 2. Sitemap reader                                                  */
 /* ------------------------------------------------------------------ */
 const xmlParser = new XMLParser({ ignoreAttributes: true, allowBooleanAttributes: false });
-async function extractProductUrls(src: string): Promise<string[]> {
+export async function extractProductUrls(src: string): Promise<string[]> {
     if (!src.endsWith('.xml')) return [src];
     console.log(`   • fetching sitemap ${src}`);
     let xml: string;
@@ -53,12 +53,12 @@ async function extractProductUrls(src: string): Promise<string[]> {
 /* 3. Build upsert payload                                           */
 /* ------------------------------------------------------------------ */
 interface UpsertPayload { where: { url: string }; update: object; create: object; }
-async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
+export async function buildUpsert(pageUrl: string, config: SiteDataConfig,): Promise<UpsertPayload | null> {
     const { origin, pathname } = new URL(pageUrl);
     const slug = pathname.split('/').pop()?.split('?')[0] || null;
     if (!slug) return null;
 
-    const BUILD_ID = 'sSoLv1EcdHGE8YLL-HXtK';
+    const BUILD_ID = 'sMQ5IyshhLw3_OzJOUOjL';
     const apiUrl = `${origin}/_next/data/${BUILD_ID}/en-US/product/${slug}.json`;
     let data: any;
     try {
@@ -70,10 +70,11 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
 
     const p = data.pageProps?.product;
     if (!p) return null;
-    if (p.tags?.includes('ACCESSORIES')) {
-        console.log(`   • skipping accessories-only: ${pageUrl}`);
+    if (p.tags?.includes('ACCESSORIES') || p.tags?.includes('KIDS')) {
+        console.log(`   • skipping accessories/kids-only: ${pageUrl}`);
         return null;
     }
+
 
     const name: string = p.name;
     const metaData: string = p.description;
@@ -97,14 +98,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
         where: { url: pageUrl },
         update: {
             ...baseFields,
-            productImages: {
-                deleteMany: {},
-                createMany: { data: images.map(url => ({ imageUrl: url })) }
-            },
-            itemVideos: {
-                deleteMany: {},
-                createMany: { data: video ? [{ videoUrl: video }] : [] }
-            },
         },
         create: {
             ...baseFields,
@@ -139,7 +132,7 @@ export async function handleGhanda(
     const CONCURRENT = 12;
     await pMap(productUrls, async (pageUrl) => {
         try {
-            const upsertData = await buildUpsert(pageUrl);
+            const upsertData = await buildUpsert(pageUrl, config);
             if (!upsertData) return;
             (upsertData.create as any).siteDataConfigId = config.id;
             await prisma.$transaction(tx => tx.productItem.upsert(upsertData as any));

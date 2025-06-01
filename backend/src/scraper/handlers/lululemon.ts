@@ -42,7 +42,7 @@ async function fetchViaPuppeteer(url: string): Promise<string> {
 /* 3.  Sitemap reader                                                 */
 /* ------------------------------------------------------------------ */
 const xmlParser = new XMLParser({ ignoreAttributes: true });
-async function extractProductUrls(src: string): Promise<string[]> {
+export async function extractProductUrls(src: string): Promise<string[]> {
     let xml: string;
     try {
         xml = (await client.get<string>(src)).data;
@@ -71,7 +71,7 @@ interface UpsertPayload {
     create: object;
 }
 
-async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
+export async function buildUpsert(pageUrl: string, config: SiteDataConfig,): Promise<UpsertPayload | null> {
     const match = pageUrl.match(/\/p\/[^/]+\/([^/]+)\.html$/);
     if (!match) return null;
     const pid = match[1];
@@ -110,7 +110,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
         where: { url: pageUrl },
         update: {
             ...base,
-            productImages: { deleteMany: {}, createMany: { data: images.map(u => ({ imageUrl: u })) } },
         },
         create: {
             ...base,
@@ -141,7 +140,7 @@ export async function handleLululemon(
         productUrls,
         async (url) => {
             try {
-                const upsert = await buildUpsert(url);
+                const upsert = await buildUpsert(url, config);
                 if (!upsert) return;
                 (upsert.create as any).siteDataConfigId = config.id;
                 await prisma.$transaction(tx => tx.productItem.upsert(upsert as any));

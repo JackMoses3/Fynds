@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import axios, { AxiosInstance } from 'axios';
 import pMap from 'p-map';
-import * as http from 'http';
-import * as https from 'https';
+import http from 'http';
+import https from 'https';
 import { XMLParser } from 'fast-xml-parser';
-import { PrismaClient, SiteDataConfig } from '@prisma/client';
+import type { PrismaClient, SiteDataConfig } from '@prisma/client';
 import { BROWSER_HEADERS, inferSex, normalizeCategory } from '../utils/utils';
 
 /* ------------------------------------------------------------------ */
@@ -23,7 +23,7 @@ const client: AxiosInstance = axios.create({
 /* 2.  Sitemap reader                                                  */
 /* ------------------------------------------------------------------ */
 const xmlParser = new XMLParser({ ignoreAttributes: true, allowBooleanAttributes: false });
-async function extractProductUrls(src: string): Promise<string[]> {
+export async function extractProductUrls(src: string): Promise<string[]> {
     if (!src.endsWith('.xml')) return [src];
     console.log(`   • fetching sitemap ${src}`);
     const xml = (await client.get<string>(src)).data;
@@ -37,7 +37,7 @@ async function extractProductUrls(src: string): Promise<string[]> {
 /* ------------------------------------------------------------------ */
 interface UpsertPayload { where: { url: string }; update: object; create: object; }
 
-async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
+export async function buildUpsert(pageUrl: string, config: SiteDataConfig,): Promise<UpsertPayload | null> {
     // extract productId from URL suffix
     const match = pageUrl.match(/_(\d+)(?:$|\?)/);
     if (!match) return null;
@@ -68,29 +68,18 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
     const name: string = meta.name;
     const metaData: string = '';
     const brand: string = 'Mango';
-    const rawCatSex: string = meta.url;
-    const category = normalizeCategory(rawCatSex);
-    const sex = inferSex(rawCatSex, []);
+    const rawCat: string = meta.url;
+    const category = normalizeCategory(rawCat);
+    const sex = inferSex(rawCat, [meta.name]);
+    // else leave sex as undefined
 
     // pricing
     // pricing
     // mango v3 prices API returns an array under `data`
-    const priceEntries: any[] = Array.isArray(priceData.data) ? priceData.data : [];
+    const priceEntries: any[] = Object.values(priceData).map((entry) => (entry as any).price);
     // extract each variant's price
-    const prices = priceEntries
-        .map((x) => typeof x.price === 'number' ? x.price : parseFloat(x.price || '0'))
-        .filter((p) => !isNaN(p));
-    const price: number = prices.length ? Math.min(...prices) : 0;
-
-    // originals may be under `originalPrice` or fallback to `price`
-    const originals = priceEntries
-        .map((x) =>
-            typeof x.originalPrice === 'number'
-                ? x.originalPrice
-                : (typeof x.price === 'number' ? x.price : parseFloat(x.price || '0'))
-        )
-        .filter((o) => !isNaN(o));
-    const listPrice: number = originals.length ? Math.min(...originals, price) : price;
+    const price = priceEntries.length ? Math.min(...priceEntries) : 0;
+    const listPrice = priceEntries.length ? Math.max(...priceEntries) : 0;
 
     const sale = price < listPrice;
 
@@ -101,10 +90,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
     const images: string[] = [];
     const domain = meta.assetsDomain?.replace(/\/$/, '') || '';
     for (const color of meta.colors ?? []) {
-        // bullet/swatch
-        if (color.bulletImg) {
-            images.push(domain + color.bulletImg);
-        }
         // look “00” images
         const look0 = color.looks?.['00']?.images;
         if (look0 && typeof look0 === 'object') {
@@ -134,10 +119,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
         where: { url: pageUrl },
         update: {
             ...baseFields,
-            productImages: {
-                deleteMany: {},
-                createMany: { data: images.map((imageUrl) => ({ imageUrl })) },
-            },
         },
         create: {
             ...baseFields,
@@ -147,7 +128,7 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
             lastModified: null,
             siteDataConfigId: undefined, // set in handler
             productImages: {
-                createMany: { data: images.map((imageUrl) => ({ imageUrl })) },
+                createMany: { data: uniqueImages.map((imageUrl) => ({ imageUrl })) },
             },
         },
     };
@@ -172,12 +153,13 @@ export async function handleMango(
         productUrls,
         async (pageUrl) => {
             try {
-                const upsertData = await buildUpsert(pageUrl);
+                const upsertData = await buildUpsert(pageUrl, config);
                 if (!upsertData) return;
                 (upsertData.create as any).siteDataConfigId = config.id;
                 await prisma.$transaction((tx) =>
                     tx.productItem.upsert(upsertData as any),
                 );
+
                 console.log(`   • synced ${pageUrl}`);
             } catch (err) {
                 console.error(`   • failed ${pageUrl}:`, (err as Error).message);

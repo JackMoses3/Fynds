@@ -23,7 +23,7 @@ const client: AxiosInstance = axios.create({
 /* ------------------------------------------------------------------ */
 /* 2.  Sitemap reader                                                  */
 /* ------------------------------------------------------------------ */
-async function extractProductUrls(fromUrl: string): Promise<string[]> {
+export async function extractProductUrls(fromUrl: string): Promise<string[]> {
     if (!fromUrl.endsWith('.xml')) return [fromUrl];
     console.log(`   • fetching sitemap: ${fromUrl}`);
     try {
@@ -61,7 +61,7 @@ interface UpsertPayload {
     create: object;
 }
 
-async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
+export async function buildUpsert(pageUrl: string, config: SiteDataConfig,): Promise<UpsertPayload | null> {
     const garmentId = toGarmentId(pageUrl);
     if (!garmentId) return null;
 
@@ -100,10 +100,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
         where: { url: pageUrl },
         update: {
             ...baseFields,
-            productImages: {
-                deleteMany: {},
-                createMany: { data: images.map(imageUrl => ({ imageUrl })) },
-            },
         },
         create: {
             ...baseFields,
@@ -134,7 +130,7 @@ export async function handleGlassons(
     const CONCURRENT = 12;
     await pMap(productUrls, async (pageUrl) => {
         try {
-            const upsertData = await buildUpsert(pageUrl);
+            const upsertData = await buildUpsert(pageUrl, config);
             if (!upsertData) return;
             (upsertData.create as any).siteDataConfigId = config.id;
             await prisma.$transaction(tx => tx.productItem.upsert(upsertData as any));

@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "fast-xml-parser": "^5.2.3",
+    "p-map": "^7.0.3",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@types/p-map": "^2.0.0",
+    "@types/xml2js": "^0.4.14"
+  }
+}

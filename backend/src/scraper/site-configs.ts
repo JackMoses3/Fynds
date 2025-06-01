@@ -16,7 +16,7 @@ const sites = [
             'https://www.universalstore.com/sitemap_products_2.xml?from=9122394865967&to=10122507583791',
             'https://www.universalstore.com/sitemap_products_3.xml?from=10122507616559&to=10404267983151',
             'https://www.universalstore.com/sitemap_products_4.xml?from=10404268081455&to=10579161153839'],
-        ecommercePlatform: 'Shopify'
+        ecommercePlatform: 'shopify'
     },
     {
         domain: 'citybeach.com',
@@ -27,7 +27,46 @@ const sites = [
     {
         domain: 'hm.com',
         retailerName: 'H&M',
-        siteMapUrl: ['https://www2.hm.com/en_au.product.0.xml'],
+        siteMapUrl: [
+            "https://www2.hm.com/en_au.product.0.xml",
+            "https://www2.hm.com/en_au.product.1.xml",
+            "https://www2.hm.com/en_au.product.2.xml",
+            "https://www2.hm.com/en_au.product.3.xml",
+            "https://www2.hm.com/en_au.product.4.xml",
+            "https://www2.hm.com/en_au.product.5.xml",
+            "https://www2.hm.com/en_au.product.6.xml",
+            "https://www2.hm.com/en_au.product.7.xml",
+            "https://www2.hm.com/en_au.product.8.xml",
+            "https://www2.hm.com/en_au.product.9.xml",
+            "https://www2.hm.com/en_au.product.10.xml",
+            "https://www2.hm.com/en_au.product.11.xml",
+            "https://www2.hm.com/en_au.product.12.xml",
+            "https://www2.hm.com/en_au.product.13.xml",
+            "https://www2.hm.com/en_au.product.14.xml",
+            "https://www2.hm.com/en_au.product.15.xml",
+            "https://www2.hm.com/en_au.product.16.xml",
+            "https://www2.hm.com/en_au.product.17.xml",
+            "https://www2.hm.com/en_au.product.18.xml",
+            "https://www2.hm.com/en_au.product.19.xml",
+            "https://www2.hm.com/en_au.product.20.xml",
+            "https://www2.hm.com/en_au.product.21.xml",
+            "https://www2.hm.com/en_au.product.22.xml",
+            "https://www2.hm.com/en_au.product.23.xml",
+            "https://www2.hm.com/en_au.product.24.xml",
+            "https://www2.hm.com/en_au.product.25.xml",
+            "https://www2.hm.com/en_au.product.26.xml",
+            "https://www2.hm.com/en_au.product.27.xml",
+            "https://www2.hm.com/en_au.product.28.xml",
+            "https://www2.hm.com/en_au.product.29.xml",
+            "https://www2.hm.com/en_au.product.30.xml",
+            "https://www2.hm.com/en_au.product.31.xml",
+            "https://www2.hm.com/en_au.product.32.xml",
+            "https://www2.hm.com/en_au.product.33.xml",
+            "https://www2.hm.com/en_au.product.34.xml",
+            "https://www2.hm.com/en_au.product.35.xml",
+            "https://www2.hm.com/en_au.product.36.xml",
+            "https://www2.hm.com/en_au.product.37.xml"
+        ],
         ecommercePlatform: 'hm'
     },
     {
@@ -2192,6 +2231,346 @@ const sites = [
             'https://www.incu.com/sitemap_products_9.xml?from=7366390710326&to=7655521812534',
             'https://www.incu.com/sitemap_products_10.xml?from=7655521845302&to=7771051491382',
             'https://www.incu.com/sitemap_products_11.xml?from=7771051524150&to=7829248147510'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'assemblylabel.com',
+        retailerName: 'Assembly Label',
+        siteMapUrl: ['https://assemblylabel.com/sitemap_products_1.xml?from=1013006630964&to=14734878835052'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'ajeworld.com.au',
+        retailerName: 'AJE',
+        siteMapUrl: [
+            'https://ajeworld.com.au/sitemap_products_1.xml?from=5162201645190&to=7296470745222',
+            'https://ajeworld.com.au/sitemap_products_2.xml?from=7296470843526&to=7393569177734',
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'lionessfashion.com',
+        retailerName: 'Lioness Fashion',
+        siteMapUrl: [
+            'https://lionessfashion.com/sitemap_products_1.xml?from=6784927400018&to=7456343621714'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'princesspolly.com.au',
+        retailerName: 'Princess Polly',
+        siteMapUrl: [
+            'https://www.princesspolly.com.au/sitemap_products_1.xml?from=3872000376914&to=6595275128904',
+            'https://www.princesspolly.com.au/sitemap_products_2.xml?from=6595275292744&to=6621654876232',
+            'https://www.princesspolly.com.au/sitemap_products_3.xml?from=6621655072840&to=6635902435400',
+            'https://www.princesspolly.com.au/sitemap_products_4.xml?from=6635902500936&to=6682055671880',
+            'https://www.princesspolly.com.au/sitemap_products_5.xml?from=6682055770184&to=6763484184648',
+            'https://www.princesspolly.com.au/sitemap_products_6.xml?from=6763484250184&to=6788280221768',
+            'https://www.princesspolly.com.au/sitemap_products_7.xml?from=6788280254536&to=6840447303752',
+            'https://www.princesspolly.com.au/sitemap_products_8.xml?from=6840447533128&to=6909200236616',
+            'https://www.princesspolly.com.au/sitemap_products_9.xml?from=6909200269384&to=6966683467848'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'bronzesnake.com',
+        retailerName: 'Bronze Snake',
+        siteMapUrl: [
+            'https://bronzesnake.com/sitemap_products_1.xml?from=4572184608813&to=8168951250989'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'brandymelville.com',
+        retailerName: 'Brandy Melville',
+        siteMapUrl: [
+            'https://au.brandymelville.com/sitemap_products_1.xml?from=6135603396795&to=8075795366075'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'whitefoxboutique.com.au',
+        retailerName: 'White Fox Boutique',
+        siteMapUrl: [
+            'https://whitefoxboutique.com.au/sitemap_products_1.xml?from=4329671196744&to=6909203939400',
+            'https://whitefoxboutique.com.au/sitemap_products_2.xml?from=6909203972168&to=6967893131336'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'beginningboutique.com.au',
+        retailerName: 'Beginning Boutique',
+        siteMapUrl: [
+            'https://www.beginningboutique.com.au/sitemap_products_1.xml?from=11421718084&to=6849563787336',
+            'https://www.beginningboutique.com.au/sitemap_products_2.xml?from=6849565392968&to=6966578249800'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'afends.com',
+        retailerName: 'Afends',
+        siteMapUrl: [
+            'https://afends.com/sitemap_products_1.xml?from=12134876166&to=7377836343430'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'synds.com.au',
+        retailerName: 'SNDYS',
+        siteMapUrl: [
+            'https://sndys.com.au/sitemap_products_1.xml?from=4136026636363&to=8881031020798'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'zanerobe.com',
+        retailerName: 'Zanerobe',
+        siteMapUrl: [
+            'https://zanerobe.com/sitemap_products_1.xml?from=753359913004&to=7648451919974'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'quciksilver.com.au',
+        retailerName: 'Quiksilver',
+        siteMapUrl: [
+            'https://www.quiksilver.com.au/sitemap_products_1.xml?from=7981719945410&to=7983480340674',
+            ' https://www.quiksilver.com.au/sitemap_products_2.xml?from=7983480373442&to=8041714876610 '
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'modemischiefstudios.com',
+        retailerName: 'Mode Mischief Studios',
+        siteMapUrl: [
+            'https://modemischiefstudios.com/sitemap_products_1.xml?from=7317744615592&to=8969674424488 '],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'becandbridge.com.au',
+        retailerName: 'BEC & BRIDGE',
+        siteMapUrl: ['https://www.becandbridge.com.au/sitemap_products_1.xml?from=4457372909611&to=14797437075824'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'edikted.com',
+        retailerName: 'Edikted',
+        siteMapUrl: [
+            'https://edikted.com/sitemap_products_1.xml?from=6066820645031&to=8135531888807',
+            'https://edikted.com/sitemap_products_2.xml?from=8135535558823&to=8470513877159',
+            'https://edikted.com/sitemap_products_3.xml?from=8470513909927&to=8526575501479'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'iamdelilah.com',
+        retailerName: 'I Am Delilah',
+        siteMapUrl: [
+            'https://iamdelilah.com/sitemap_products_1.xml?from=7915948277909&to=8715087937685'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'motelrocks.com',
+        retailerName: 'Motel Rocks',
+        siteMapUrl: [
+            'https://au.motelrocks.com/sitemap_products_1.xml?from=1401355665478&to=3828167114822',
+            'https://au.motelrocks.com/sitemap_products_2.xml?from=3828167180358&to=4701621715019',
+            'https://au.motelrocks.com/sitemap_products_3.xml?from=4701621747787&to=6695345815627',
+            'https://au.motelrocks.com/sitemap_products_4.xml?from=6695345848395&to=6829779583051',
+            'https://au.motelrocks.com/sitemap_products_5.xml?from=6829907574859&to=7156044005451',
+            'https://au.motelrocks.com/sitemap_products_6.xml?from=7156044365899&to=7355930738763'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'meski.com.au',
+        retailerName: 'Meski',
+        siteMapUrl: [
+            'https://meshki.com.au/sitemap_products_1.xml?from=4654511030347&to=7317938536523'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'drmersclub.com',
+        retailerName: 'DRMERS CLUB',
+        siteMapUrl: ['https://drmersclub.com/sitemap_products_1.xml?from=7781859066019&to=8754166431907'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'coldcultureworldwide.com',
+        retailerName: 'Cold Culture',
+        siteMapUrl: ['https://coldcultureworldwide.com/sitemap_products_1.xml?from=6589729308775&to=15065029607802'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'decarbashop.com',
+        retailerName: 'Decarba',
+        siteMapUrl: ['https://decarbashop.com/sitemap_products_1.xml?from=8972741902673&to=15164913680768'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'jadedldn.com',
+        retailerName: 'Jaded London',
+        siteMapUrl: ['https://jadedldn.com/en-au/sitemap_products_1.xml?from=6930887278643&to=15073711358331'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'forever21.com',
+        retailerName: 'Forever 21',
+        siteMapUrl: [
+            'https://forever21.com/sitemap_products_1.xml?from=7318647668770&to=7960760156194',
+            'https://www.forever21.com/sitemap_products_2.xml?from=7960760188962&to=7965196714018'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'dissh.com.au',
+        retailerName: 'Dissh',
+        siteMapUrl: [
+            'https://dissh.com.au/sitemap_products_1.xml?from=1306526646342&to=6953518661704',
+            'https://dissh.com.au/sitemap_products_2.xml?from=6953518694472&to=6969421987912'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'rollasjeans.com',
+        retailerName: 'Rollas Jeans',
+        siteMapUrl: ['https://rollasjeans.com/api/sitemap/products.xml'],
+        ecommercePlatform: 'rollasjeans',
+    },
+    {
+        domain: 'abrandjeans.com',
+        retailerName: 'Abrand Jeans',
+        siteMapUrl: ['https://abrandjeans.com/api/sitemap/products.xml'],
+        ecommercePlatform: 'abrandjeans',
+    },
+    {
+        domain: 'thrills.co',
+        retailerName: 'Thrills',
+        siteMapUrl: [
+            'https://thrills.co/sitemap_products_1.xml?from=370345941&to=7743016140847',
+            'https://thrills.co/sitemap_products_2.xml?from=7743016239151&to=7971327541295'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'eliteelevensporting.com',
+        retailerName: 'Elite Eleven Sporting',
+        siteMapUrl: ['https://eliteelevensporting.com/sitemap_products_1.xml?from=135344029722&to=8437728182462'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'oasisfashion.com',
+        retailerName: 'Oasis Fashion',
+        siteMapUrl: [
+            'https://www.oasisfashion.com/sitemap/oasis/products-0.xml',
+            'https://www.oasisfashion.com/sitemap/oasis/products-1.xml',
+            'https://www.oasisfashion.com/sitemap/oasis/products-2.xml'
+        ],
+        ecommercePlatform: 'oasisfashion',
+    },
+    {
+        domain: 'southst.com.au',
+        retailerName: 'South St',
+        siteMapUrl: ['https://southst.com.au/sitemap_products_1.xml?from=4349889020004&to=8778017767681'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'withjean.com.au',
+        retailerName: 'With Jean',
+        siteMapUrl: ['https://withjean.com.au/sitemap_products_1.xml?from=2222403715170&to=14668108923245'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'observegallery.com',
+        retailerName: 'Observe Gallery',
+        siteMapUrl: ['https://observegallery.com/sitemap_products_1.xml?from=6793460154541&to=8167366394029'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'sheike.com.au',
+        retailerName: 'Sheike',
+        siteMapUrl: ['https://www.sheike.com.au/sitemap_products_1.xml?from=6931875561604&to=8218542801028'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: '2xu.com',
+        retailerName: '2XU',
+        siteMapUrl: ['https://2xu.com/sitemap_products_1.xml?from=6121710485659&to=8483898720411'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'camilla.com',
+        retailerName: 'Camilla',
+        siteMapUrl: [
+            'https://au.camilla.com/sitemap_products_1.xml?from=2178200961142&to=3938601205878',
+            'https://au.camilla.com/sitemap_products_2.xml?from=3938601238646&to=5154543435910',
+            'https://au.camilla.com/sitemap_products_3.xml?from=5154543468678&to=6616826478726',
+            'https://au.camilla.com/sitemap_products_4.xml?from=6616826511494&to=6735575515270',
+            'https://au.camilla.com/sitemap_products_6.xml?from=6866782224518&to=7025859133574',
+            'https://au.camilla.com/sitemap_products_7.xml?from=7025859297414&to=7356191375494',
+            'https://au.camilla.com/sitemap_products_8.xml?from=7356191539334&to=7361590165638'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'gormanshop.com.au',
+        retailerName: 'Gorman',
+        siteMapUrl: ['https://gormanshop.com.au/sitemap_products_1.xml?from=6978866872363&to=7348285145131'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'kookai.com.au',
+        retailerName: 'Kookai',
+        siteMapUrl: [
+            'https://www.kookai.com.au/sitemap_products_1.xml?from=8778062081&to=6734516125768',
+            'https://www.kookai.com.au/sitemap_products_2.xml?from=6734516158536&to=6969765658696'
+        ],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'arthurapparel.com',
+        retailerName: 'Arthur Apparel',
+        siteMapUrl: ['https://arthurapparel.com/sitemap_products_1.xml?from=5678443004071&to=8893359522007'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'withconsideration.com.au',
+        retailerName: 'With Consideration',
+        siteMapUrl: ['https://withconsideration.com.au/sitemap_products_1.xml?from=7209171419302&to=8482736636070'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'scuffers.com',
+        retailerName: 'Scuffers',
+        siteMapUrl: ['https://scuffers.com/sitemap_products_1.xml?from=6718956961877&to=9490180309320'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'withjean.com.au',
+        retailerName: 'With Jean',
+        siteMapUrl: ['https://withjean.com.au/sitemap_products_1.xml?from=2222403715170&to=14668108923245'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'studiokatiegray.com',
+        retailerName: 'Studio Katie Gray',
+        siteMapUrl: ['https://www.studiokatiegray.com/sitemap_products_1.xml?from=7679849201899&to=8867145711851'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'joahbrown.com',
+        retailerName: 'Joah Brown',
+        siteMapUrl: ['https://www.joahbrown.com/sitemap_products_1.xml?from=1365632712806&to=7655355973734'],
+        ecommercePlatform: 'shopify'
+    },
+    {
+        domain: 'vici.com',
+        retailerName: 'VICI',
+        siteMapUrl: ['https://www.vicicollection.com/sitemap_products_1.xml?from=4447896240190&to=7678432804926',
+            'https://www.vicicollection.com/sitemap_products_2.xml?from=7678433099838&to=7771050901566',
+            'https://www.vicicollection.com/sitemap_products_3.xml?from=7771051589694&to=7799781916734'
         ],
         ecommercePlatform: 'shopify'
     }

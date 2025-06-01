@@ -7,7 +7,7 @@ import { BROWSER_HEADERS, inferSex, normalizeCategory } from '../utils/utils';
 
 const JSON_HEADERS = {
     'Content-Type': 'application/json',
-    ...BROWSER_HEADERS
+    ...BROWSER_HEADERS,
 };
 
 export async function handleHM(
@@ -37,6 +37,7 @@ export async function handleHM(
             console.error(`  • failed to parse XML for ${sitemapUrl}`, err);
             continue;
         }
+
         const urls: string[] =
             parsed.urlset?.url
                 ?.map((u: any) => u.loc?.[0])
@@ -44,16 +45,12 @@ export async function handleHM(
 
         // 3. For each <loc> that looks like a product page, sync it
         for (const pageUrl of urls) {
-            // only product pages
             const m = pageUrl.match(/\/productpage\.(\d+)\.html$/);
-            if (!m) {
-                // e.g. category or index pages
-                continue;
-            }
+            if (!m) continue;
+
             const articleId = m[1];
             console.log(`Processing H&M product: ${pageUrl}`);
 
-            // 4. Build the API URL
             const localeMatch = pageUrl.match(/\/([a-z]{2}_[a-z]{2})\//i);
             const locale = localeMatch ? localeMatch[1] : 'en_au';
 
@@ -73,47 +70,50 @@ export async function handleHM(
 
             const items: any[] = payload.articles?.productList ?? [];
             for (const art of items) {
-                const rawCat = art.mainCatCode;  // e.g. "women_dresses_maxi"
+                const rawCat = art.mainCatCode;
 
-                // skip any Accessories or Shoes
-                if (rawCat.includes('accessories') || rawCat.includes('shoes')) {
+                if (
+                    rawCat.includes('accessories') ||
+                    rawCat.includes('home') ||
+                    rawCat.includes('kids') ||
+                    rawCat.includes('shoes')
+                ) {
                     console.log(`  • skipping Accessories/Shoes category ${rawCat}`);
                     continue;
                 }
 
-                // 5. Extract our fields
                 const url = `https://www2.hm.com${art.url}`;
                 const name = art.productName;
                 const brand = art.brandName;
                 const price = art.prices?.[0]?.price ?? 0;
+                const standardPrice = art.prices?.[0]?.maxPrice ?? price;
                 const sale =
                     art.prices?.[0]?.minPrice != null &&
                     art.prices[0].maxPrice != null &&
                     art.prices[0].minPrice !== art.prices[0].maxPrice;
-                const images: string[] = (art.images ?? []).map((i: any) => i.url);
+                const images: string[] = [
+                    ...(art.modelImage ? [art.modelImage] : []),
+                    ...(art.productImage ? [art.productImage] : []),
+                    ...(art.images ?? []).map((i: any) => i.url),
+                ];
                 const videos: string[] = [];
                 const category = normalizeCategory(art.mainCatCode);
                 const sex = inferSex(art.mainCatCode, []);
 
-                // 6. Upsert into Prisma
+                // 3. Upsert the product
                 await prisma.productItem.upsert({
                     where: { url },
                     update: {
                         name,
                         brand,
                         price,
-                        standardPrice: art.prices[0].maxPrice,
+                        standardPrice,
                         sale,
                         retailer: 'H&M',
                         category,
                         sex,
                         productImages: {
-                            deleteMany: {},
                             create: images.map((img) => ({ imageUrl: img })),
-                        },
-                        itemVideos: {
-                            deleteMany: {},
-                            create: videos.map((v) => ({ videoUrl: v })),
                         },
                     },
                     create: {
@@ -121,7 +121,7 @@ export async function handleHM(
                         name,
                         brand,
                         price,
-                        standardPrice: art.prices[0].maxPrice,
+                        standardPrice,
                         sale,
                         retailer: 'H&M',
                         category,

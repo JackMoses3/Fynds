@@ -66,3 +66,6 @@ __pycache__/
 *.iml
 *.swp
 ml/venv/
+
+#ML
+ml/embedding/model_files/

@@ -39,7 +39,7 @@ const xmlParser = new XMLParser({
     allowBooleanAttributes: false,
 });
 
-async function extractProductUrls(src: string): Promise<string[]> {
+export async function extractProductUrls(src: string): Promise<string[]> {
     if (!src.endsWith('.xml')) return [src];
 
     console.log(`   • fetching sitemap ${src}`);
@@ -61,7 +61,7 @@ interface UpsertPayload {
     create: object;
 }
 
-async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
+export async function buildUpsert(pageUrl: string, config: SiteDataConfig,): Promise<UpsertPayload | null> {
     const slug = new URL(pageUrl).pathname.split('/').pop()?.split('?')[0];
     if (!slug) return null;
 
@@ -100,7 +100,7 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
     const videos: string[] = typeof data.videoUrl === 'string'
         ? [data.videoUrl]
         : [];
-    const sex = inferSex(name, (data.categories as string[]) ?? []);
+    const sex = inferSex(data.gender, (data.categories as string[]) ?? []);
     const category = normalizeCategory((data.categories || []).join(' '));
 
     const baseFields = {
@@ -119,14 +119,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
         where: { url: pageUrl },
         update: {
             ...baseFields,
-            productImages: {
-                deleteMany: {},
-                createMany: { data: images.map((url) => ({ imageUrl: url })) },
-            },
-            itemVideos: {
-                deleteMany: {},
-                createMany: { data: videos.map((url) => ({ videoUrl: url })) },
-            },
         },
         create: {
             ...baseFields,
@@ -145,9 +137,11 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload | null> {
     };
 }
 
+
 /* ------------------------------------------------------------------ */
 /* 5.  Main entry – concurrent sync                                   */
 /* ------------------------------------------------------------------ */
+
 export async function handleAmericanEagle(
     config: SiteDataConfig,
     prisma: PrismaClient
@@ -164,7 +158,7 @@ export async function handleAmericanEagle(
         productUrls,
         async (pageUrl) => {
             try {
-                const upsertData = await buildUpsert(pageUrl);
+                const upsertData = await buildUpsert(pageUrl, config);
                 if (!upsertData) return;
                 (upsertData.create as any).siteDataConfigId = config.id;
 

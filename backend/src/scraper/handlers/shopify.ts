@@ -1,16 +1,16 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
+// src/handlers/shopify.ts
+
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import pMap from 'p-map';
 import { XMLParser } from 'fast-xml-parser';
-import * as http from 'http';
-import * as https from 'https';
-import { PrismaClient, SiteDataConfig } from '@prisma/client';
-import { BROWSER_HEADERS, inferSex, normalizeCategory } from '../utils/utils';
-
-const JSON_HEADERS = {
-    'Content-Type': 'application/json',
-    ...BROWSER_HEADERS,
-};
+import http from 'http';
+import https from 'https';
+import type { PrismaClient, SiteDataConfig } from '@prisma/client';
+import {
+    inferSex,
+    normalizeCategory,
+    JSON_HEADERS,
+} from '../utils/utils';
 
 /* ------------------------------------------------------------------ */
 /* 1. Axios instance with keep-alive                                 */
@@ -36,16 +36,13 @@ function delay(ms: number): Promise<void> {
 async function fetchWithRetry<T>(
     url: string,
     config: AxiosRequestConfig = {},
-    retries = 5,
-    baseDelay = 2000,
+    retries = 4,
+    baseDelay = 4000,
 ): Promise<AxiosResponse<T>> {
     let lastError: any;
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-            if (attempt > 0) {
-                const jitter = Math.random() * 10;
-                await delay(jitter);
-            }
+            if (attempt > 0) await delay(Math.random() * 100);
             const response = await client.get<T>(url, config);
             if (attempt > 0) {
                 console.info(`   • fetched ${url} on attempt ${attempt + 1}`);
@@ -53,11 +50,15 @@ async function fetchWithRetry<T>(
             return response;
         } catch (err: any) {
             lastError = err;
-            if (axios.isAxiosError(err) && err.response?.status === 429 && attempt < retries) {
+            if (
+                axios.isAxiosError(err) &&
+                err.response?.status === 429 &&
+                attempt < retries
+            ) {
                 const retryAfter = err.response.headers['retry-after'];
                 const wait = retryAfter
-                    ? parseFloat(retryAfter) * 30
-                    : baseDelay * 2 ** attempt;
+                    ? parseFloat(retryAfter) * 1000
+                    : baseDelay * 5 ** attempt;
                 console.warn(
                     `   • rate limited on ${url}, retrying in ${wait}ms (attempt ${attempt + 1})`
                 );
@@ -74,16 +75,20 @@ async function fetchWithRetry<T>(
 /* 4. Sitemap reader                                                  */
 /* ------------------------------------------------------------------ */
 const xmlParser = new XMLParser({ ignoreAttributes: true });
-async function extractProductUrls(sitemapUrl: string): Promise<string[]> {
+export async function extractProductUrls(sitemapUrl: string): Promise<string[]> {
     console.log(`   • fetching sitemap ${sitemapUrl}`);
     const response = await fetchWithRetry<string>(sitemapUrl);
     const parsed = xmlParser.parse(response.data) as any;
     const entries = parsed.urlset?.url ?? [];
     return entries
         .map((e: any) =>
-            typeof e.loc === 'string' ? e.loc : Array.isArray(e.loc) ? e.loc[0] : ''
+            typeof e.loc === 'string'
+                ? e.loc
+                : Array.isArray(e.loc)
+                    ? e.loc[0]
+                    : ''
         )
-        .filter((u: string) => u && u.includes('/products/'));
+        .filter((u: string) => u.includes('/products/'));
 }
 
 /* ------------------------------------------------------------------ */
@@ -94,17 +99,18 @@ interface UpsertPayload {
     update: object;
     create: object;
 }
-async function buildUpsert(
+export async function buildUpsert(
     pageUrl: string,
     config: SiteDataConfig,
 ): Promise<UpsertPayload | null> {
-    // skip any non-product URL
     if (!pageUrl.includes('/products/')) return null;
 
     const jsUrl = `${pageUrl}.js`;
     let productJson: any;
     try {
-        const res = await fetchWithRetry<Record<string, any>>(jsUrl, { headers: JSON_HEADERS });
+        const res = await fetchWithRetry<Record<string, any>>(jsUrl, {
+            headers: JSON_HEADERS,
+        });
         productJson = res.data;
     } catch (err: any) {
         if (axios.isAxiosError(err) && err.response?.status === 404) {
@@ -115,25 +121,21 @@ async function buildUpsert(
         return null;
     }
 
-    const type = productJson.type ?? '';
-    // list every keyword you consider “accessory”
+    const type = (productJson.type ?? '').toLowerCase();
     const accessoryKeywords = [
         'accessories', 'socks', 'bags', 'belts', 'hats', 'caps',
         'scarves', 'gloves', 'jewelry', 'watches', 'sunglasses',
-        'wallets', 'ties', 'headbands', 'keyrings', 'headwear'
+        'wallets', 'ties', 'headbands', 'keyrings', 'headwear', 'gifts'
     ];
-
-    const lowerType = (type ?? '').toLowerCase();
-
-    if (accessoryKeywords.some(kw => lowerType.includes(kw))) {
-        console.log(`   • skipping COS accessory: ${pageUrl}`);
+    if (accessoryKeywords.some(kw => type.includes(kw))) {
+        console.log(`   • skipping Shopify accessory: ${pageUrl}`);
         return null;
     }
 
-
-    const tags: string[] = Array.isArray(productJson.tags) ? productJson.tags : [];
+    const tags: string[] = Array.isArray(productJson.tags)
+        ? productJson.tags
+        : [];
     const category = normalizeCategory(`${type} ${tags.join(' ')}`);
-
     const title = productJson.title as string;
     const rawDesc = (productJson.description as string) ?? '';
     const metaData = rawDesc
@@ -143,16 +145,26 @@ async function buildUpsert(
         .trim();
 
     const price = (productJson.price_min as number) / 100;
-    const compareAt = (productJson.compare_at_price as number) / 100;
+    const compareAtRaw = productJson.compare_at_price;
+    const compareAt =
+        compareAtRaw === '' || compareAtRaw == null
+            ? price
+            : (compareAtRaw as number) / 100;
+
     const sale = compareAt !== price;
 
     const images: string[] = (productJson.media ?? [])
         .filter((m: any) => m.media_type === 'image')
-        .map((m: any) => m.src as string)
+        .map((m: any) => m.src)
         .filter(Boolean);
 
+    const videos: string[] = (productJson.media ?? [])
+        .map((m: any) => m.alt)
+        .filter((alt: any) => typeof alt === 'string' && alt.endsWith('.mp4'));
+
+
     const baseData = {
-        sex: inferSex(type, tags),
+        sex: inferSex(`${type} ${config.retailerName}`, tags),
         name: title,
         url: pageUrl,
         metaData,
@@ -164,7 +176,9 @@ async function buildUpsert(
         storeId: BigInt(productJson.id),
         category,
         subCategory: null,
-        lastModified: productJson.updated_at ? new Date(productJson.updated_at) : null,
+        lastModified: productJson.updated_at
+            ? new Date(productJson.updated_at)
+            : null,
         siteDataConfigId: config.id,
     };
 
@@ -172,22 +186,23 @@ async function buildUpsert(
         where: { url: pageUrl },
         update: {
             ...baseData,
-            productImages: { deleteMany: {}, create: images.map(src => ({ imageUrl: src })) },
         },
         create: {
             ...baseData,
-            productImages: { create: images.map(src => ({ imageUrl: src })) },
+            productImages: {
+                create: images.map(src => ({ imageUrl: src })),
+            },
+            itemVideos: {
+                create: videos.map(url => ({ videoUrl: url })),
+            },
         },
     };
 }
 
 /* ------------------------------------------------------------------ */
-/* 6. Transaction-safe upsert with retry                              */
+/* 6. Transaction‐safe upsert with retry                              */
 /* ------------------------------------------------------------------ */
-async function safeUpsert(
-    fn: () => Promise<any>,
-    retries = 3,
-): Promise<any> {
+async function safeUpsert<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
     for (let i = 0; i < retries; i++) {
         try {
             return await fn();
@@ -196,7 +211,7 @@ async function safeUpsert(
                 e.message.includes('Unable to start a transaction') &&
                 i < retries - 1
             ) {
-                const wait = 20 * 2 ** i;
+                const wait = 40 * 4 ** i;
                 console.warn(
                     `   • transaction timeout, retrying in ${wait}ms (attempt ${i + 1})`
                 );
@@ -210,35 +225,46 @@ async function safeUpsert(
 }
 
 /* ------------------------------------------------------------------ */
-/* 7. Main entry – concurrent sync                                    */
+/* 7. Modified Shopify handler: sequential per-sitemap                */
 /* ------------------------------------------------------------------ */
 export async function handleShopify(
     config: SiteDataConfig,
     prisma: PrismaClient,
 ): Promise<void> {
     const sitemaps = config.siteMapUrl
-        .flatMap(s => s.split(',').map(x => x.trim()).filter(Boolean));
-    const urlLists = await Promise.all(sitemaps.map(extractProductUrls));
-    const productUrls = Array.from(new Set(urlLists.flat()));
-    console.log(`→ Shopify: ${productUrls.length} URLs to process`);
+        .map((s: string) => s.trim())
+        .filter(Boolean);
 
-    const CONCURRENT = 12;
-    await pMap(
-        productUrls,
-        async pageUrl => {
-            await delay(Math.random() * 5);
-            try {
-                const upsertData = await buildUpsert(pageUrl, config);
-                if (!upsertData) return;
-                await safeUpsert(() =>
-                    prisma.$transaction(tx => tx.productItem.upsert(upsertData as any))
-                );
-                console.log(`   • synced ${pageUrl}`);
-            } catch (err: any) {
-                console.error(`   • failed ${pageUrl}:`, err.message);
-            }
-        },
-        { concurrency: CONCURRENT },
-    );
+    const INTER_SITEMAP_DELAY_MS = 30_000;  // 30s between files
+    const CONCURRENT = 4;
+
+    for (const sitemapUrl of sitemaps) {
+        console.log(`→ Shopify: fetching ${sitemapUrl}`);
+        const productUrls = await extractProductUrls(sitemapUrl);
+        console.log(`→ Shopify: ${productUrls.length} URLs from ${sitemapUrl}`);
+
+        await pMap(
+            productUrls,
+            async pageUrl => {
+                await delay(Math.random() * 300);
+                try {
+                    const upsertData = await buildUpsert(pageUrl, config);
+                    if (!upsertData) return;
+                    await safeUpsert(() =>
+                        prisma.$transaction(tx => tx.productItem.upsert(upsertData as any))
+                    );
+                    console.log(`   • synced ${pageUrl}`);
+                } catch (err: any) {
+                    console.error(`   • failed ${pageUrl}:`, err.message);
+                }
+            },
+            { concurrency: CONCURRENT }
+        );
+
+        console.log(`✓ Finished sitemap ${sitemapUrl}`);
+        console.log(`⏱ Waiting ${INTER_SITEMAP_DELAY_MS / 1000}s before next…`);
+        await delay(INTER_SITEMAP_DELAY_MS);
+    }
+
     console.log('✓ Shopify sync complete');
 }

@@ -34,7 +34,7 @@ const client: AxiosInstance = axios.create({
 /* ------------------------------------------------------------------ */
 const xmlParser = new XMLParser({ ignoreAttributes: true });
 
-async function extractProductUrls(sitemapUrl: string): Promise<string[]> {
+export async function extractProductUrls(sitemapUrl: string): Promise<string[]> {
     console.log(`   • fetching sitemap ${sitemapUrl}`);
     let xml: string;
 
@@ -66,7 +66,7 @@ interface UpsertPayload {
     create: object;
 }
 
-async function buildUpsert(pageUrl: string): Promise<UpsertPayload[] | null> {
+export async function buildUpsert(pageUrl: string, config: SiteDataConfig,): Promise<UpsertPayload[] | null> {
     // skip preview pages
     if (pageUrl.includes('-pT')) return null;
 
@@ -148,8 +148,6 @@ async function buildUpsert(pageUrl: string): Promise<UpsertPayload[] | null> {
                 subCategory: null,
                 lastModified: null,
                 siteDataConfigId: undefined,
-                productImages: { deleteMany: {}, create: images.map(i => ({ imageUrl: i })) },
-                itemVideos: { deleteMany: {}, create: videos.map(v => ({ videoUrl: v })) },
             },
             create: {
                 url,
@@ -193,7 +191,7 @@ export async function handleZara(
         productUrls,
         async (url) => {
             try {
-                const upserts = await buildUpsert(url);
+                const upserts = await buildUpsert(url, config);
                 if (!upserts) return;
                 for (const u of upserts) {
                     (u.create as any).siteDataConfigId = config.id;
