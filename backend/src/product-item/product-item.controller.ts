@@ -1,10 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  NotFoundException,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, NotFoundException } from '@nestjs/common';
 import { ProductItemService } from './product-item.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
 import { FilterProductItemDto } from './dto/filter-product-item.dto';
@@ -15,7 +9,7 @@ class BatchRequestDto {
 
 @Controller('product-item')
 export class ProductItemController {
-  constructor(private readonly productItemService: ProductItemService) { }
+  constructor(private readonly productItemService: ProductItemService) {}
 
   /** POST /product-item/brands */
   @Post('brands')
@@ -61,11 +55,15 @@ export class ProductItemController {
     @Body() batchReq: BatchRequestDto,
   ): Promise<ProductItemTransferDto[]> {
     const { ids } = batchReq;
-    const raws = await Promise.all(ids.map((id) => this.productItemService.findById(id))); // Fetch all products in parallel [id, name, retailer ...]
+    const raws = await Promise.all(
+      ids.map((id) => this.productItemService.findById(id)),
+    ); // Fetch all products in parallel [id, name, retailer ...]
     const found = raws.filter((p): p is Exclude<typeof p, null> => p !== null);
 
     if (!found.length) {
-      throw new NotFoundException(`No products found for IDs: [${ids.join(', ')}]`);
+      throw new NotFoundException(
+        `No products found for IDs: [${ids.join(', ')}]`,
+      );
     }
 
     return found.map((p) => ({
