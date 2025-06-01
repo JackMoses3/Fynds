@@ -29,6 +29,7 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   dropdown_search: ^5.0.3
+  url_launcher: ^6.2.5  
   cached_network_image: ^3.3.0
   flutter:
     sdk: flutter

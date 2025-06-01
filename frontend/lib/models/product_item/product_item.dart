@@ -1,12 +1,29 @@
 import 'package:flutter/foundation.dart';
 
+/// Single image record
+class ProductImage {
+  final int id;
+  final String imageUrl;
+
+  ProductImage({required this.id, required this.imageUrl});
+
+  factory ProductImage.fromJson(Map<String, dynamic> json) {
+    return ProductImage(
+      id: json['id'] as int,
+      imageUrl: (json['imageUrl'] as String?) ?? '',
+    );
+  }
+}
+
+/// Main product record
 class ProductItem {
   final int id;
   final String name;
   final String brand;
   final String retailer;
   final double price;
-  final List<ProductImages> images;
+  final String url; // ← New field
+  final List<ProductImage> images;
 
   ProductItem({
     required this.id,
@@ -14,64 +31,32 @@ class ProductItem {
     required this.brand,
     required this.retailer,
     required this.price,
+    required this.url, // ← New param
     required this.images,
   });
 
   factory ProductItem.fromJson(Map<String, dynamic> json) {
-    List<ProductImages> safeImages = [];
-
-    if (json['images'] != null && json['images'] is List) {
-      for (var image in json['images']) {
-        if (image is Map) {
-          safeImages.add(ProductImages.fromJson(image.cast<String, dynamic>()));
+    // Parse images array
+    final rawImages = json['images'];
+    final imgs = <ProductImage>[];
+    if (rawImages is List) {
+      for (final e in rawImages) {
+        if (e is Map<String, dynamic>) {
+          imgs.add(ProductImage.fromJson(e));
         }
       }
     }
-    debugPrint("✅ Safe Images extracted (${safeImages.length}): $safeImages");
+    // Debug log
+    debugPrint('✅ Parsed ${imgs.length} images for product ${json['id']}');
+
     return ProductItem(
-      id: json['id'],
-      name: json['name'],
-      brand: json['brand'],
-      retailer: json['retailer'],
+      id: json['id'] as int,
+      name: (json['name'] as String?) ?? '',
+      brand: (json['brand'] as String?) ?? '',
+      retailer: (json['retailer'] as String?) ?? '',
       price: (json['price'] as num).toDouble(),
-      images: safeImages,
+      url: (json['url'] as String?) ?? '', // ← Parse URL
+      images: imgs,
     );
-  }
-}
-
-class ProductItemList {
-  final List<ProductItem> products;
-
-  ProductItemList({required this.products});
-
-  factory ProductItemList.fromJson(Map<String, dynamic> json) {
-    List<ProductItem> safeProducts = [];
-
-    if (json['products'] != null && json['products'] is List) {
-      for (var product in json['products']) {
-        if (product is Map) {
-          safeProducts.add(
-            ProductItem.fromJson(product.cast<String, dynamic>()),
-          );
-        }
-      }
-    }
-
-    debugPrint(
-      "✅ Safe Products extracted (${safeProducts.length}): $safeProducts",
-    );
-
-    return ProductItemList(products: safeProducts);
-  }
-}
-
-class ProductImages {
-  final int id;
-  final String imageUrl;
-
-  ProductImages({required this.id, required this.imageUrl});
-
-  factory ProductImages.fromJson(Map<String, dynamic> json) {
-    return ProductImages(id: json['id'], imageUrl: json['imageUrl'] ?? '');
   }
 }

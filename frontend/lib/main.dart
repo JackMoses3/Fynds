@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/screens/auth/onboarding_screen.dart';
+import 'package:frontend/screens/explore/explore_screen.dart';
 import 'package:frontend/widgets/main_shell.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/search_screen.dart';
@@ -42,7 +43,7 @@ class _MainNavigationState extends State<MainNavigation> {
 
   static final List<Widget> _pages = <Widget>[
     const HomeScreen(),
-    const SearchScreen(),
+    const ExploreScreen(),
     const ProfileScreen(),
   ];
 

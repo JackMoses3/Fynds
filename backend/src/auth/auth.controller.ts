@@ -21,8 +21,8 @@ import { UserService } from '../user/user.service';
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService,
-              private userService: UserService,
-  ) {}
+    private userService: UserService,
+  ) { }
 
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
@@ -93,5 +93,5 @@ export class AuthController {
       throw new BadRequestException('Email is required.');
     }
     return this.authService.newValidationCode(email);
-}
+  }
 }

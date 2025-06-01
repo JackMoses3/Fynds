@@ -1,0 +1,56 @@
+* [33m1778140[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/filter-items-add-and-view-cart-search-for-product-working[m[33m, [m[1;32mfilter-items-add-and-view-cart-search-for-product-working[m[33m)[m updated filtering to better use API. Search bar working where user can search for any product. Shopping cart working where user can add, remove and click into anything in their cart, grouped by retailer
+[31m|[m * [33m4fed61c[m[33m ([m[1;31morigin/fix/update-scraper[m[33m)[m Update the scraper to handle sites
+[31m|[m[31m/[m  
+* [33m264420b[m[33m ([m[1;31morigin/dev[m[33m, [m[1;32mdev[m[33m)[m main_shell for bottom navigation
+* [33m685da70[m basic bottom navigation in place. As well as the app will remember if you have logged in
+* [33m9e49426[m updated the catalogue view so you can click ontio the items
+* [33m086e21b[m Working scroll with isolated product
+* [33m72a70a3[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m updated everything
+* [33m6294d94[m set up user screen and onboarding
+* [33mb45af59[m handling authentication, and other started onboarding
+* [33m4cb3b3f[m Created all necessary files for auth
+[32m|[m * [33md429370[m[33m ([m[1;35mrefs/stash[m[33m)[m WIP on main: fdc6c20 updated home screen to allow vertical scrolling when a filter is applied
+[32m|[m[32m/[m[34m|[m 
+[32m|[m * [33m65ad987[m index on main: fdc6c20 updated home screen to allow vertical scrolling when a filter is applied
+[32m|[m[32m/[m  
+* [33mfdc6c20[m[33m ([m[1;31morigin/backup-before-pull[m[33m, [m[1;32mbackup-before-pull[m[33m)[m updated home screen to allow vertical scrolling when a filter is applied
+* [33m0570486[m updated to enable filter viewing on home screen
+* [33m23af156[m update to enable filters to apply to home screen (displays correctly)
+* [33m46b391f[m front end dart files and setting changes to pubspec.lock, yaml and androidManifest.xml.
+* [33m89a71d4[m controller
+* [33m313e066[m product-item controller and service updated to handle random product queries and filtered product queries from fontend (homepage)
+* [33m27cb196[m debug logs added to check scraper working
+* [33m939ad05[m similarity checker that uses faiss index and vectors. Outputs top matches(where one similarity is > .75) with front, back and text scores.
+* [33me0c37f5[m front back ai model
+* [33mbd66785[m faiss front back text index and vectors
+* [33m69dec06[m updated to handle text embeddings
+* [33mc7ba5ac[m main and types updated for new code in scraper service
+* [33m9bd64b0[m scraper updated to handle sites with @context and no @context If no context on site inspection, set noContext to true in config
+*   [33m8e4436e[m Merge branch 'main' of https://github.com/JackMoses3/Ironic
+[35m|[m[36m\[m  
+[35m|[m * [33md3a7b0d[m Handled Auth, and updated prisma schema
+* [36m|[m [33m8a6e9b6[m Normalize line endings
+[36m|[m[36m/[m  
+* [33m4c8d170[m Normalize line endings
+* [33mf76724c[m fixed faulty database
+* [33m2579a1d[m made a graphql home
+* [33m3606825[m added product-item graphQL to assist with database interaction
+* [33m669bbf6[m main scraper created and embedding service editted to factor in the strength of front/back pr
+* [33m0ee1303[m requirements.txt updated to support embedding_service.py file
+* [33mff37d35[m created file to iterate over DB, find embedding and place in faiss. .pth file used to assess whether item is front or back. DB type changed to BigInt for frontembeddingID and backembeddingID in ProductItem
+* [33mcdb8e97[m giving ryan migrations
+* [33mbd40089[m update to batch the URLs
+* [33m36fd1d6[m updated schema
+* [33m7d449b9[m updated ml docker
+* [33mda8e43e[m Updated the scraper.service
+* [33m2c1a44c[m Updating docker files, and making further formatting changes
+* [33mbd5b6ad[m Created Database connection module and service to the prisma client
+* [33mdf5c72b[m updated buggy docker compose and created a gitignore
+* [33m15ac8d2[m updated docker compose and prisma container to handle how we want to build the application
+* [33mdd95e52[m got rid of the venv folder
+* [33mbdf5e25[m Updated docker compose to avoid conflicts
+* [33mc25b571[m Added docker containers for backend
+* [33mf41720a[m Added Fast API/ python venv for ML
+* [33m9674535[m added Flutter as the frontend
+* [33mc357f00[m Created backend for Ironic using nest
+* [33m1599e31[m Initial commit

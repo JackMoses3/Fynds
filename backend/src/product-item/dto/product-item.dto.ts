@@ -17,7 +17,6 @@ export class ProductItemDto {
     createdAt!: Date;
     updatedAt!: Date;
 
-    // <-- notice the capital “I” here
     productImages!: ProductImageDto[];
 }
 
@@ -27,5 +26,6 @@ export class ProductItemTransferDto {
     brand: string;
     retailer: string;
     price: number;
+    url: string;
     images: ProductImageTransferDto[];
 }

@@ -41,10 +41,12 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "d": "^1.0.2",
+    "fast-xml-parser": "^5.2.3",
     "google-auth-library": "^9.15.1",
     "graphql": "^16.10.0",
     "joi": "^17.13.3",
     "nodemailer": "^6.10.1",
+    "p-map": "^4.0.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
@@ -52,8 +54,10 @@
     "pgvector": "^0.2.0",
     "playwright": "^1.51.1",
     "puppeteer": "^24.5.0",
+    "python-shell": "^5.0.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

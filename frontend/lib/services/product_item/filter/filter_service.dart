@@ -14,7 +14,9 @@ class FilterService {
         'product-item/brands',
         data: {'category': category, 'retailer': retailer},
       );
-      return BrandPerCatRet.fromJson(response.data);
+      // wrap raw List into Map so fromJson can pick it up:
+      final wrapped = {'brands': response.data};
+      return BrandPerCatRet.fromJson(wrapped);
     } catch (e) {
       print('Error fetching brands per category: $e');
       return null;
@@ -30,7 +32,9 @@ class FilterService {
         'product-item/categories',
         data: {'brand': brand, 'retailer': retailer},
       );
-      return CategoryPerBraRet.fromJson(response.data);
+      // wrap raw List into Map so fromJson can pick it up:
+      final wrapped = {'categories': response.data};
+      return CategoryPerBraRet.fromJson(wrapped);
     } catch (e) {
       print('Error fetching categories per brand: $e');
       return null;
@@ -46,7 +50,9 @@ class FilterService {
         'product-item/retailers',
         data: {'brand': brand, 'category': category},
       );
-      return RetailerPerBraCat.fromJson(response.data);
+      // wrap raw List into Map so fromJson can pick it up:
+      final wrapped = {'retailers': response.data};
+      return RetailerPerBraCat.fromJson(wrapped);
     } catch (e) {
       print('Error fetching retailers per brand and category: $e');
       return null;

@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 torch
+torchvision
 transformers
 pgvector
 sqlalchemy
@@ -11,3 +12,6 @@ requests
 python-dotenv
 marqo
 torchvision
+pymilvus
+aiohttp
+psycopg2-binary

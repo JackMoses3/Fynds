@@ -7,7 +7,7 @@ from datetime import datetime
 
 # --- FAISS Constants ---
 DIM = 512
-TOP_K = 100
+TOP_K = 50
 SIMILARITY_THRESHOLD = 0.75
 
 # --- Load FAISS Indexes ---
@@ -21,7 +21,7 @@ back_vectors = np.load("faiss_back_vectors.npy", allow_pickle=True).item()
 text_vectors = np.load("faiss_text_vectors.npy", allow_pickle=True).item()
 
 # --- SQLAlchemy Setup ---
-DATABASE_URL = "postgresql://postgres:H98bbv%3A6ABsk.V92hrppK%3F26Wh@jrt-shopping.cfooe6oceksm.ap-southeast-2.rds.amazonaws.com:5432/JRT_Shopping"
+DATABASE_URL = "postgresql://postgres:L;0q%CUXb223(!J`>9JNX6~@fynds.crq8ooq0qrgr.ap-southeast-2.rds.amazonaws.com:5432/fynds"
 Base = declarative_base()
 
 class ProductItem(Base):

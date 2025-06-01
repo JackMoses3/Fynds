@@ -1,150 +1,108 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../app.module';
-import { ScraperService } from './scraper.service';
+// src/scraper.ts
 
-async function bootstrap() {
-  console.log('✅ Bootstrap starting...');
-  console.log('🌍 DATABASE_URL:', process.env.DATABASE_URL); // 👈 this is the log line
-  const app = await NestFactory.createApplicationContext(AppModule);
-  console.log('✅ Nest context created');
-  const scraperService = app.get(ScraperService);
+import { PrismaClient, SiteDataConfig } from '@prisma/client';
+import { handleShopify } from './handlers/shopify';
+import { handleZara } from './handlers/zara';
+import { handleCityBeach } from './handlers/citybeach';
+import { handleHM } from './handlers/hm';
+import { handleUrban } from './handlers/urbanoutfitters';
+import { handleGlassons } from './handlers/glassons';
+import { handleAdidas } from './handlers/adidas';
+import { handleLululemon } from './handlers/lululemon';
+import { handleGhanda } from './handlers/ghanda';
+import { handleCos } from './handlers/cos';
+import { handleFashionNova } from './handlers/fashionnova';
+import { handleAmericanEagle } from './handlers/americaneagle';
+import { handleIAmGia } from './handlers/iamgia';
+import { handleSkims } from './handlers/skims';
+import { handleMango } from './handlers/mango';
 
-  const urls = [
-    //"https://www.gluestore.com.au/collections/womens-clothing",
-    //"https://www.generalpants.com/collections/mens-jackets-coats",
-    //"https://www.generalpants.com/collections/mens-clothing-singlets",
-    //"https://www.generalpants.com/collections/mens-t-shirts",
-    //"https://www.generalpants.com/collections/mens-clothing-jeans",
-    //"https://www.generalpants.com/collections/mens-shorts",
-    //"https://www.generalpants.com/collections/mens-clothing-pants-chinos",
-    //"https://www.generalpants.com/collections/mens-shirts",
-    //"https://www.generalpants.com/collections/mens-clothing-jumpers-hoodies",
-    //"https://www.generalpants.com/collections/womens-jeans",
-    //"https://www.generalpants.com/collections/womens-dresses",
-    //"https://www.generalpants.com/collections/womens-swimwear",
-    //"https://www.generalpants.com/collections/womens-jackets-and-coats",
-    //"https://www.generalpants.com/collections/womens-skirts",
-    //"https://www.generalpants.com/collections/womens-shorts",
-    //"https://www.generalpants.com/collections/womens-pants-leggings",
-    //"https://www.generalpants.com/collections/womens-tops",
-    //"https://www.generalpants.com/collections/womens-t-shirts",
-    //"https://www.generalpants.com/collections/womens-jumpers-hoodies",
-    //"https://www.generalpants.com/collections/womens-knitwear",
-    //"https://www.generalpants.com/collections/womens-playsuits-jumpsuits",
-    //"https://www.generalpants.com/collections/womens-shirts",
-    //"https://www.generalpants.com/collections/womens-singlets-1",
-    //"https://www.generalpants.com/collections/womens-two-piece-sets",
-    //"https://www.universalstore.com/collections/mens-t-shirts",
-    //"https://www.universalstore.com/collections/mens-shirts-polos",
-    //"https://www.universalstore.com/collections/jerseys",
-    //"https://www.universalstore.com/collections/mens-jeans",
-    //"https://www.universalstore.com/collections/mens-pants",
-    //"https://www.universalstore.com/collections/mens-shorts",
-    //"https://www.universalstore.com/collections/mens-hoodies-jumpers",
-    //"https://www.universalstore.com/collections/mens-jackets-coats",
-    //https://www.universalstore.com/collections/mens-singlets-muscle-tanks",
-    //"https://fasttimes.com.au/apparel/t-shirts",
-    // "https://fasttimes.com.au/apparel/shirts",
-    // "https://fasttimes.com.au/apparel/jerseys",
-    // "https://fasttimes.com.au/apparel/polos",
-    // "https://fasttimes.com.au/apparel/pants",
-    // "https://fasttimes.com.au/apparel/shorts",
-    // "https://fasttimes.com.au/apparel/hoodies",
-    // "https://fasttimes.com.au/apparel/crewnecks",
-    // "https://fasttimes.com.au/apparel/knitwear",
-    // "https://fasttimes.com.au/apparel/jackets",
-    // "https://fasttimes.com.au/apparel/vests",
-    //"https://www.asos.com/au/men/t-shirts-singlets/cat/?cid=7616#nlid=mw|clothing|shop+by+product|t-shirts+%26+singlets",
-    //"https://www.asos.com/au/men/shirts/cat/?cid=3602",
-    //"https://www.asos.com/au/men/shorts/cat/?cid=7078",
-    //"https://www.asos.com/au/men/pants-chinos/cat/?cid=4910",
-    //"https://www.asos.com/au/men/jackets-coats/cat/?cid=3606",
-    //"https://www.asos.com/au/women/tops/cat/?cid=4169",
-    ///"https://www.asos.com/au/women/dresses/cat/?cid=8799",
-    //"https://www.asos.com/au/women/skirts/cat/?cid=2639",
-    //"https://www.asos.com/au/women/pants-leggings/cat/?cid=2640",
-    //"https://www.asos.com/au/women/jumpers-cardigans/cat/?cid=2637",
-    //"https://www.asos.com/au/women/coats-jackets/cat/?cid=2641",
-    //"https://www.asos.com/au/women/swimwear-beachwear/cat/?cid=2238",
-    //"https://www.universalstore.com/collections/womens-tops",
-    //"https://www.universalstore.com/collections/womens-t-shirts",
-    //"https://www.universalstore.com/collections/womens-shirts",
-    //"https://www.universalstore.com/collections/womens-jeans",
-    //"https://www.universalstore.com/collections/womens-pants",
-    //"https://www.universalstore.com/collections/womens-skirts",
-    //"https://www.universalstore.com/collections/womens-shorts",
-    //"https://www.universalstore.com/collections/womens-jackets-coats",
-    //"https://www.universalstore.com/collections/womens-hoodies-jumpers",
-    //"https://www.theiconic.com.au/mens-clothing-coats-jackets/",
-    //"https://www.theiconic.com.au/mens-clothing-jumpers-cardigans/",
-    //"https://www.theiconic.com.au/mens-clothing-pants/",
-    //"https://www.theiconic.com.au/mens-clothing-shirts-polos/",
-    //"https://www.theiconic.com.au/mens-clothing-shorts/",
-    //"https://www.theiconic.com.au/mens-clothing-sweats-hoodies/",
-    //"https://www.theiconic.com.au/mens-clothing-tshirts-singlets/",
-    //"https://www.theiconic.com.au/womens-clothing-coats-jackets/",
-    //"https://www.theiconic.com.au/womens-clothing-dresses/",
-    //"https://www.theiconic.com.au/womens-clothing-jeans/",
-    //"https://www.theiconic.com.au/womens-clothing-jumpers-cardigans/",
-    //"https://www.theiconic.com.au/womens-clothing-pants/",
-    //"https://www.theiconic.com.au/womens-clothing-tops/?page=1&sort=popularity&category=16",
-    //"https://www.theiconic.com.au/womens-clothing-shorts/",
-    //"https://www.theiconic.com.au/womens-clothing-skirts/",
-    //"https://www.theiconic.com.au/womens-clothing-swimwear/",
-    //"https://www.theiconic.com.au/womens-clothing-tshirts-singlets/",
-    //"https://www.gluestore.com.au/collections/womens-tops",
-    //"https://www.gluestore.com.au/collections/womens-pants",
-    //"https://www.gluestore.com.au/collections/womens-shorts",
-    //"https://www.gluestore.com.au/collections/womens-skirts",
-    //"https://www.gluestore.com.au/collections/womens-jeans",
-    "https://www.gluestore.com.au/collections/womens-sweats-hoods",
-    "https://www.gluestore.com.au/collections/womens-jackets",
-    "https://www.gluestore.com.au/collections/womens-swimwear",
-    //"https://www.culturekings.com.au/collections/mens?HM[menu.categories]=Tops&page=1",
-    //"https://www.culturekings.com.au/collections/mens?HM[menu.categories]=Bottoms&page=1",
-    //"https://www.culturekings.com.au/collections/womens-tops",
-    //"https://www.culturekings.com.au/collections/womens-bottoms",
-    "https://www2.hm.com/en_au/men/products/t-shirts-and-singlets.html",
-    "https://www2.hm.com/en_au/men/products/trousers.html",
-    "https://www2.hm.com/en_au/men/products/hoodies-sweatshirts.html",
-    "https://www2.hm.com/en_au/men/products/shirts.html",
-    "https://www2.hm.com/en_au/men/products/jeans.html",
-    "https://www2.hm.com/en_au/men/products/cardigans-jumpers.html",
-    "https://www2.hm.com/en_au/men/products/polos.html",
-    "https://www2.hm.com/en_au/men/products/shorts.html",
-    "https://www2.hm.com/en_au/men/products/swimwear.html",
-    "https://www2.hm.com/en_au/women/products/dresses.html",
-    "https://www2.hm.com/en_au/women/products/tops.html",
-    "https://www2.hm.com/en_au/women/products/shirts-and-blouses.html",
-    "https://www2.hm.com/en_au/women/products/jackets-and-coats.html",
-    "https://www2.hm.com/en_au/women/products/cardigans-and-jumpers.html",
-    "https://www2.hm.com/en_au/women/products/blazers-and-waistcoats.html",
-    "https://www2.hm.com/en_au/women/products/pants.html",
-    "https://www2.hm.com/en_au/women/products/jeans.html",
-    "https://www2.hm.com/en_au/women/products/shorts.html",
-    "https://www2.hm.com/en_au/women/products/skirts.html",
-    "https://www2.hm.com/en_au/women/products/hoodies-sweatshirts.html",
-    "https://factorie.com.au/mens-shopall/",
-    "https://factorie.com.au/womens-shopall/",
-    "https://cottonon.com/AU/co/men/?start=0&sz=60",
-    "https://www2.hm.com/en_au/women/products/swimwear.html",
-    "https://www.princesspolly.com.au/collections/bottoms",
-    "https://cottonon.com/AU/co/women/",
-    //"https://www.gluestore.com.au/collections/womens-clothing"
 
-  ]
+async function main() {
+  const prisma = new PrismaClient();
 
-  for (const url of urls) {
-    console.log(` Starting scrape for: ${url}`);
-    try {
-      await scraperService.scrapeAndSaveSingleSite(url);
-    } catch (err) {
-      console.error(` Failed to scrape ${url}`, err);
-    }
+  // 1. load your siteDataConfig by domain
+  const domain = process.argv[2] || 'vici.com';
+  const config = await prisma.siteDataConfig.findUnique({
+    where: { domain },
+  });
+
+  if (!config) {
+    console.error(`No SiteDataConfig found for domain "${domain}"`);
+    process.exit(1);
   }
 
-  await app.close();
+  // 2. dispatch to the right handler
+  switch (config.ecommercePlatform) {
+    case 'shopify':
+      await handleShopify(config as SiteDataConfig, prisma);
+      break;
+
+    case 'zara':
+      await handleZara(config as SiteDataConfig, prisma);
+      break;
+
+
+    case 'iamgia':
+      await handleIAmGia(config as SiteDataConfig, prisma);
+      break;
+
+    case 'skims':
+      await handleSkims(config as SiteDataConfig, prisma);
+      break;
+
+    case 'mango':
+      await handleMango(config as SiteDataConfig, prisma);
+      break;
+
+    case 'americaneagle':
+      await handleAmericanEagle(config as SiteDataConfig, prisma);
+      break;
+
+    case 'fashionnova':
+      await handleFashionNova(config as SiteDataConfig, prisma);
+      break;
+
+    case 'cos':
+      await handleCos(config as SiteDataConfig, prisma);
+      break;
+
+    case 'ghanda':
+      await handleGhanda(config as SiteDataConfig, prisma);
+      break;
+
+    case 'lululemon':
+      await handleLululemon(config as SiteDataConfig, prisma);
+      break;
+
+    case 'adidas':
+      await handleAdidas(config as SiteDataConfig, prisma);
+      break;
+
+    case 'hm':
+      await handleHM(config as SiteDataConfig, prisma);
+      break;
+
+    case 'glassons':
+      await handleGlassons(config as SiteDataConfig, prisma);
+      break
+
+    case 'urbanoutfitters':
+      await handleUrban(config as SiteDataConfig, prisma);
+      break;
+
+    case 'citybeach':
+      await handleCityBeach(config as SiteDataConfig, prisma);
+      break;
+
+    default:
+      console.warn(`Unsupported platform "${config.ecommercePlatform}"`);
+  }
+
+  await prisma.$disconnect();
 }
 
-bootstrap();
-
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});

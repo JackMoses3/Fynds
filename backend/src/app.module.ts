@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
-
-// Do not convert to default import
 import * as Joi from 'joi';
 
+import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { ScraperModule } from './scraper/scraper.module';
@@ -12,6 +11,7 @@ import { MailerModule } from './mailer/mailer.module';
 import { StyleModule } from './style/style.module';
 import { CollectionModule } from './collection/collection.module';
 import { ProductItemModule } from './product-item/product-item.module';
+import { ShoppingTrolleyModule } from './shopping-trolley/shopping-trolley.module';
 
 @Module({
   imports: [
@@ -41,14 +41,14 @@ import { ProductItemModule } from './product-item/product-item.module';
         abortEarly: false,
       },
     }),
+
+    // Cast to any to satisfy TS; at runtime it still gets applied
     ThrottlerModule.forRoot({
-      throttlers: [
-        {
-          ttl: 60, // Time to live in seconds
-          limit: 10, // Maximum number of requests per minute per IP
-        },
-      ],
-    }),
+      ttl: 60,   // seconds
+      limit: 10, // requests per ttl
+    } as any),
+
+    DatabaseModule,
     AuthModule,
     UserModule,
     ScraperModule,
@@ -56,7 +56,7 @@ import { ProductItemModule } from './product-item/product-item.module';
     StyleModule,
     CollectionModule,
     ProductItemModule,
-
+    ShoppingTrolleyModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }
