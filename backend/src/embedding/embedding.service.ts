@@ -1,9 +1,10 @@
+/* eslint-disable */
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
 import { HttpService } from '@nestjs/axios';
 import pLimit from 'p-limit'; // “npm install p-limit” or yarn add p-limit
 import { EmbedRequestDto } from './dto/embeded-request.dto';
 import { EmbedResponseDto } from './dto/embeded-response.dto';
+import { DatabaseService } from 'src/database/database.service';
 import { firstValueFrom } from 'rxjs';
 import FormData from 'form-data';
 
@@ -22,12 +23,11 @@ export interface ImageEmbedResponseDto {
 @Injectable()
 export class EmbeddingService {
   private readonly logger = new Logger(EmbeddingService.name);
-  private readonly baseUrl =
-    process.env.EMBEDDING_SERVICE_URL ?? 'http://localhost:8000';
+  private readonly baseUrl = process.env.ML_URL + '/api/v1/embedding';
 
   constructor(
-    private prisma: PrismaService,
-    private http: HttpService,
+    private readonly db: DatabaseService,
+    private readonly http: HttpService,
   ) {}
 
   private async embedProduct(product: {
@@ -107,7 +107,7 @@ export class EmbeddingService {
     const allResults: EmbedResponseDto[] = [];
 
     while (true) {
-      const batch = await this.prisma.productItem.findMany({
+      const batch = await this.db.productItem.findMany({
         where: {
           frontEmbeddingId: null,
           backEmbeddingId: null,
@@ -137,7 +137,7 @@ export class EmbeddingService {
         limit(() =>
           this.embedProduct(p).then(
             (resp) => {
-              this.logger.log(`✅ Embedded product ${resp.productId}`);
+              this.logger.log(`✅ Embedded product ${resp}`);
               allResults.push(resp);
             },
             (err) => {

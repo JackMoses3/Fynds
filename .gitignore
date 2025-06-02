@@ -57,7 +57,7 @@ macos/build/
 !.vscode/extensions.json
 
 # Pycache
-__pycache__/
+*__pycache__/
 *.pyc
 
 # Misc
@@ -66,7 +66,9 @@ __pycache__/
 *.iml
 *.swp
 ml/venv/
+ml/.env/
 
 #ML
 ml/embedding/model_files/
+ml/ml_services/embedding_service/model_files/
 ml/src/generate_product_embeddings/model_files/

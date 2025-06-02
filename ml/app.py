@@ -1,8 +1,8 @@
 # ml/app.py
 
 from fastapi import FastAPI
-from embedding.embedding_router import router as embedding_router
-from ml_services.qdrant_client.main import router as qdrant_router
+from ml_services.embedding_service.main import router as embedding_router
+from ml_services.qdrant_service.main import router as qdrant_router
 
 app = FastAPI(
     title="Fynds ML Services",
@@ -16,8 +16,6 @@ app.include_router(embedding_router, prefix="/api/v1/embedding", tags=["embeddin
 # Include the Qdrant client router
 app.include_router(qdrant_router, prefix="/api/v1/vector", tags=["vector-search"])
 
-# 1) your existing text-to-image router:
-from ml.src.text_to_image.text_to_image_router import router as search_router
 
 
 if __name__ == "__main__":

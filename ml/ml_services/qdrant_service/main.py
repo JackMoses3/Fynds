@@ -1,4 +1,5 @@
 # ml/ml_services/qdrant_client/main.py
+import os
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -9,7 +10,7 @@ from qdrant_client.http.models import PointStruct, Filter, FieldCondition, Match
 router = APIRouter()
 
 # Initialize Qdrant client (assuming local; override via ENV for prod)
-QDRANT_URL = "http://localhost:6333"
+QDRANT_URL = os.getenv("QDRANT_URL")
 client = QdrantClient(url=QDRANT_URL)
 
 # -------------- Data Models --------------
@@ -193,7 +194,7 @@ async def search_product(req: SearchProduct):
 
 
 
-@router.post("/delete")
+@router.delete("/delete")
 async def delete(req: DeleteRequest):
     """
     Delete a vector (by product_id) from the specified collection.

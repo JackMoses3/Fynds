@@ -18,26 +18,13 @@ import aiohttp
 import numpy as np
 import torch
 import torch.nn.functional as F
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
 from torchvision.models import convnext_tiny
 from torchvision import transforms
 import torch.nn as nn
-
-from sqlalchemy import (
-    create_engine,
-    Column,
-    Integer,
-    String,
-    Boolean,
-    BigInteger,
-    ForeignKey,
-)
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, selectinload
-
 from dotenv import load_dotenv
 
 # --------------------------------------------------
@@ -54,34 +41,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("embedding_service")
 
-# --------------------------------------------------
-# SQLAlchemy setup (ProductItem + ProductImage)
-# --------------------------------------------------
-Base = declarative_base()
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
+class TextEmbedRequest(BaseModel):
+    text: str
 
-class ProductItem(Base):
-    __tablename__ = "ProductItem"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    frontEmbeddingId = Column(BigInteger, nullable=True)
-    backEmbeddingId = Column(BigInteger, nullable=True)
-    textEmbeddingId = Column(BigInteger, nullable=True)
-    productImages = relationship(
-        "ProductImage",
-        back_populates="productItem",
-        lazy="selectin",
-        cascade="all, delete-orphan"
-    )
+class TextEmbedResponse(BaseModel):
+    embedding: List[float]          # always length-512
 
-class ProductImage(Base):
-    __tablename__ = "ProductImage"
-    id = Column(Integer, primary_key=True, index=True)
-    productItemId = Column(Integer, ForeignKey("ProductItem.id"), nullable=False)
-    imageUrl = Column(String, nullable=False)
-    frontFacing = Column(Boolean, nullable=True)
-    productItem = relationship("ProductItem", back_populates="productImages")
+class ImageEmbedResponse(BaseModel):
+    label: str              # 'front' | 'back'
+    embedding: List[float]  # 512-dim
 
 # --------------------------------------------------
 # Device & model setup
@@ -99,8 +67,8 @@ classifier_tf = transforms.Compose([
 
 def load_front_back_model():
     """
-    ConvNeXt‐Tiny binary classifier (front vs back).
-    Expects the .pth file at ../embedding/model_files/best_front_back_model_convnext_82.3_88.19.pth
+    ConvNeXt-Tiny binary classifier (front vs back).
+    Expects the .pth file at model_files/best_front_back_model_convnext_82.3_88.19.pth
     """
     current_dir = os.path.dirname(__file__)
     model_path = os.path.abspath(
@@ -134,10 +102,10 @@ class EmbedRequest(BaseModel):
     imageUrls: List[str]
 
 class EmbedResponse(BaseModel):
-    productId: int
     frontEmbedding: Optional[List[float]] = None
     backEmbedding: Optional[List[float]] = None
     textEmbedding: Optional[List[float]] = None
+    frontFacingImages: Optional[List[bool]] = None  # URLs of images classified as front
 
 class TextEmbedRequest(BaseModel):
     text: str
@@ -178,7 +146,7 @@ async def fetch_image(session: aiohttp.ClientSession, url: str) -> Optional[Imag
         logger.warning(f"🖼️ Could not fetch {url}: {e}")
         return None
 
-def classify_image(pil: Image.Image) -> tuple[str, float]:
+def classify_image(pil: Image.Image) -> List[bool]:
     """
     Classify a PIL image as 'front' or 'back'.
     Returns (label, probability_of_back). Lower probability_of_back = more front-like.
@@ -187,13 +155,13 @@ def classify_image(pil: Image.Image) -> tuple[str, float]:
         x = classifier_tf(pil).unsqueeze(0).to(device)
         logits = front_back_model(x)
         probs = F.softmax(logits, dim=1)[0]  # [prob_front, prob_back]
-        label = "front" if probs[0] > probs[1] else "back"
-        return label, float(probs[1])
+        label = True if probs[0] > probs[1] else False
+        return label
 
 def embed_images_and_text(images: List[Image.Image], texts: List[str]):
     """
     Given lists of PIL images and corresponding text strings,
-    return (img_embs: np.ndarray[N×DIM], txt_embs: np.ndarray[N×DIM]).
+    return (img_embs: np.ndarray[NxDIM], txt_embs: np.ndarray[NxDIM]).
     Handles the case where texts may be empty.
     """
     # Case A: no text replicas → only embed images
@@ -231,13 +199,10 @@ def embed_images_and_text(images: List[Image.Image], texts: List[str]):
 # --------------------------------------------------
 # FastAPI application
 # --------------------------------------------------
-app = FastAPI(title="Embedding micro-service", version="0.3.0")
+router = APIRouter()
 
-# ----------------------------------------
-# 1) /product-embed  (unchanged from before)
-# ----------------------------------------
-@app.post("/product-embed", response_model=EmbedResponse)
-async def product_embed(req: EmbedRequest):
+@router.post("/product-embed", response_model=EmbedResponse)
+async def embed(req: EmbedRequest):
     """
     1) Download all images for req.imageUrls.
     2) Classify each as front/back, record label per URL.
@@ -249,16 +214,15 @@ async def product_embed(req: EmbedRequest):
        - Mark ProductImage.frontFacing=True for images classified “front”, False otherwise.
     6) Return JSON { productId, frontEmbedding?, backEmbedding?, textEmbedding? }.
     """
+    # 0) image front facing list
+    front_facing_images: List[bool] = []
     # 1) Download images concurrently
     async with aiohttp.ClientSession() as session:
         fetch_coros = [fetch_image(session, url) for url in req.imageUrls]
         pil_images = await asyncio.gather(*fetch_coros)
 
-    # Pair each URL with its PIL image (None if failed)
-    url_and_images = [(url, img) for url, img in zip(req.imageUrls, pil_images)]
 
     # 2) Classify and collect candidates
-    front_candidates: List[tuple[Image.Image, float, str]] = []
     back_candidates:  List[tuple[Image.Image, float, str]] = []
     url_to_label: dict[str, str] = {}
 
@@ -266,8 +230,10 @@ async def product_embed(req: EmbedRequest):
         if pil is None:
             continue
         label, back_prob = classify_image(pil)
+        front_facing_images.append(label)  # True for front, False for back
         url_to_label[url] = label
-        if label == "front":
+        if label == True:
+            # Lower back_prob → more confident front
             front_candidates.append((pil, 1.0 - back_prob, url))
         else:
             back_candidates.append((pil, back_prob, url))
@@ -321,52 +287,21 @@ async def product_embed(req: EmbedRequest):
         if txt_embs.shape[0] > 0:
             text_vec = txt_embs[0].tolist()
 
-    # 6) Update DB
-    db = SessionLocal()
-    try:
-        item = (
-            db.query(ProductItem)
-              .filter(ProductItem.id == req.id)
-              .options(selectinload(ProductItem.productImages))
-              .one_or_none()
-        )
-        if not item:
-            raise HTTPException(status_code=404, detail=f"ProductItem id={req.id} not found")
-
-        # Assign embedding IDs in “id*2 - 1”, “id*2”, “id”
-        item.frontEmbeddingId = (int(item.id) * 2 - 1) if (front_vec is not None) else None
-        item.backEmbeddingId  = (int(item.id) * 2)     if (back_vec is not None)  else None
-        item.textEmbeddingId  = (int(item.id))         if (text_vec is not None)  else None
-
-        # Mark frontFacing on each ProductImage row
-        for img_row in item.productImages:
-            lbl = url_to_label.get(img_row.imageUrl)
-            img_row.frontFacing = (lbl == "front")
-
-        db.commit()
-        logger.info(f"✅ Updated DB for product {req.id}")
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error updating DB for product {req.id}: {e}")
-    finally:
-        db.close()
-
+    
+    # 7) Return the embeddings JSON
     return EmbedResponse(
-        productId=req.id,
         frontEmbedding=front_vec,
         backEmbedding=back_vec,
         textEmbedding=text_vec,
+        frontFacingImages=front_facing_images
     )
 
 
-# ----------------------------------------
-# 2) /text-embed  (unchanged)
-# ----------------------------------------
-@app.post("/text-embed", response_model=TextEmbedResponse)
+@router.post("/text-embed", response_model=TextEmbedResponse)
 async def text_embed(req: TextEmbedRequest):
     """
-    Return a single 512‐D Fashion‐CLIP embedding for arbitrary free text.
-    No DB writes – pure inference.
+    Return a single 512-D Fashion-CLIP embedding for arbitrary free text.
+    No DB writes - pure inference.
     """
     cleaned = req.text.strip()
     if not cleaned:
@@ -387,11 +322,7 @@ async def text_embed(req: TextEmbedRequest):
     vec = txt_emb[0].cpu().tolist()
     return TextEmbedResponse(embedding=vec)
 
-
-# ----------------------------------------
-# 3) /image-embed  (UPDATED guard)
-# ----------------------------------------
-@app.post("/image-embed", response_model=ImageEmbedResponse)
+@router.post("/image-embed", response_model=ImageEmbedResponse)
 async def image_embed(file: UploadFile = File(...)):
     """
     Accepts one uploaded picture (JPEG/PNG/etc., field name `file`).
@@ -417,20 +348,5 @@ async def image_embed(file: UploadFile = File(...)):
     img_vecs, _ = embed_images_and_text([pil], [])
     embedding_vector = img_vecs[0].tolist()
 
-    return ImageEmbedResponse(label=label, embedding=embedding_vector)
-
-
+    return ImageEmbedResponse(label=label, embedding=img_vec[0].tolist())
 # --------------------------------------------------
-# Run with: uvicorn embedding_server:app --host 0.0.0.0 --port 8000
-# --------------------------------------------------
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(
-        "ml.embedding.embedding_server:app",
-        host="0.0.0.0",
-        port=8000,
-        log_level="info",
-        access_log=True,
-        reload=False,
-    )
