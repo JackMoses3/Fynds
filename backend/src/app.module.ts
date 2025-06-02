@@ -12,6 +12,7 @@ import { StyleModule } from './style/style.module';
 import { CollectionModule } from './collection/collection.module';
 import { ProductItemModule } from './product-item/product-item.module';
 import { ShoppingTrolleyModule } from './shopping-trolley/shopping-trolley.module';
+import { EmbeddingModule } from './embedding/embedding.module'; // Import the embedding module
 
 @Module({
   imports: [
@@ -44,7 +45,7 @@ import { ShoppingTrolleyModule } from './shopping-trolley/shopping-trolley.modul
 
     // Cast to any to satisfy TS; at runtime it still gets applied
     ThrottlerModule.forRoot({
-      ttl: 60,   // seconds
+      ttl: 60, // seconds
       limit: 10, // requests per ttl
     } as any),
 
@@ -57,6 +58,7 @@ import { ShoppingTrolleyModule } from './shopping-trolley/shopping-trolley.modul
     CollectionModule,
     ProductItemModule,
     ShoppingTrolleyModule,
+    EmbeddingModule, // Register the embedding module
   ],
 })
-export class AppModule { }
+export class AppModule {}
