@@ -1,111 +1,125 @@
-// src/embedding/embedding.service.ts
-import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
-import { firstValueFrom } from 'rxjs';
-
-// 1) Import your PrismaService class (instead of Prisma, ProductItem, etc.)
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-
-// 2) Import the DTOs
-import { EmbedRequestDTO } from './dto/embeded-request.dto';
-import { EmbedResponseDTO } from './dto/embeded-response.dto';
-
-// 3) Import the constant (make sure constants.ts actually does `export const ML_BASE_URL = '…';`)
-import { ML_BASE_URL } from './constants';
+import { HttpService } from '@nestjs/axios';
+import pLimit from 'p-limit'; // “npm install p-limit” or yarn add p-limit
+import { EmbedRequestDto } from './dto/embeded-request.dto';
+import { EmbedResponseDto } from './dto/embeded-response.dto';
+import { firstValueFrom } from 'rxjs';
+export interface TextEmbedRequestDto {
+  text: string;
+}
+export interface TextEmbedResponseDto {
+  embedding: number[];
+}
 
 @Injectable()
 export class EmbeddingService {
+  private readonly logger = new Logger(EmbeddingService.name);
+  private readonly baseUrl =
+    process.env.EMBEDDING_SERVICE_URL ?? 'http://localhost:8000';
+
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly http: HttpService,
+    private prisma: PrismaService,
+    private http: HttpService,
   ) {}
 
-  /**
-   * Fetch the next product with no embeddings,
-   * send it to the ML server, and then persist the returned IDs.
-   */
-  async generateForNext(): Promise<void> {
-    // ---------------------------------------------------------
-    //  A) Fetch one ProductItem from the database
-    // ---------------------------------------------------------
-    const product = await this.prisma.productItem.findFirst({
-      where: {
-        frontEmbeddingId: null,
-        backEmbeddingId: null,
-        textEmbeddingId: null,
-      },
-      include: {
-        productImages: true,
-      },
-    });
-    if (!product) {
-      // nothing left to embed
-      return;
-    }
-
-    // ---------------------------------------------------------
-    //  B) Build the payload (type-safe)
-    // ---------------------------------------------------------
-    const payload: EmbedRequestDTO = {
-      productId: product.id,
-      name: product.name,
-      images: product.productImages.map(
-        (img: { id: number; imageUrl: string }) => ({
-          id: img.id,
-          url: img.imageUrl,
-        }),
-      ),
+  private async embedProduct(product: {
+    id: number;
+    metaData: string;
+    productImages: { imageUrl: string }[];
+  }): Promise<EmbedResponseDto> {
+    const payload: EmbedRequestDto = {
+      id: product.id,
+      metaData: product.metaData,
+      imageUrls: product.productImages.map((img) => img.imageUrl),
     };
 
-    // ---------------------------------------------------------
-    //  C) Call the external ML service (Axios via HttpService)
-    // ---------------------------------------------------------
-    // Use firstValueFrom(...) instead of .toPromise(), which Nest/axios deprecates.
-    const axiosResponse = await firstValueFrom(
-      this.http.post<EmbedResponseDTO>(`${ML_BASE_URL}/embed`, payload),
+    const { data } = await firstValueFrom(
+      this.http.post<EmbedResponseDto>(
+        `${this.baseUrl}/product-embed`,
+        payload,
+        {
+          timeout: 60000,
+        },
+      ),
+    );
+    return data;
+  }
+
+  async generateTextEmbedding(query: string): Promise<number[]> {
+    const payload: TextEmbedRequestDto = { text: query };
+
+    const { data } = await firstValueFrom(
+      this.http.post<TextEmbedResponseDto>(
+        `${this.baseUrl}/text-embed`,
+        payload,
+        { timeout: 15_000 },
+      ),
     );
 
-    // At this point, `axiosResponse` is guaranteed to be an AxiosResponse<EmbedResponseDTO>.
-    // Its “.data” property is your EmbedResponseDTO.
-    const data: EmbedResponseDTO = axiosResponse.data;
+    this.logger.debug(
+      `ℹ️ generated text embedding – ${data.embedding.length} dims`,
+    );
+    return data.embedding;
+  }
 
-    // ---------------------------------------------------------
-    //  D) Upsert into your local DB / embedding table
-    // ---------------------------------------------------------
-    // (You’ll need an `Embedding` table in Prisma with something like:
-    //   model Embedding {
-    //     id    Int      @id
-    //     front Float8[] // 512 floats
-    //     back  Float8[] // 512 floats
-    //     text  Float8[] // 512 floats
-    //   }
-    // )
-    //await this.prisma.$transaction([
-    // 1) update the ProductItem row with the new front/back/text IDs
-    //  this.prisma.productItem.update({
-    //    where: { id: product.id },
-    //    data: {
-    //      frontEmbeddingId: data.frontEmbedding ? product.id * 2 - 1 : null,
-    //      backEmbeddingId: data.backEmbedding ? product.id * 2 : null,
-    //      textEmbeddingId: product.id,
-    //    },
-    //  }),
+  async generateProductEmbedding(): Promise<EmbedResponseDto[]> {
+    const dbBatchSize = 100;
+    const concurrencyLimit = 30;
+    let lastId = 0;
+    const allResults: EmbedResponseDto[] = [];
 
-    // 2) upsert the raw 512‐float vectors into an Embedding table
-    //  this.prisma.embedding.upsert({
-    //    where: { id: product.id },
-    //    create: {
-    //      id: product.id,
-    //      front: data.frontEmbedding,
-    //      back: data.backEmbedding,
-    //      text: data.textEmbedding,
-    //    },
-    //    update: {
-    //      front: data.frontEmbedding,
-    //      back: data.backEmbedding,
-    //      text: data.textEmbedding,
-    //    },
-    //  }),
-    //]);
+    while (true) {
+      const batch = await this.prisma.productItem.findMany({
+        where: {
+          frontEmbeddingId: null,
+          backEmbeddingId: null,
+          textEmbeddingId: null,
+          id: { gt: lastId },
+        },
+        select: {
+          id: true,
+          metaData: true,
+          productImages: { select: { imageUrl: true } },
+        },
+        orderBy: { id: 'asc' },
+        take: dbBatchSize,
+      });
+
+      if (batch.length === 0) break;
+
+      this.logger.log(
+        `🛠  Processing DB batch: ${batch.length} products (IDs ${batch[0].id} … ${
+          batch[batch.length - 1].id
+        })`,
+      );
+
+      // p-limit gives you a “pool” of size `concurrencyLimit`
+      const limit = pLimit(concurrencyLimit);
+      const promises = batch.map((p) =>
+        limit(() =>
+          this.embedProduct(p).then(
+            (resp) => {
+              this.logger.log(`✅ Embedded product ${resp.productId}`);
+              allResults.push(resp);
+            },
+            (err) => {
+              this.logger.warn(
+                `⚠️  Failed embedding for product ${p.id}: ${err.message || err}`,
+              );
+            },
+          ),
+        ),
+      );
+
+      // Wait until all 100 in this DB batch have been issued & settled
+      await Promise.all(promises);
+      lastId = batch[batch.length - 1].id;
+    }
+
+    this.logger.log(
+      `🏁 processPending complete. Total embedded: ${allResults.length}`,
+    );
+    return allResults;
   }
 }

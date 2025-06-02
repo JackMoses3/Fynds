@@ -69,3 +69,4 @@ ml/venv/
 
 #ML
 ml/embedding/model_files/
+ml/src/generate_product_embeddings/model_files/

@@ -1,10 +1,5 @@
-export interface ImageDTO {
+export interface EmbedRequestDto {
   id: number;
-  url: string;
-}
-
-export interface EmbedRequestDTO {
-  productId: number;
-  name: string;
-  images: ImageDTO[];
+  metaData: string;
+  imageUrls: string[];
 }
