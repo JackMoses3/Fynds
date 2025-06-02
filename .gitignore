@@ -67,6 +67,7 @@ macos/build/
 *.swp
 ml/venv/
 ml/.env/
+ml/__pycache__/
 
 #ML
 ml/embedding/model_files/
