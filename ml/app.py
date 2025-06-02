@@ -1,28 +1,23 @@
 # ml/app.py
 
 from fastapi import FastAPI
+from embedding.embedding_router import router as embedding_router
+from ml_services.qdrant_client.main import router as qdrant_router
+
+app = FastAPI(
+    title="Fynds ML Services",
+    description="Centralized ML API for embeddings, vector search, and recommendations",
+    version="1.0.0"
+)
+
+# Include the embedding router
+app.include_router(embedding_router, prefix="/api/v1/embedding", tags=["embeddings"])
+
+# Include the Qdrant client router
+app.include_router(qdrant_router, prefix="/api/v1/vector", tags=["vector-search"])
 
 # 1) your existing text-to-image router:
 from ml.src.text_to_image.text_to_image_router import router as search_router
-
-# 2) your new “embed” router (make sure this file exists at ml/src/generate_product_embeddings/router.py)
-from ml.src.generate_product_embeddings.router import router as embed_router
-
-app = FastAPI(
-    title="My ML Service",
-    version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
-
-# ─── Include your existing text-to-image endpoints ────────────────────────────
-# If your search_router already defines its own path prefixes, you can pass no prefix.
-# Otherwise you might do something like prefix="/text2image" or "/search".
-app.include_router(search_router)           
-
-# ─── Include the new “/embed” endpoint ────────────────────────────────────────
-# Every POST to /embed/ will be handled by generate_product_embeddings.router.create_embeddings
-app.include_router(embed_router, prefix="/embed", tags=["embeddings"])
 
 
 if __name__ == "__main__":

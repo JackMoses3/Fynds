@@ -9,8 +9,8 @@ export class ProductImage {
   imageUrl: string;
 
   @Field()
-  frontFacing: boolean;  
-  
+  frontFacing: boolean;
+
   @Field(() => Int)
   productItemId: number; // this links the image to a product
 }

@@ -13,6 +13,7 @@ import { CollectionModule } from './collection/collection.module';
 import { ProductItemModule } from './product-item/product-item.module';
 import { ShoppingTrolleyModule } from './shopping-trolley/shopping-trolley.module';
 import { EmbeddingModule } from './embedding/embedding.module'; // Import the embedding module
+import { QdrantModule } from './qdrant/qdrant.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { EmbeddingModule } from './embedding/embedding.module'; // Import the em
     ProductItemModule,
     ShoppingTrolleyModule,
     EmbeddingModule, // Register the embedding module
+    QdrantModule,
   ],
 })
 export class AppModule {}
