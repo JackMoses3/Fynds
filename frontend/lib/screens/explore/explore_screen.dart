@@ -1,11 +1,14 @@
+// lib/screens/explore/explore_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:frontend/models/product_item/search.dart';
-import 'package:frontend/services/product_item/search/search_service.dart';
+import 'package:frontend/services/product_item/search/search_service.dart'; // <-- import the new method
+import 'package:image_picker/image_picker.dart'; // NEW
+import 'package:path/path.dart' as p; // NEW
+import 'package:frontend/services/product_item/search/image_search_service.dart'; // NEW
 import 'package:frontend/models/product_item/product_item.dart';
 import 'package:frontend/services/product_item/item/product_item_service.dart';
-import 'package:frontend/widgets/product_item/product_item.dart';
-import 'dart:ui';
 import 'package:frontend/widgets/product_feed/infinite_product_feed.dart';
+import 'dart:io';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({Key? key}) : super(key: key);
@@ -16,6 +19,7 @@ class ExploreScreen extends StatefulWidget {
 
 class _ExploreScreenState extends State<ExploreScreen> {
   final _searchCtrl = TextEditingController();
+  final _picker = ImagePicker();
   bool _isLoading = false;
   List<ProductItem> _products = [];
 
@@ -25,43 +29,113 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.dispose();
   }
 
+  // -----------------text search-----------------
+
   Future<void> _doSearch(String query) async {
     if (query.isEmpty) return;
+
     setState(() {
       _isLoading = true;
-      _products = [];
     });
-    try {
-      // 1) text→image → IDs
-      final matches = await SearchService().searchMatches(query) ?? [];
 
-      // 2) batch fetch full items
-      if (matches.isNotEmpty) {
-        final ids = matches.map((m) => m.productId).toList();
-        final items = await ProductItemService().getProductItemsByIds(ids);
-        setState(
-          () => _products = items ?? [],
-        ); //update products with all items
-      }
+    try {
+      // 1) Send “query” to NestJS → get back a 512-dim embedding array
+      final embedding = await SearchService().getTextEmbedding(query);
+
+      // 2) For now: just show how many dimensions we got
+      debugPrint(
+        'SearchService.getTextEmbedding returned ${embedding.length} dims; '
+        'first three: [${embedding.take(3).join(', ')}]',
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Received embedding with ${embedding.length} dims'),
+        ),
+      );
     } catch (e) {
-      debugPrint('Search error: $e');
+      debugPrint('Error obtaining text embedding: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Search failed: $e')));
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // -----------------image search-----------------
+  Future<void> _pickImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder:
+          (_) => SafeArea(
+            child: Wrap(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.camera_alt),
+                  title: const Text('Take photo'),
+                  onTap: () => Navigator.pop(context, ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: const Text('Upload from gallery'),
+                  onTap: () => Navigator.pop(context, ImageSource.gallery),
+                ),
+              ],
+            ),
+          ),
+    );
+
+    if (source == null) return;
+
+    final XFile? xfile = await _picker.pickImage(
+      source: source,
+      imageQuality: 85,
+    );
+    if (xfile == null) return;
+
+    final file = File(xfile.path);
+    await _doImageEmbedding(file);
+  }
+
+  Future<void> _doImageEmbedding(File image) async {
+    setState(() => _isLoading = true);
+
+    try {
+      final resp = await ImageEmbeddingService().embedImage(image);
+      if (resp == null) throw 'No response';
+
+      // At this point you *only* wanted to create the embedding.
+      // We’ll just toast the result & show it in console.
+      debugPrint(
+        'Image embedding (${resp.label}) – first 3 dims: ['
+        '${resp.embedding.take(3).join(', ')} …]',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('✅ Got ${resp.label} embedding (512 dims)')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Image embedding failed: $e')));
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
+  // -----------------BUILD-----------------
+
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top + 16;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // if we have search results, render them via the feed
           if (_products.isNotEmpty)
             InfiniteProductFeed(initialProducts: _products)
           else if (_isLoading)
@@ -69,12 +143,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
           else
             const Center(
               child: Text(
-                'Search above to explore products',
+                'Search for any product',
                 style: TextStyle(color: Colors.white54),
               ),
             ),
 
-          // gradient scrim for the search box
+          // scrim to make the search box readable
           Positioned(
             top: 0,
             left: 0,
@@ -91,7 +165,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           ),
 
-          // the search bar
+          // search bar
           Positioned(
             top: topInset,
             left: 16,
@@ -107,9 +181,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 decoration: InputDecoration(
                   hintText: 'Search products',
                   hintStyle: const TextStyle(color: Colors.white70),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white70),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                  // NEW → camera icon on the RIGHT
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.camera_alt, color: Colors.white70),
+                    onPressed: _pickImage,
+                  ),
                 ),
                 textInputAction: TextInputAction.search,
                 onSubmitted: (v) => _doSearch(v.trim()),
