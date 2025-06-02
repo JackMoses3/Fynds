@@ -16,29 +16,29 @@ model ProductItem {
   metaData         String
   retailer         String
   price            Float
-  standardPrice    Float?
-  sale             Boolean?          @default(false)
+  frontEmbeddingId BigInt?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-  frontEmbeddingId BigInt?
   backEmbeddingId  BigInt?
   textEmbeddingId  BigInt?
   brand            String
-  storeId          BigInt?
   category         String?
   subCategory      String?
   lastModified     DateTime?
+  sale             Boolean?          @default(false)
   siteDataConfigId Int?
-  itemVideos       ItemVideo[]
-  productStyles    ProductStyle[]
-  productImages    ProductImage[]
-  TrolleyItem      TrolleyItem[]
-  Like             Like[]
+  storeId          BigInt?
+  standardPrice    Float?
   CollectionItem   CollectionItem[]
-  ViewingHistory   ViewingHistory[]
-  PurchaseHistory  PurchaseHistory[]
+  itemVideos       ItemVideo[]
+  Like             Like[]
+  productImages    ProductImage[]
   siteDataConfig   SiteDataConfig?   @relation(fields: [siteDataConfigId], references: [id])
   productItemLook  ProductItemLook[]
+  productStyles    ProductStyle[]
+  PurchaseHistory  PurchaseHistory[]
+  TrolleyItem      TrolleyItem[]
+  ViewingHistory   ViewingHistory[]
 
   @@unique([retailer, storeId])
 }
@@ -51,6 +51,8 @@ model ProductImage {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   productItem   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+
+  @@index([productItemId], map: "idx_productimage_productitemid")
 }
 
 model SiteDataConfig {
@@ -104,19 +106,19 @@ model User {
   verifyCode          Int?
   isVerified          Boolean           @default(false)
   email               String            @unique
-  passwordHash        String? // optional if using OAuth
-  provider            String // 'google', 'instagram', or 'Local
-  providerId          String? // ID from OAuth provider
-  birthdate           DateTime?
-  location            String?
+  passwordHash        String?
+  provider            String
+  providerId          String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
-  userStyle           UserStyle[]
-  shoppingTrolleys    ShoppingTrolley[]
-  likes               Like[]
+  birthdate           DateTime?
+  location            String?
   collections         Collection[]
-  viewingHistory      ViewingHistory[]
+  likes               Like[]
   purchaseHistory     PurchaseHistory[]
+  shoppingTrolleys    ShoppingTrolley[]
+  userStyle           UserStyle[]
+  viewingHistory      ViewingHistory[]
 
   @@unique([provider, providerId])
 }
@@ -136,10 +138,10 @@ model ProductStyle {
   id            Int         @id @default(autoincrement())
   productItemId Int
   styleId       Int
-  productItem   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
-  style         Style       @relation(fields: [styleId], references: [id], onDelete: Cascade)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  productItem   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+  style         Style       @relation(fields: [styleId], references: [id], onDelete: Cascade)
 
   @@unique([productItemId, styleId])
 }
@@ -148,10 +150,10 @@ model UserStyle {
   id        Int      @id @default(autoincrement())
   userId    Int
   styleId   Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  style     Style    @relation(fields: [styleId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  style     Style    @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, styleId])
 }
@@ -159,10 +161,10 @@ model UserStyle {
 model ShoppingTrolley {
   id        Int           @id @default(autoincrement())
   userId    Int
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     TrolleyItem[]
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     TrolleyItem[]
 }
 
 model TrolleyItem {
@@ -170,17 +172,17 @@ model TrolleyItem {
   shoppingTrolleyId Int
   productItemId     Int
   quantity          Int             @default(1)
-  shoppingTrolley   ShoppingTrolley @relation(fields: [shoppingTrolleyId], references: [id], onDelete: Cascade)
   product           ProductItem     @relation(fields: [productItemId], references: [id])
+  shoppingTrolley   ShoppingTrolley @relation(fields: [shoppingTrolleyId], references: [id], onDelete: Cascade)
 }
 
 model Like {
   id            Int         @id @default(autoincrement())
   userId        Int
   productItemId Int
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product       ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
   createdAt     DateTime    @default(now())
+  product       ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productItemId])
 }
@@ -189,10 +191,10 @@ model Collection {
   id        Int              @id @default(autoincrement())
   name      String
   userId    Int
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     CollectionItem[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CollectionItem[]
 }
 
 model CollectionItem {
@@ -210,8 +212,8 @@ model ViewingHistory {
   userId        Int
   productItemId Int
   viewedAt      DateTime    @default(now())
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   product       ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model PurchaseHistory {
@@ -220,6 +222,6 @@ model PurchaseHistory {
   productItemId Int
   purchasedAt   DateTime    @default(now())
   quantity      Int         @default(1)
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   product       ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
