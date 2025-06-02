@@ -19,7 +19,7 @@ import aiohttp
 import numpy as np
 import torch
 import torch.nn.functional as F
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
@@ -89,6 +89,10 @@ class TextEmbedRequest(BaseModel):
 
 class TextEmbedResponse(BaseModel):
     embedding: List[float]          # always length-512
+
+class ImageEmbedResponse(BaseModel):
+    label: str              # 'front' | 'back'
+    embedding: List[float]  # 512-dim
 
 # --------------------------------------------------
 # Device & model setup
@@ -408,6 +412,34 @@ async def text_embed(req: TextEmbedRequest):
     vec = txt_emb[0].cpu().tolist()
 
     return TextEmbedResponse(embedding=vec)
+
+@app.post("/image-embed", response_model=ImageEmbedResponse)
+async def image_embed(file: UploadFile = File(...)):
+    """
+    Accepts one uploaded picture (JPEG/PNG, field name `file`).
+
+    1. Classify as 'front' or 'back'.
+    2. Produce exactly **one** 512-D embedding for that same image.
+    3. *No* database writes.
+    """
+    # 1) basic guards
+    if not file.content_type or not file.content_type.startswith("image"):
+        raise HTTPException(status_code=415, detail="file must be an image")
+
+    # 2) read into PIL
+    try:
+        raw = await file.read()
+        pil = Image.open(BytesIO(raw)).convert("RGB")
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid image file")
+
+    # 3) front / back classification
+    label, _ = classify_image(pil)  # label ∈ {'front','back'}
+
+    # 4) embed (image only → no text replicas)
+    img_vec, _ = embed_images_and_text([pil], [])
+
+    return ImageEmbedResponse(label=label, embedding=img_vec[0].tolist())
 
 if __name__ == "__main__":
     import uvicorn

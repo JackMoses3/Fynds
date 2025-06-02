@@ -1,6 +1,15 @@
 // backend/src/embedding/embedding.controller.ts
 
-import { Controller, Post, Body, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Logger,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { EmbeddingService } from './embedding.service';
 
 @Controller('embedding')
@@ -44,5 +53,25 @@ export class EmbeddingController {
         .join(', ')}…])`,
     );
     return { embedding: vec };
+  }
+
+  /**
+   * POST /api/embedding/generate-image-embedding
+   *
+   * Accepts a JSON body { "imageUrl": "https://example.com/image.jpg" }
+   * and returns a 512-dim array.
+   */
+  @Post('generate-image-embedding')
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(), // keep in RAM so “file.buffer” is available
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    }),
+  )
+  async generateImageEmbedding(@UploadedFile() image: Express.Multer.File) {
+    if (!image) {
+      throw new Error('No file uploaded. Field name must be "image".');
+    }
+    return this.embeddingService.generateImageEmbedding(image);
   }
 }

@@ -5,10 +5,17 @@ import pLimit from 'p-limit'; // “npm install p-limit” or yarn add p-limit
 import { EmbedRequestDto } from './dto/embeded-request.dto';
 import { EmbedResponseDto } from './dto/embeded-response.dto';
 import { firstValueFrom } from 'rxjs';
+import FormData from 'form-data';
+
 export interface TextEmbedRequestDto {
   text: string;
 }
 export interface TextEmbedResponseDto {
+  embedding: number[];
+}
+
+export interface ImageEmbedResponseDto {
+  label: 'front' | 'back';
   embedding: number[];
 }
 
@@ -61,6 +68,36 @@ export class EmbeddingService {
       `ℹ️ generated text embedding – ${data.embedding.length} dims`,
     );
     return data.embedding;
+  }
+
+  async generateImageEmbedding(
+    file: Express.Multer.File,
+  ): Promise<ImageEmbedResponseDto> {
+    // 1) wrap the raw buffer in multipart/form-data
+    const form = new FormData();
+    form.append('file', file.buffer, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+
+    // 2) POST to FastAPI
+    const { data } = await firstValueFrom(
+      this.http.post<ImageEmbedResponseDto>(
+        `${this.baseUrl}/image-embed`,
+        form,
+        {
+          headers: form.getHeaders(), // axios sets boundary for us
+          timeout: 15_000,
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
+        },
+      ),
+    );
+
+    this.logger.debug(
+      `ℹ️ image classified as <${data.label}> – ${data.embedding.length} dims`,
+    );
+    return data;
   }
 
   async generateProductEmbedding(): Promise<EmbedResponseDto[]> {
