@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/screens/onboarding/user_details_screen.dart';
-import 'package:frontend/services/auth/auth_service.dart';
+import 'package:fynds/screens/onboarding/user_details_screen.dart';
+import 'package:fynds/services/auth/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

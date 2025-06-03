@@ -1,74 +1,53 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/screens/auth/onboarding_screen.dart';
-import 'package:frontend/screens/explore/explore_screen.dart';
-import 'package:frontend/widgets/main_shell.dart';
-import 'screens/home/home_screen.dart';
-import 'screens/search_screen.dart';
-import 'screens/profile/profile_screen.dart';
+import 'package:fynds/screens/auth/title_screen.dart';
+import 'package:fynds/services/auth/auth_service.dart';
+import 'package:fynds/navigation/app_navigation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fynds/screens/onboarding/style_choice_screen.dart';
 
-Future<void> main() async {
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+const String appTitle = 'Fynds';
+const String appSubtitle = 'Finding fashion for you';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize shared preferences to check if onboarding is complete
   final prefs = await SharedPreferences.getInstance();
   final done = prefs.getBool('onboardingComplete') ?? false;
-  runApp(MyApp(onboardingDone: done));
+  // check if the user is authenticated
+  final authService = AuthService();
+  final bool isAuthenticated = await authService.checkLoginStatus();
+  runApp(MyApp(onboardingDone: done, isAuthenticated: isAuthenticated));
 }
 
 class MyApp extends StatelessWidget {
   final bool onboardingDone;
-  const MyApp({Key? key, required this.onboardingDone}) : super(key: key);
+  final bool isAuthenticated;
+  const MyApp({
+    super.key,
+    required this.onboardingDone,
+    required this.isAuthenticated,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Fynds',
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         primarySwatch: Colors.blue,
         scaffoldBackgroundColor: const Color(0xFFF6FCFA),
       ),
-      home: onboardingDone ? const MainShell() : OnboardingScreen(),
-    );
-  }
-}
-
-class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
-
-  @override
-  State<MainNavigation> createState() => _MainNavigationState();
-}
-
-class _MainNavigationState extends State<MainNavigation> {
-  int _selectedIndex = 0;
-
-  static final List<Widget> _pages = <Widget>[
-    const HomeScreen(),
-    const ExploreScreen(),
-    const ProfileScreen(),
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        selectedItemColor: Colors.red,
-        unselectedItemColor: Colors.white,
-        backgroundColor: Colors.black,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
+      initialRoute:
+          onboardingDone
+              ? (isAuthenticated ? '/home' : '/title')
+              : '/onboarding',
+      routes: {
+        '/title':
+            (context) => TitleScreen(title: appTitle, subtitle: appSubtitle),
+        '/home': (context) => const AppNavigation(),
+        '/onboarding': (context) => const StyleChoiceScreen(),
+      },
     );
   }
 }

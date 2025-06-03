@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:frontend/screens/auth/login_screen.dart';
-import 'package:frontend/screens/onboarding/user_details_screen.dart';
-import 'package:frontend/services/auth/auth_service.dart'; // Add this in pubspec.yaml
-import 'package:frontend/screens/auth/email_signup_screen.dart'; // Add this in pubspec.yaml
+import 'package:fynds/screens/auth/login_screen.dart';
+import 'package:fynds/screens/onboarding/user_details_screen.dart';
+import 'package:fynds/services/auth/auth_service.dart'; // Add this in pubspec.yaml
+import 'package:fynds/screens/auth/email_signup_screen.dart'; // Add this in pubspec.yaml
 
-class OnboardingScreen extends StatelessWidget {
-  OnboardingScreen({super.key});
+class TitleScreen extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  TitleScreen({super.key, required this.title, required this.subtitle});
   final AuthService _authService = AuthService();
 
   void _handleGoogleLogin(BuildContext context) async {

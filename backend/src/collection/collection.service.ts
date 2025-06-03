@@ -1,14 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateCollectionDto, getCollectionItemDto, getCollectionsDto } from './dto/create-collection.dto';
-import { UpdateCollectionDto } from './dto/update-collection.dto';
+import { CreateCollectionDto } from './dto/create-collection.dto';
 import { DatabaseService } from '../database/database.service';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../prisma/generated';
 import { ProductItemTransferDto } from 'src/product-item/dto/product-item.dto';
 
 @Injectable()
 export class CollectionService {
   constructor(private readonly db: DatabaseService) {}
-  
+
   async createNewCollection(userId: number, dto: CreateCollectionDto) {
     return this.db.collection.create({
       data: {
@@ -19,7 +18,8 @@ export class CollectionService {
       },
       select: {
         id: true,
-        name: true,}
+        name: true,
+      },
     });
   }
 
@@ -28,11 +28,11 @@ export class CollectionService {
       where: { userId },
       select: {
         id: true,
-        name: true
-      },});
+        name: true,
+      },
+    });
   }
 
-  
   async update(id: number, updateCollectionDto: Prisma.CollectionUpdateInput) {
     return this.db.collection.update({
       where: { id },
@@ -50,13 +50,15 @@ export class CollectionService {
    * Get all products belonging to a given collection ID.
    * Returns an array of ProductItemTransferDto.
    */
-  async getProductsByCollectionId(collectionId: number): Promise<ProductItemTransferDto[]> {
+  async getProductsByCollectionId(
+    collectionId: number,
+  ): Promise<ProductItemTransferDto[]> {
     const collection = await this.db.collectionItem.findMany({
       where: { collectionId },
       include: {
         product: {
           select: {
-            id : true,
+            id: true,
             name: true,
             price: true,
             brand: true,
@@ -66,11 +68,11 @@ export class CollectionService {
               select: {
                 id: true,
                 imageUrl: true,
+              },
             },
           },
         },
       },
-    }
     });
     if (!collection) {
       throw new NotFoundException('Collection not found');
@@ -87,6 +89,5 @@ export class CollectionService {
       })),
     }));
   }
-    // Fetch the collection with its items and their products
-   
+  // Fetch the collection with its items and their products
 }

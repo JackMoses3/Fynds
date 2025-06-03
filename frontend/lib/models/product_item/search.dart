@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class SearchMatch {
   final int productId;
   final double distance;

@@ -1,5 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
+  output        = "../generated/prisma"
   binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }
 
@@ -24,7 +25,7 @@ model ProductItem {
   sale             Boolean?          @default(false)
   siteDataConfigId Int?
   standardPrice    Float?
-  embeddignId      String?
+  embedding        String? // Changed from 'embedding' to match database
   CollectionItem   CollectionItem[]
   itemVideos       ItemVideo[]
   Like             Like[]
@@ -118,7 +119,7 @@ model User {
 model Style {
   id           Int            @id @default(autoincrement())
   name         String
-  description  String
+  description  String?
   embeddingId  BigInt?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/services/auth/auth_service.dart';
-import 'package:frontend/screens/auth/verify_screen.dart';
+import 'package:fynds/services/auth/auth_service.dart';
+import 'package:fynds/screens/auth/verify_screen.dart';
 
 class EmailSignUpScreen extends StatefulWidget {
   const EmailSignUpScreen({super.key});

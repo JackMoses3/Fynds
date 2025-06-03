@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/screens/profile/collection_widget.dart';
-import 'package:frontend/services/collection/collection_service.dart';
-import 'package:frontend/models/collection.dart';
+import 'package:fynds/screens/profile/collection_widget.dart';
+import 'package:fynds/services/collection/collection_service.dart';
+import 'package:fynds/models/collection.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

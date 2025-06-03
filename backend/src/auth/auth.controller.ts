@@ -7,23 +7,24 @@ import {
   Body,
   BadRequestException,
   UnauthorizedException,
+  Req,
+  Put,
 } from '@nestjs/common';
 import { Request as ExpressRequest } from 'express';
 import { LocalAuthGuard } from './strategies/local/local-auth.guard';
-import { JwtAuthGuard } from './strategies/jwt/jwt-auth.guard';
-import { GoogleOAuthGuard } from './strategies/google/google-oauth.guard';
 import { AuthService } from './auth.service';
-import { User } from '@prisma/client';
+import { User } from 'generated/prisma';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify.dto';
-import { UserService } from '../user/user.service';
+import { GoogleAuthGuard } from './strategies/google/google-oauth.guard';
+import { Public, RequestUser } from 'src/types';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService,
-    private userService: UserService,
-  ) { }
+  constructor(private authService: AuthService) {}
 
+  @Public()
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
     // We might want to add some error handling to this endpoint for duplicate emails
@@ -34,12 +35,17 @@ export class AuthController {
     return userWithoutPassword;
   }
 
+  @Public()
   @Post('verify')
   async verify(@Body() verifyEmailDto: VerifyEmailDto) {
     console.log('📩 Incoming verification:', verifyEmailDto);
-    return this.authService.verifyEmail(verifyEmailDto.email, verifyEmailDto.code);
+    return this.authService.verifyEmail(
+      verifyEmailDto.email,
+      verifyEmailDto.code,
+    );
   }
 
+  @Public()
   @UseGuards(LocalAuthGuard)
   @Post('login')
   login(@Request() req: ExpressRequest & { user: User }) {
@@ -48,23 +54,27 @@ export class AuthController {
     return this.authService.login(req.user);
   }
 
+  @Public()
   @Get('login/google')
-  @UseGuards(GoogleOAuthGuard)
+  @UseGuards(GoogleAuthGuard)
   async googleAuth() {
     // Guard redirects to Google
   }
 
+  @Public()
   @Get('google/callback')
-  @UseGuards(GoogleOAuthGuard)
+  @UseGuards(GoogleAuthGuard)
   googleAuthRedirect(@Request() req: ExpressRequest & { user: User }) {
     return this.authService.login(req.user);
   }
 
+  @Public()
   @Post('google/token')
   loginWithGoogleToken(@Body('idToken') idToken: string) {
-    return this.authService.validateGoogleToken(idToken)
+    return this.authService.validateGoogleToken(idToken);
   }
 
+  @Public()
   @Post('refresh')
   refreshToken(@Body('refresh_token') refreshToken: string) {
     if (!refreshToken) {
@@ -73,25 +83,29 @@ export class AuthController {
     return this.authService.refreshAccessToken(refreshToken);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('check')
-  getProfile(@Request() req: ExpressRequest & { user: User }) {
-    return req.user;
+  getProfile(@Req() req: RequestUser) {
+    return req.user.sub;
   }
 
-  @Post('delete')
-  deleteUser(@Body('email') email: string) {
-    if (!email) {
-      throw new BadRequestException('Email is required.');
-    }
-    return this.userService.removeByEmail(email);
-  }
-
+  @Public()
   @Post('new-verification')
   async sendNewVerificationEmail(@Body('email') email: string) {
     if (!email) {
       throw new BadRequestException('Email is required.');
     }
     return this.authService.newValidationCode(email);
+  }
+
+  @Put('password')
+  async changePassword(
+    @Body() changePasswordDto: ChangePasswordDto,
+    @Req() req: RequestUser,
+  ) {
+    await this.authService.changePassword(
+      { id: req.user.sub },
+      changePasswordDto,
+    );
+    return { message: 'Password changed successfully' };
   }
 }

@@ -1,13 +1,11 @@
 // lib/screens/explore/explore_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:frontend/services/product_item/search/search_service.dart'; // <-- import the new method
+import 'package:fynds/services/product_item/search/search_service.dart'; // <-- import the new method
 import 'package:image_picker/image_picker.dart'; // NEW
-import 'package:path/path.dart' as p; // NEW
-import 'package:frontend/services/product_item/search/image_search_service.dart'; // NEW
-import 'package:frontend/models/product_item/product_item.dart';
-import 'package:frontend/services/product_item/item/product_item_service.dart';
-import 'package:frontend/widgets/product_feed/infinite_product_feed.dart';
+import 'package:fynds/services/product_item/search/image_search_service.dart'; // NEW
+import 'package:fynds/models/product_item/product_item.dart';
+import 'package:fynds/widgets/product_feed/infinite_product_feed.dart';
 import 'dart:io';
 
 class ExploreScreen extends StatefulWidget {

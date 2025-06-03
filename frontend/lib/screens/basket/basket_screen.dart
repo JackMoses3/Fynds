@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/models/basket_item.dart';
-import 'package:frontend/services/basket/basket_service.dart';
+import 'package:fynds/models/basket_item.dart';
+import 'package:fynds/services/basket/basket_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:frontend/widgets/product_item/product_item.dart';
 
 class BasketScreen extends StatefulWidget {
   const BasketScreen({Key? key}) : super(key: key);

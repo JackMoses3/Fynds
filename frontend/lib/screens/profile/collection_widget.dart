@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/models/collection.dart';
-import 'package:frontend/models/product_item/product_item.dart';
-import 'package:frontend/widgets/product_item/catalogue_view.dart';
-import 'package:frontend/services/collection/collection_service.dart';
+import 'package:fynds/models/collection.dart';
+import 'package:fynds/models/product_item/product_item.dart';
+import 'package:fynds/widgets/product_item/catalogue_view.dart';
+import 'package:fynds/services/collection/collection_service.dart';
 
 class CollectionWidget extends StatefulWidget {
   final List<CollectionList> collections;

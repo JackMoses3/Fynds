@@ -1,7 +1,7 @@
 // lib/services/embedding/image_embedding_service.dart
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:frontend/core/dio_client.dart';
+import 'package:fynds/core/dio_client.dart';
 
 class ImageEmbedResponse {
   final List<double> embedding;

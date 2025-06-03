@@ -15,7 +15,7 @@ CREATE TABLE "ProductItem" (
     "sale" BOOLEAN DEFAULT false,
     "siteDataConfigId" INTEGER,
     "standardPrice" DOUBLE PRECISION,
-    "embeddignId" TEXT,
+    "embedding" TEXT,
 
     CONSTRAINT "ProductItem_pkey" PRIMARY KEY ("id")
 );

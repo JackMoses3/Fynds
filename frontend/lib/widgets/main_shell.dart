@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/screens/home/home_screen.dart';
-import 'package:frontend/screens/explore/explore_screen.dart';
-import 'package:frontend/screens/basket/basket_screen.dart';
-import 'package:frontend/screens/profile/profile_screen.dart';
+import 'package:fynds/screens/home/home_screen.dart';
+import 'package:fynds/screens/explore/explore_screen.dart';
+import 'package:fynds/screens/basket/basket_screen.dart';
+import 'package:fynds/screens/profile/profile_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({Key? key}) : super(key: key);

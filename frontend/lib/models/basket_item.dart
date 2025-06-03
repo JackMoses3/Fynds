@@ -1,4 +1,4 @@
-import 'package:frontend/models/product_item/product_item.dart';
+import 'package:fynds/models/product_item/product_item.dart';
 
 class BasketItem {
   final ProductItem product;
