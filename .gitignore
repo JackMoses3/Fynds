@@ -1,6 +1,7 @@
 # Node.js
 node_modules/
 dist/
+generated/
 .env
 .env.*.local
 *.log
@@ -8,6 +9,7 @@ dist/
 # Prisma
 *.db
 *.sqlite
+
 
 # Flutter
 **/build/
