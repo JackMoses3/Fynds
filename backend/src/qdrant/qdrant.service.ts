@@ -4,7 +4,6 @@ import {
   Gender,
   InsertVectorDto,
   SearchVectorDto,
-  SearchProductDto,
   DeleteVectorDto,
 } from './dto/qdrant.dto';
 import {
@@ -13,14 +12,19 @@ import {
   QdrantDeleteResponse,
 } from './models/qdrant.model';
 
+import { ProductItemTransferDto } from 'src/product-item/dto/product-item.dto';
+import { DatabaseService } from 'src/database/database.service';
+import { SearchDto } from 'src/embedding-qdrant/dto/embedding-qdrant.dto';
+
 @Injectable()
 export class QdrantService {
+  constructor(private readonly db: DatabaseService) {}
   private readonly logger = new Logger(QdrantService.name);
   private readonly mlServiceUrl = process.env.ML_URL + '/api/v1/vector';
 
   async insertVector(params: {
     collection: CollectionType;
-    product_id: number;
+    productId: number;
     vector: number[];
     style?: string[];
     price: number;
@@ -31,7 +35,7 @@ export class QdrantService {
   }): Promise<QdrantInsertResponse> {
     const {
       collection,
-      product_id,
+      productId,
       vector,
       style,
       price,
@@ -43,7 +47,7 @@ export class QdrantService {
 
     const payload: InsertVectorDto = {
       collection,
-      product_id,
+      productId,
       vector,
       price,
       style,
@@ -69,7 +73,7 @@ export class QdrantService {
         );
       }
 
-      this.logger.log(`Inserted vector for product_id=${product_id}`);
+      this.logger.log(`Inserted vector for productId=${productId}`);
       return {
         status: 'success',
         inserted_count: 1,
@@ -146,30 +150,26 @@ export class QdrantService {
       );
     }
   }
-
+  // Search for products by productId
+  // we need to grab the embedding (e.g., fb) for the given productId
+  //
   async searchProduct(params: {
-    collection: CollectionType;
-    product_id: number;
-    top_k?: number;
-    style?: string[];
-    price_lte?: number;
-    category?: string[];
-    gender?: Gender[];
-    brand?: string[];
-    retailer?: string[];
-  }): Promise<QdrantSearchResponse> {
-    const searchProductPayload: SearchProductDto = {
-      collection: params.collection,
-      product_id: params.product_id,
-      top_k: params.top_k || 10,
-      style: params.style,
-      price_lte: params.price_lte,
-      category: params.category,
-      gender: params.gender,
-      brand: params.brand,
-      retailer: params.retailer,
-    };
-
+    productId: number;
+    searchDto: SearchDto;
+  }): Promise<ProductItemTransferDto[]> {
+    // get the embedding form the given product
+    const embeddingString = await this.db.productItem.findUnique({
+      where: { id: params.productId },
+      select: { embedding: true },
+    });
+    if (!embeddingString) {
+      this.logger.warn(
+        `No embedding found for productId=${params.productId}. Returning empty results.`,
+      );
+      return [];
+    }
+    // check each character in the string and get the list of similar products and their scores
+    // repeat this try for f b t if needed
     try {
       const response = await fetch(`${this.mlServiceUrl}/search_product`, {
         method: 'POST',
@@ -193,6 +193,7 @@ export class QdrantService {
         `Product search completed with ${result.results.length} results`,
       );
 
+      // Going to want to use a helper function potentially to get the best products based off weights(e.g. based on whether they liked front or back image)
       return {
         results: result.results.map((item) => ({
           id: item.id,
@@ -213,11 +214,11 @@ export class QdrantService {
 
   async deleteVector(params: {
     collection: CollectionType;
-    product_id: number;
+    productId: number;
   }): Promise<QdrantDeleteResponse> {
     const deletePayload: DeleteVectorDto = {
       collection: params.collection,
-      product_id: params.product_id,
+      productId: params.productId,
     };
 
     try {
@@ -236,7 +237,7 @@ export class QdrantService {
         );
       }
 
-      this.logger.log(`Deleted vector for product_id=${params.product_id}`);
+      this.logger.log(`Deleted vector for productId=${params.productId}`);
 
       return {
         status: 'success',

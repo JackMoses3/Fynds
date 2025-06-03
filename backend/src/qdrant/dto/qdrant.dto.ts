@@ -28,7 +28,7 @@ export class InsertVectorDto {
   collection: CollectionType;
 
   @IsNumber()
-  product_id: number;
+  productId: number;
 
   @IsNumber()
   price: number;
@@ -117,7 +117,7 @@ export class SearchProductDto {
   collection: CollectionType;
 
   @IsNumber()
-  product_id: number;
+  productId: number;
 
   @IsOptional()
   @IsNumber()
@@ -161,5 +161,5 @@ export class DeleteVectorDto {
   collection: CollectionType;
 
   @IsNumber()
-  product_id: number;
+  productId: number;
 }

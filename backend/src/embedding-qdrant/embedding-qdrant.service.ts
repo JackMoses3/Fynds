@@ -16,6 +16,7 @@ import {
 import { EmbedResponseDto } from '../embedding/dto/embeded-response.dto';
 import { DatabaseService } from '../database/database.service';
 import { SearchDto } from './dto/embedding-qdrant.dto';
+import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
 
 interface EmbeddingQdrantBatchResult {
   embeddingResults: EmbedResponseDto[];
@@ -23,8 +24,6 @@ interface EmbeddingQdrantBatchResult {
     totalProcessed: number;
     totalSuccessful: number;
     totalFailed: number;
-    textStored: number;
-    imageStored: number;
     errors: Array<{ productId: number; error: string; type: string }>;
   };
   timeElapsed: number;
@@ -89,13 +88,63 @@ export class EmbeddingQdrantService {
   async searchByText(
     query: string,
     params: SearchDto,
-  ): Promise<QdrantSearchResponse> {
+  ): Promise<ProductItemTransferDto[]> {
     const embedding = await this.embeddingService.generateTextEmbedding(query);
-    return await this.qdrantService.search({
+    const productIds = await this.qdrantService.search({
       collection: CollectionType.TEXT_EMBEDDINGS,
       ...params,
       vector: embedding,
     });
+    if (!productIds || productIds.results.length === 0) {
+      throw new HttpException(
+        'No products found for the given query',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    const products = await this.db.productItem.findMany({
+      where: {
+        id: { in: productIds.results.map((p) => p.id) },
+      },
+      select: {
+        id: true,
+        name: true,
+        brand: true,
+        category: true,
+        price: true,
+        retailer: true,
+        url: true,
+        productStyles: {
+          select: {
+            style: { select: { name: true } },
+          },
+        },
+        productImages: {
+          select: { id: true, imageUrl: true, frontFacing: true },
+          orderBy: { id: 'asc' }, // Ensure images are ordered by ID
+        },
+      },
+    });
+    if (!products || products.length === 0) {
+      throw new HttpException(
+        'No products found for the given query',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      brand: product.brand,
+      category: product.category,
+      price: product.price,
+      retailer: product.retailer,
+      style: product.productStyles?.map((ps) => ps.style.name) || [],
+      images: product.productImages.map((img) => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+        frontFacing: img.frontFacing,
+      })),
+      url: product.url, // Ensure URL is included',
+    }));
   }
 
   /**
@@ -104,26 +153,91 @@ export class EmbeddingQdrantService {
   async searchByImage(
     file: Express.Multer.File,
     params: SearchDto,
-  ): Promise<QdrantSearchResponse> {
+  ): Promise<ProductItemTransferDto[]> {
     if (!file) {
       throw new HttpException('No image file provided', HttpStatus.BAD_REQUEST);
     }
+
     const imageResponse =
       await this.embeddingService.generateImageEmbedding(file);
+    let productIds: QdrantSearchResponse;
+
+    // Search in the appropriate collection based on image label
     if (imageResponse.label === 'front') {
-      return await this.qdrantService.search({
+      productIds = await this.qdrantService.search({
         collection: CollectionType.IMAGE_FRONT_EMBEDDINGS,
         ...params,
         vector: imageResponse.embedding,
       });
     } else if (imageResponse.label === 'back') {
-      return await this.qdrantService.search({
+      productIds = await this.qdrantService.search({
         collection: CollectionType.IMAGE_BACK_EMBEDDINGS,
         ...params,
         vector: imageResponse.embedding,
       });
+    } else {
+      throw new HttpException(
+        `Invalid image label: ${imageResponse.label}`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    throw new HttpException('Invalid image label', HttpStatus.BAD_REQUEST);
+
+    // Check if we got any results
+    if (!productIds || productIds.results.length === 0) {
+      throw new HttpException(
+        'No products found for the given query',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Fetch product details from database
+    const products = await this.db.productItem.findMany({
+      where: {
+        id: { in: productIds.results.map((p) => p.id) },
+      },
+      select: {
+        id: true,
+        name: true,
+        brand: true,
+        category: true,
+        price: true,
+        retailer: true,
+        url: true,
+        productStyles: {
+          select: {
+            style: { select: { name: true } },
+          },
+        },
+        productImages: {
+          select: { id: true, imageUrl: true, frontFacing: true },
+          orderBy: { id: 'asc' },
+        },
+      },
+    });
+
+    if (!products || products.length === 0) {
+      throw new HttpException(
+        'No products found for the given query',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Transform and return the results
+    return products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      brand: product.brand,
+      category: product.category,
+      price: product.price,
+      retailer: product.retailer,
+      style: product.productStyles?.map((ps) => ps.style.name) || [],
+      images: product.productImages.map((img) => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+        frontFacing: img.frontFacing,
+      })),
+      url: product.url,
+    }));
   }
 
   /**
@@ -186,7 +300,7 @@ export class EmbeddingQdrantService {
     if (frontEmbedding) {
       return this.qdrantService.insertVector({
         collection: CollectionType.IMAGE_FRONT_EMBEDDINGS,
-        product_id: productId,
+        productId: productId,
         vector: frontEmbedding,
         ...metadata,
         category: metadata.category.filter((cat) => cat !== null), // Filter out null values
@@ -195,7 +309,7 @@ export class EmbeddingQdrantService {
     if (backEmbedding) {
       return this.qdrantService.insertVector({
         collection: CollectionType.IMAGE_BACK_EMBEDDINGS,
-        product_id: productId,
+        productId: productId,
         vector: backEmbedding,
         ...metadata,
         category: metadata.category.filter((cat) => cat !== null), // Filter out null values
@@ -204,7 +318,7 @@ export class EmbeddingQdrantService {
     if (textEmbedding) {
       return this.qdrantService.insertVector({
         collection: CollectionType.TEXT_EMBEDDINGS,
-        product_id: productId,
+        productId: productId,
         vector: textEmbedding,
         ...metadata,
         category: metadata.category.filter((cat) => cat !== null), // Filter out null values
@@ -270,5 +384,52 @@ export class EmbeddingQdrantService {
       );
       throw error;
     }
+  }
+
+  async storeEmbeddingBatchInQdrant(embeddings: EmbedResponseDto[]): Promise<{
+    totalProcessed: number;
+    totalSuccessful: number;
+    totalFailed: number;
+
+    errors: Array<{ productId: number; error: string; type: string }>;
+  }> {
+    const concurrencyLimit = 30;
+    const limit = pLimit(concurrencyLimit);
+
+    let totalProcessed = 0;
+    let totalSuccessful = 0;
+    let totalFailed = 0;
+    const errors: Array<{ productId: number; error: string; type: string }> =
+      [];
+
+    const promises = embeddings.map((embedding) =>
+      limit(async () => {
+        totalProcessed++;
+        try {
+          const response = await this.addProductEmbedding(embedding);
+          if (response.status === 'success') {
+            totalSuccessful++;
+          } else {
+            throw new Error(`Qdrant insert failed: ${response}`);
+          }
+        } catch (error) {
+          totalFailed++;
+          errors.push({
+            productId: embedding.productId,
+            error: error.message || 'Unknown error',
+            type: embedding.textEmbedding ? 'text' : 'image',
+          });
+        }
+      }),
+    );
+
+    await Promise.all(promises);
+
+    return {
+      totalProcessed,
+      totalSuccessful,
+      totalFailed,
+      errors,
+    };
   }
 }
