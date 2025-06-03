@@ -20,6 +20,16 @@ export interface ImageEmbedResponseDto {
   embedding: number[];
 }
 
+export interface EmbeddingBatchResult {
+  embeddingResults: EmbedResponseDto[];
+  totalProcessed: number;
+  totalSuccessful: number;
+  totalFailed: number;
+  errors: Array<{ productId: number; error: string }>;
+  timeElapsed: number;
+  lastProcessedId: number;
+}
+
 @Injectable()
 export class EmbeddingService {
   private readonly logger = new Logger(EmbeddingService.name);
@@ -30,7 +40,7 @@ export class EmbeddingService {
     private readonly http: HttpService,
   ) {}
 
-  determineEmbeddingConfig(embededResponse: EmbedResponseDto): String | null {
+  determineEmbeddingConfig(embededResponse: EmbedResponseDto): string | null {
     const frontEmbeddingId = embededResponse.frontEmbedding !== null;
     const backEmbeddingId = embededResponse.backEmbedding !== null;
     const textEmbeddingId = embededResponse.textEmbedding !== null;
@@ -88,7 +98,7 @@ export class EmbeddingService {
     );
 
     this.logger.debug(
-      `ℹ️ generated text embedding – ${data.embedding.length} dims`,
+      `ℹ️ generated text embedding - ${data.embedding.length} dims`,
     );
     return data.embedding;
   }
@@ -123,16 +133,25 @@ export class EmbeddingService {
     return data;
   }
 
-  async generateProductEmbedding(): Promise<EmbedResponseDto[]> {
+  async generateProductEmbeddingPerRetailer(
+    retailer: string,
+  ): Promise<EmbeddingBatchResult> {
+    const startTime = Date.now();
     const dbBatchSize = 100;
     const concurrencyLimit = 30;
     let lastId = 0;
-    const allResults: EmbedResponseDto[] = [];
+
+    let totalProcessed = 0;
+    let totalSuccessful = 0;
+    let totalFailed = 0;
+    const errors: Array<{ productId: number; error: string }> = [];
+    const embeddingResults: EmbedResponseDto[] = []; // Add this line
 
     while (true) {
       const batch = await this.db.productItem.findMany({
         where: {
-          embedding: null, // Only process products without embeddings
+          retailer: retailer,
+          embedding: null,
           id: { gt: lastId },
         },
         select: {
@@ -152,32 +171,54 @@ export class EmbeddingService {
         })`,
       );
 
-      // p-limit gives you a “pool” of size `concurrencyLimit`
       const limit = pLimit(concurrencyLimit);
       const promises = batch.map((p) =>
         limit(() =>
           this.embedProduct(p).then(
             (resp) => {
-              this.logger.log(`✅ Embedded product ${resp}`);
-              allResults.push(resp);
+              embeddingResults.push(resp); // Collect the response
+              totalSuccessful++;
+              return resp;
             },
             (err) => {
               this.logger.warn(
                 `⚠️  Failed embedding for product ${p.id}: ${err.message || err}`,
               );
+              totalFailed++;
+              errors.push({
+                productId: p.id,
+                error: err.message || String(err),
+              });
+              return null;
             },
           ),
         ),
       );
 
-      // Wait until all 100 in this DB batch have been issued & settled
-      await Promise.all(promises);
+      // Wait for all promises and filter out null results
+      const batchResults = await Promise.all(promises);
+      const successfulResults = batchResults.filter(
+        (result) => result !== null,
+      );
+
+      totalProcessed += batch.length;
       lastId = batch[batch.length - 1].id;
     }
 
+    const timeElapsed = Date.now() - startTime;
+
     this.logger.log(
-      `🏁 processPending complete. Total embedded: ${allResults.length}`,
+      `🏁 processPending complete. Total: ${totalProcessed}, Success: ${totalSuccessful}, Failed: ${totalFailed}`,
     );
-    return allResults;
+
+    return {
+      embeddingResults,
+      totalProcessed,
+      totalSuccessful,
+      totalFailed,
+      errors: errors.slice(0, 100),
+      timeElapsed,
+      lastProcessedId: lastId,
+    };
   }
 }
