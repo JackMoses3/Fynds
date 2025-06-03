@@ -59,6 +59,9 @@ macos/build/
 # Pycache
 *__pycache__/
 *.pyc
+__pycache__/
+*.py[cod]
+
 
 # Misc
 .DS_Store
@@ -67,7 +70,7 @@ macos/build/
 *.swp
 ml/venv/
 ml/.env/
-ml/__pycache__/
+ml/__pycache__
 
 #ML
 ml/embedding/model_files/

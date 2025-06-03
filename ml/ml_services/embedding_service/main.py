@@ -1,11 +1,11 @@
 # ml/embedding/embedding_server.py
 
 """
-Embedding micro‐service (FastAPI) that:
+Embedding micro-service (FastAPI) that:
 1. Receives one product (ID, metaData, list of image URLs) → /product-embed.
 2. Receives free text → /text-embed.
 3. Receives one image via multipart/form-data → /image-embed.
-All endpoints generate Fashion‐CLIP embeddings (and, in the case of /product-embed, update the DB).
+All endpoints generate Fashion-CLIP embeddings (and, in the case of /product-embed, update the DB).
 """
 
 import os
@@ -102,6 +102,7 @@ class EmbedRequest(BaseModel):
     imageUrls: List[str]
 
 class EmbedResponse(BaseModel):
+    productId: int
     frontEmbedding: Optional[List[float]] = None
     backEmbedding: Optional[List[float]] = None
     textEmbedding: Optional[List[float]] = None
@@ -207,7 +208,7 @@ async def embed(req: EmbedRequest):
     1) Download all images for req.imageUrls.
     2) Classify each as front/back, record label per URL.
     3) Pick the single best front and single best back (if any).
-    4) Generate Fashion‐CLIP embeddings for chosen front/back images (and text from req.metaData).
+    4) Generate Fashion-CLIP embeddings for chosen front/back images (and text from req.metaData).
        - If req.metaData is empty or whitespace-only, skip text embedding.
     5) Update PostgreSQL:
        - Set ProductItem.frontEmbeddingId, backEmbeddingId, textEmbeddingId.
@@ -221,8 +222,9 @@ async def embed(req: EmbedRequest):
         fetch_coros = [fetch_image(session, url) for url in req.imageUrls]
         pil_images = await asyncio.gather(*fetch_coros)
 
-
+    url_and_images = [(url, img) for url, img in zip(req.imageUrls, pil_images)]
     # 2) Classify and collect candidates
+    front_candidates: List[tuple[Image.Image, float, str]] = []
     back_candidates:  List[tuple[Image.Image, float, str]] = []
     url_to_label: dict[str, str] = {}
 
@@ -290,6 +292,7 @@ async def embed(req: EmbedRequest):
     
     # 7) Return the embeddings JSON
     return EmbedResponse(
+        productId=req.id,
         frontEmbedding=front_vec,
         backEmbedding=back_vec,
         textEmbedding=text_vec,
@@ -328,7 +331,7 @@ async def image_embed(file: UploadFile = File(...)):
     Accepts one uploaded picture (JPEG/PNG/etc., field name `file`).
 
     1. Attempt to open it with PIL (even if content_type is missing or not image/).
-    2. If PIL can’t open, raise 400.
+    2. If PIL can't open, raise 400.
     3. Classify as 'front' or 'back'.
     4. Produce exactly one 512-D embedding for that image.
     5. Return JSON: { "label": "front"|"back", "embedding": [ …512 floats… ] }.
@@ -348,5 +351,5 @@ async def image_embed(file: UploadFile = File(...)):
     img_vecs, _ = embed_images_and_text([pil], [])
     embedding_vector = img_vecs[0].tolist()
 
-    return ImageEmbedResponse(label=label, embedding=img_vec[0].tolist())
+    return ImageEmbedResponse(label=label, embedding=embedding_vector)
 # --------------------------------------------------

@@ -16,8 +16,7 @@ import {
 @Injectable()
 export class QdrantService {
   private readonly logger = new Logger(QdrantService.name);
-  private readonly mlServiceUrl =
-    process.env.ML_SERVICE_URL || 'http://localhost:8000';
+  private readonly mlServiceUrl = process.env.ML_URL + '/api/v1/vector';
 
   async insertVector(params: {
     collection: CollectionType;
@@ -55,16 +54,13 @@ export class QdrantService {
     };
 
     try {
-      const response = await fetch(
-        `${this.mlServiceUrl}/api/v1/vector/insert`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
+      const response = await fetch(`${this.mlServiceUrl}/insert`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify(payload),
+      });
 
       if (!response.ok) {
         throw new HttpException(
@@ -113,16 +109,13 @@ export class QdrantService {
     };
 
     try {
-      const response = await fetch(
-        `${this.mlServiceUrl}/api/v1/vector/search`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(searchPayload),
+      const response = await fetch(`${this.mlServiceUrl}/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify(searchPayload),
+      });
 
       if (!response.ok) {
         throw new HttpException(
@@ -178,16 +171,13 @@ export class QdrantService {
     };
 
     try {
-      const response = await fetch(
-        `${this.mlServiceUrl}/api/v1/vector/search_product`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(searchProductPayload),
+      const response = await fetch(`${this.mlServiceUrl}/search_product`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify(searchProductPayload),
+      });
 
       if (!response.ok) {
         throw new HttpException(
@@ -231,16 +221,13 @@ export class QdrantService {
     };
 
     try {
-      const response = await fetch(
-        `${this.mlServiceUrl}/api/v1/vector/delete`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(deletePayload),
+      const response = await fetch(`${this.mlServiceUrl}/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify(deletePayload),
+      });
 
       if (!response.ok) {
         throw new HttpException(

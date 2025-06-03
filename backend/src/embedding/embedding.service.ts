@@ -30,6 +30,29 @@ export class EmbeddingService {
     private readonly http: HttpService,
   ) {}
 
+  determineEmbeddingConfig(embededResponse: EmbedResponseDto): String | null {
+    const frontEmbeddingId = embededResponse.frontEmbedding !== null;
+    const backEmbeddingId = embededResponse.backEmbedding !== null;
+    const textEmbeddingId = embededResponse.textEmbedding !== null;
+
+    if (frontEmbeddingId && backEmbeddingId && textEmbeddingId) {
+      return 'fbt';
+    } else if (frontEmbeddingId && backEmbeddingId) {
+      return 'fb';
+    } else if (frontEmbeddingId && textEmbeddingId) {
+      return 'ft';
+    } else if (backEmbeddingId && textEmbeddingId) {
+      return 'bt';
+    } else if (frontEmbeddingId) {
+      return 'f';
+    } else if (backEmbeddingId) {
+      return 'b';
+    } else if (textEmbeddingId) {
+      return 't';
+    }
+    return null; // No embeddings available
+  }
+
   private async embedProduct(product: {
     id: number;
     metaData: string;
@@ -95,7 +118,7 @@ export class EmbeddingService {
     );
 
     this.logger.debug(
-      `ℹ️ image classified as <${data.label}> – ${data.embedding.length} dims`,
+      ` image classified as <${data.label}>  ${data.embedding.length} dims`,
     );
     return data;
   }
@@ -109,9 +132,7 @@ export class EmbeddingService {
     while (true) {
       const batch = await this.db.productItem.findMany({
         where: {
-          frontEmbeddingId: null,
-          backEmbeddingId: null,
-          textEmbeddingId: null,
+          embedding: null, // Only process products without embeddings
           id: { gt: lastId },
         },
         select: {

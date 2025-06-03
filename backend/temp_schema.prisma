@@ -24,7 +24,7 @@ model ProductItem {
   sale             Boolean?          @default(false)
   siteDataConfigId Int?
   standardPrice    Float?
-  embedding      String?           // Changed from 'embedding' to match database
+  embeddignId      String?
   CollectionItem   CollectionItem[]
   itemVideos       ItemVideo[]
   Like             Like[]
