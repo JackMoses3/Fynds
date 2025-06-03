@@ -4,7 +4,7 @@ import { HttpService } from '@nestjs/axios';
 import pLimit from 'p-limit'; // “npm install p-limit” or yarn add p-limit
 import { EmbedRequestDto } from './dto/embeded-request.dto';
 import { EmbedResponseDto } from './dto/embeded-response.dto';
-import { DatabaseService } from 'src/database/database.service';
+import { DatabaseService } from '../database/database.service';
 import { firstValueFrom } from 'rxjs';
 import FormData from 'form-data';
 

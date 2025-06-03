@@ -13,11 +13,11 @@ import {
 import { Request as ExpressRequest } from 'express';
 import { LocalAuthGuard } from './strategies/local/local-auth.guard';
 import { AuthService } from './auth.service';
-import { User } from 'generated/prisma';
+import { User } from '../../generated/prisma';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify.dto';
 import { GoogleAuthGuard } from './strategies/google/google-oauth.guard';
-import { Public, RequestUser } from 'src/types';
+import { Public, RequestUser } from '../types';
 import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('auth')

@@ -1,27 +1,21 @@
-import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/strategies/jwt/jwt-auth.guard';
-import { Request } from 'express';
+import { Controller, Post, Body, Req } from '@nestjs/common';
 import { UserService } from './user.service';
+import { RequestUser } from '../types';
 
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post('onboarding/additional-info')
-  @UseGuards(JwtAuthGuard)
   async updateUserOnboarding(
     @Req() req: RequestUser,
-    @Body() body: { clothingPreferences: string; birthDate: string; location: string }
+    @Body()
+    body: { clothingPreferences: string; birthDate: string; location: string },
   ) {
     try {
-      console.log('🟢 Onboarding endpoint hit');
-      const user = req as any;
-      console.log('🔐 Decoded user:', user?.user);
-      console.log('📦 Body:', body);
-  
-      return this.userService.update(user.user.id, {
+      return this.userService.update(req.user.sub, {
         clothingPreferences: body.clothingPreferences, // 🧠 map properly
-        birthdate: new Date(body.birthDate),  // ✅ parse date
+        birthdate: new Date(body.birthDate), // ✅ parse date
         location: body.location,
       });
     } catch (error) {
@@ -31,21 +25,10 @@ export class UserController {
   }
 
   @Post('assign-styles')
-  @UseGuards(JwtAuthGuard)
-    async assignStylesToUser(
-        @Req() req: RequestUser,
-        @Body() body: { styleIds: number[] }
-    ) {
-        try {
-            console.log('🟢 Assign styles endpoint hit');
-            const user = req as any;
-            console.log('🔐 Decoded user:', user?.user);
-            console.log('📦 Body:', body);
-
-            return this.userService.assignStylesToUser(user.user.id, body.styleIds);
-        } catch (error) {
-            console.error('❌ Error in assignStylesToUser:', error);
-            throw error;
-        }
-    }
+  async assignStylesToUser(
+    @Req() req: RequestUser,
+    @Body() body: { styleIds: number[] },
+  ) {
+    return this.userService.assignStylesToUser(req.user.sub, body.styleIds);
+  }
 }

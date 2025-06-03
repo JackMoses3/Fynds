@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma';
 import { DatabaseService } from '../database/database.service';
 
 @Injectable()
@@ -41,11 +41,10 @@ export class UserService {
       userId,
       styleId,
     }));
-  
+
     return this.db.userStyle.createMany({
       data,
       skipDuplicates: true, // avoid unique constraint errors
     });
   }
-
 }

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateCollectionDto } from './dto/create-collection.dto';
 import { DatabaseService } from '../database/database.service';
-import { Prisma } from '../../prisma/generated';
+import { Prisma } from '../../generated/prisma';
 import { ProductItemTransferDto } from 'src/product-item/dto/product-item.dto';
 
 @Injectable()
@@ -83,6 +83,7 @@ export class CollectionService {
       brand: item.product.brand,
       retailer: item.product.retailer,
       price: item.product.price,
+      url: item.product.productImages[0]?.imageUrl || '', // Assuming the first image URL is used as the product URL
       images: item.product.productImages.map((image) => ({
         id: image.id,
         imageUrl: image.imageUrl,

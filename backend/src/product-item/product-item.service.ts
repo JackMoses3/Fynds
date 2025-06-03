@@ -1,5 +1,6 @@
+/* eslint-disable */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ProductImage, ProductItem } from '@prisma/client';
+import { ProductImage, ProductItem } from '../../generated/prisma';
 import { DatabaseService } from '../database/database.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
 import { FilterProductItemDto } from './dto/filter-product-item.dto';
