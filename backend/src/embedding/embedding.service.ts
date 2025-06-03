@@ -145,7 +145,7 @@ export class EmbeddingService {
     let totalSuccessful = 0;
     let totalFailed = 0;
     const errors: Array<{ productId: number; error: string }> = [];
-    const embeddingResults: EmbedResponseDto[] = []; // Add this line
+    let successfulResults: EmbedResponseDto[] = [];
 
     while (true) {
       const batch = await this.db.productItem.findMany({
@@ -157,7 +157,7 @@ export class EmbeddingService {
         select: {
           id: true,
           metaData: true,
-          productImages: { select: { imageUrl: true } },
+          productImages: { select: { imageUrl: true }, orderBy: { id: 'asc' } },
         },
         orderBy: { id: 'asc' },
         take: dbBatchSize,
@@ -176,7 +176,6 @@ export class EmbeddingService {
         limit(() =>
           this.embedProduct(p).then(
             (resp) => {
-              embeddingResults.push(resp); // Collect the response
               totalSuccessful++;
               return resp;
             },
@@ -197,13 +196,14 @@ export class EmbeddingService {
 
       // Wait for all promises and filter out null results
       const batchResults = await Promise.all(promises);
-      const successfulResults = batchResults.filter(
-        (result) => result !== null,
+      successfulResults = successfulResults.concat(
+        batchResults.filter((result) => result !== null),
       );
 
       totalProcessed += batch.length;
       lastId = batch[batch.length - 1].id;
     }
+    const embeddingResults = successfulResults;
 
     const timeElapsed = Date.now() - startTime;
 

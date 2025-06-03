@@ -15,6 +15,7 @@ import {
 } from '../qdrant/models/qdrant.model';
 import { EmbedResponseDto } from '../embedding/dto/embeded-response.dto';
 import { DatabaseService } from '../database/database.service';
+import { SearchDto } from './dto/embedding-qdrant.dto';
 
 interface EmbeddingQdrantBatchResult {
   embeddingResults: EmbedResponseDto[];
@@ -87,13 +88,12 @@ export class EmbeddingQdrantService {
    */
   async searchByText(
     query: string,
-    params: SearchVectorDto,
+    params: SearchDto,
   ): Promise<QdrantSearchResponse> {
     const embedding = await this.embeddingService.generateTextEmbedding(query);
-    const { collection, ...filteredParams } = params;
     return await this.qdrantService.search({
       collection: CollectionType.TEXT_EMBEDDINGS,
-      ...filteredParams,
+      ...params,
       vector: embedding,
     });
   }
@@ -103,24 +103,23 @@ export class EmbeddingQdrantService {
    */
   async searchByImage(
     file: Express.Multer.File,
-    params: SearchVectorDto,
+    params: SearchDto,
   ): Promise<QdrantSearchResponse> {
     if (!file) {
       throw new HttpException('No image file provided', HttpStatus.BAD_REQUEST);
     }
     const imageResponse =
       await this.embeddingService.generateImageEmbedding(file);
-    const { collection, ...filteredParams } = params;
     if (imageResponse.label === 'front') {
       return await this.qdrantService.search({
         collection: CollectionType.IMAGE_FRONT_EMBEDDINGS,
-        ...filteredParams,
+        ...params,
         vector: imageResponse.embedding,
       });
     } else if (imageResponse.label === 'back') {
       return await this.qdrantService.search({
         collection: CollectionType.IMAGE_BACK_EMBEDDINGS,
-        ...filteredParams,
+        ...params,
         vector: imageResponse.embedding,
       });
     }
@@ -140,6 +139,8 @@ export class EmbeddingQdrantService {
       textEmbedding,
       frontFacingImages,
     } = embedding;
+
+    // product data based on productId
     const product = await this.db.productItem.findUnique({
       where: { id: productId },
       select: {
