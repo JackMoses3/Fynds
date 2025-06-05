@@ -22,4 +22,4 @@ if __name__ == "__main__":
     import uvicorn
 
     # Since this file is ml/app.py, the correct import string is “ml.app:app”
-    uvicorn.run("ml.app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)

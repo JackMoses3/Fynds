@@ -1,24 +1,17 @@
-# ml/embedding/embedding_server.py
-
 """
-Embedding micro-service (FastAPI) that:
-1. Receives one product (ID, metaData, list of image URLs) → /product-embed.
-2. Receives free text → /text-embed.
-3. Receives one image via multipart/form-data → /image-embed.
-All endpoints generate Fashion-CLIP embeddings (and, in the case of /product-embed, update the DB).
+FastAPI Fashion-CLIP embedding micro-service
+-------------------------------------------
+Optimisations added:
+  • One global aiohttp session (no new TCP/SSL handshake per image)
+  • torch.cuda.empty_cache() after every request – prevents fragmentation
 """
 
-import os
-import asyncio
-import logging
+import os, re, asyncio, logging, atexit
 from io import BytesIO
 from typing import List, Optional
 
-import aiohttp
-import numpy as np
-import torch
-import torch.nn.functional as F
-from fastapi import APIRouter, HTTPException, UploadFile, File
+import aiohttp, numpy as np, torch, torch.nn.functional as F
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
@@ -27,329 +20,195 @@ from torchvision import transforms
 import torch.nn as nn
 from dotenv import load_dotenv
 
-# --------------------------------------------------
-# Load environment & configure logging
-# --------------------------------------------------
+# ─────────── env / logging ───────────
 load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL environment variable is required")
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger("embedding_service")
 
-class TextEmbedRequest(BaseModel):
-    text: str
-
-class TextEmbedResponse(BaseModel):
-    embedding: List[float]          # always length-512
-
-class ImageEmbedResponse(BaseModel):
-    label: str              # 'front' | 'back'
-    embedding: List[float]  # 512-dim
-
-# --------------------------------------------------
-# Device & model setup
-# --------------------------------------------------
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DIM = 512  # Fashion‐CLIP output dimensionality
+DIM    = 512
 
-# – Front/Back Classifier Transform
+# ─────────── simple stop-word cleaner ───────────
+_STOPWORDS = {"a","an","the","and","or","but","if","else","on","in","with","of","for","to","from"}
+def clean_meta_data(raw: str) -> str:
+    txt = re.sub(r"[^a-z0-9\s]", " ", raw.lower().strip())
+    tokens = [t for t in re.sub(r"\s+", " ", txt).split() if t not in _STOPWORDS]
+    return " ".join(tokens[:77])
+
+# ─────────── front/back classifier ───────────
 classifier_tf = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225]),
+    transforms.Resize((224,224)), transforms.ToTensor(),
+    transforms.Normalize([0.485,0.456,0.406], [0.229,0.224,0.225])
 ])
 
 def load_front_back_model():
-    """
-    ConvNeXt-Tiny binary classifier (front vs back).
-    Expects the .pth file at model_files/best_front_back_model_convnext_82.3_88.19.pth
-    """
-    current_dir = os.path.dirname(__file__)
-    model_path = os.path.abspath(
-        os.path.join(
-            current_dir,
-            "model_files",
-            "best_front_back_model_convnext_82.3_88.19.pth"
-        )
-    )
-    if not os.path.isfile(model_path):
-        raise FileNotFoundError(f"Front/Back model not found at {model_path}")
-
-    model = convnext_tiny(weights=None)
-    model.classifier[2] = nn.Linear(model.classifier[2].in_features, 2)
-    model.load_state_dict(torch.load(model_path, map_location=device))
-    model.eval()
-    return model.to(device)
+    path = os.path.join(os.path.dirname(__file__), "model_files", "best_front_back_model_convnext_82.3_88.19.pth")
+    mdl  = convnext_tiny(weights=None)
+    mdl.classifier[2] = nn.Linear(mdl.classifier[2].in_features, 2)
+    if os.path.isfile(path):
+        mdl.load_state_dict(torch.load(path, map_location=device))
+    else:
+        logger.warning("⚠️ front/back .pth not found – using random weights")
+    return mdl.to(device).eval()
 
 front_back_model = load_front_back_model()
 
-# – Fashion‐CLIP
-clip_model = AutoModel.from_pretrained("Marqo/marqo-fashionCLIP").to(device)
-clip_proc = AutoProcessor.from_pretrained("Marqo/marqo-fashionCLIP")
+def classify_image(pil: Image.Image) -> tuple[bool, float]:
+    x = classifier_tf(pil).unsqueeze(0).to(device)
+    with torch.no_grad():
+        probs = F.softmax(front_back_model(x), dim=1)[0]
+    label = probs[0] > probs[1]
+    return bool(label), float(probs[1])  # back-prob
 
-# --------------------------------------------------
-# Pydantic schemas for request/response
-# --------------------------------------------------
+# ─────────── Fashion-CLIP ───────────
+clip_model = AutoModel.from_pretrained("Marqo/marqo-fashionCLIP").to(device)
+clip_proc  = AutoProcessor.from_pretrained("Marqo/marqo-fashionCLIP")
+
+# ─────────── global aiohttp session ───────────
+_session: aiohttp.ClientSession | None = None
+def get_session() -> aiohttp.ClientSession:
+    global _session
+    if _session is None or _session.closed:
+        _session = aiohttp.ClientSession()
+    return _session
+@atexit.register
+def _close_session():
+    if _session and not _session.closed:
+        asyncio.get_event_loop().run_until_complete(_session.close())
+
+async def fetch_image(url: str) -> Optional[Image.Image]:
+    if url.startswith("//"):
+        url = "https:" + url
+    try:
+        async with get_session().get(url, timeout=15) as resp:
+            if resp.status != 200 or not resp.headers.get("Content-Type","").startswith("image"):
+                return None
+            data = await resp.read()
+        return Image.open(BytesIO(data)).convert("RGB")
+    except Exception:
+        return None
+
+def embed_images_and_text(images: List[Image.Image], texts: List[str]):
+    if not images:
+        return np.zeros((0,DIM), np.float32), np.zeros((0,DIM), np.float32)
+
+    inputs = clip_proc(images=images,
+                       text=texts if texts else None,
+                       return_tensors="pt",
+                       padding=True,
+                       truncation=True).to(device)
+
+    with torch.no_grad():
+        img_emb = clip_model.get_image_features(pixel_values=inputs["pixel_values"])
+        txt_emb = (clip_model.get_text_features(**{k:v for k,v in inputs.items() if k.startswith("input_ids")})
+                   if texts else torch.zeros((0,DIM), device=device))
+
+    img_emb = (img_emb / img_emb.norm(p=2, dim=-1, keepdim=True)).cpu().numpy()
+    txt_emb = (txt_emb / txt_emb.norm(p=2, dim=-1, keepdim=True)).cpu().numpy()
+    return img_emb, txt_emb
+
+# ─────────── Pydantic IO models ───────────
 class EmbedRequest(BaseModel):
     id: int
-    metaData: str            # description text
+    metaData: str
     imageUrls: List[str]
 
 class EmbedResponse(BaseModel):
     productId: int
     frontEmbedding: Optional[List[float]] = None
-    backEmbedding: Optional[List[float]] = None
-    textEmbedding: Optional[List[float]] = None
-    frontFacingImages: Optional[List[bool]] = None  # URLs of images classified as front
+    backEmbedding : Optional[List[float]] = None
+    textEmbedding : Optional[List[float]] = None
+    frontFacingImages: Optional[List[bool]] = None
+
+class BatchEmbedRequest(BaseModel):
+    products: List[EmbedRequest]
+class BatchEmbedResponse(BaseModel):
+    results: List[EmbedResponse]
 
 class TextEmbedRequest(BaseModel):
     text: str
-
 class TextEmbedResponse(BaseModel):
-    embedding: List[float]    # length == 512
+    embedding: List[float]
 
 class ImageEmbedResponse(BaseModel):
-    label: str                # “front” or “back”
-    embedding: List[float]    # length == 512
+    label: str
+    embedding: List[float]
 
-# --------------------------------------------------
-# Helper functions
-# --------------------------------------------------
-async def fetch_image(session: aiohttp.ClientSession, url: str) -> Optional[Image.Image]:
-    """
-    Download an image from `url` asynchronously. Return a PIL.Image or None on failure.
-    """
-    if url.startswith("//"):
-        url = "https:" + url
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/114.0 Safari/537.36"
-    }
-
-    try:
-        async with session.get(url, headers=headers, timeout=15) as resp:
-            if resp.status != 200:
-                raise ValueError(f"HTTP {resp.status}")
-            content_type = resp.headers.get("Content-Type", "")
-            if not content_type.startswith("image"):
-                raise ValueError(f"Not an image (Content-Type: {content_type})")
-            data = await resp.read()
-        return Image.open(BytesIO(data)).convert("RGB")
-    except Exception as e:
-        logger.warning(f"🖼️ Could not fetch {url}: {e}")
-        return None
-
-def classify_image(pil: Image.Image) -> List[bool]:
-    """
-    Classify a PIL image as 'front' or 'back'.
-    Returns (label, probability_of_back). Lower probability_of_back = more front-like.
-    """
-    with torch.no_grad():
-        x = classifier_tf(pil).unsqueeze(0).to(device)
-        logits = front_back_model(x)
-        probs = F.softmax(logits, dim=1)[0]  # [prob_front, prob_back]
-        label = True if probs[0] > probs[1] else False
-        return label
-
-def embed_images_and_text(images: List[Image.Image], texts: List[str]):
-    """
-    Given lists of PIL images and corresponding text strings,
-    return (img_embs: np.ndarray[NxDIM], txt_embs: np.ndarray[NxDIM]).
-    Handles the case where texts may be empty.
-    """
-    # Case A: no text replicas → only embed images
-    if len(texts) == 0:
-        inputs = clip_proc(
-            images=images,
-            return_tensors="pt"
-        ).to(device)
-        img_inputs = {k: v for k, v in inputs.items() if k.startswith("pixel_values")}
-        with torch.no_grad():
-            img_emb = clip_model.get_image_features(**img_inputs)
-        img_emb = (img_emb / img_emb.norm(p=2, dim=-1, keepdim=True)).cpu().numpy()
-        txt_emb = np.zeros((0, DIM), dtype=np.float32)
-        return img_emb, txt_emb
-
-    # Case B: we have at least one text replica → do both image+text
-    inputs = clip_proc(
-        images=images,
-        text=texts,
-        padding=True,
-        truncation=True,
-        return_tensors="pt",
-    ).to(device)
-    img_inputs = {k: v for k, v in inputs.items() if k.startswith("pixel_values")}
-    txt_inputs = {k: v for k, v in inputs.items() if k.startswith("input_ids")}
-
-    with torch.no_grad():
-        img_emb = clip_model.get_image_features(**img_inputs)
-        text_emb = clip_model.get_text_features(**txt_inputs)
-
-    img_emb = (img_emb / img_emb.norm(p=2, dim=-1, keepdim=True)).cpu().numpy()
-    text_emb = (text_emb / text_emb.norm(p=2, dim=-1, keepdim=True)).cpu().numpy()
-    return img_emb, text_emb
-
-# --------------------------------------------------
-# FastAPI application
-# --------------------------------------------------
+# ─────────── FastAPI routes ───────────
+app = FastAPI()
 router = APIRouter()
 
 @router.post("/product-embed", response_model=EmbedResponse)
-async def embed(req: EmbedRequest):
-    """
-    1) Download all images for req.imageUrls.
-    2) Classify each as front/back, record label per URL.
-    3) Pick the single best front and single best back (if any).
-    4) Generate Fashion-CLIP embeddings for chosen front/back images (and text from req.metaData).
-       - If req.metaData is empty or whitespace-only, skip text embedding.
-    5) Update PostgreSQL:
-       - Set ProductItem.frontEmbeddingId, backEmbeddingId, textEmbeddingId.
-       - Mark ProductImage.frontFacing=True for images classified “front”, False otherwise.
-    6) Return JSON { productId, frontEmbedding?, backEmbedding?, textEmbedding? }.
-    """
-    # 0) image front facing list
-    front_facing_images: List[bool] = []
-    # 1) Download images concurrently
-    async with aiohttp.ClientSession() as session:
-        fetch_coros = [fetch_image(session, url) for url in req.imageUrls]
-        pil_images = await asyncio.gather(*fetch_coros)
+async def product_embed(req: EmbedRequest):
+    cleaned_meta = clean_meta_data(req.metaData)
+    imgs: List[Image.Image] = await asyncio.gather(*(fetch_image(u) for u in req.imageUrls))
 
-    url_and_images = [(url, img) for url, img in zip(req.imageUrls, pil_images)]
-    # 2) Classify and collect candidates
-    front_candidates: List[tuple[Image.Image, float, str]] = []
-    back_candidates:  List[tuple[Image.Image, float, str]] = []
-    url_to_label: dict[str, str] = {}
+    front_flags: List[bool] = []
+    front_cand, back_cand = [], []
+    for img in imgs:
+        if img is None:
+            front_flags.append(False); continue
+        is_front, p_back = classify_image(img)
+        front_flags.append(is_front)
+        (front_cand if is_front else back_cand).append((img, p_back))
 
-    for url, pil in url_and_images:
-        if pil is None:
-            continue
-        label, back_prob = classify_image(pil)
-        front_facing_images.append(label)  # True for front, False for back
-        url_to_label[url] = label
-        if label == True:
-            # Lower back_prob → more confident front
-            front_candidates.append((pil, 1.0 - back_prob, url))
-        else:
-            back_candidates.append((pil, back_prob, url))
+    best_front = min(front_cand, key=lambda x: x[1])[0] if front_cand else None
+    best_back  = max(back_cand , key=lambda x: x[1])[0] if back_cand  else None
 
-    # 3) Pick best front/back if available
-    best_front_pil: Optional[Image.Image] = None
-    if front_candidates:
-        best_front_pil, _, _ = min(front_candidates, key=lambda x: x[1])
+    images_to_embed, text_reps = [], []
+    if best_front:
+        images_to_embed.append(best_front)
+        if cleaned_meta: text_reps.append(cleaned_meta)
+    if best_back:
+        images_to_embed.append(best_back)
+        if cleaned_meta: text_reps.append(cleaned_meta)
 
-    best_back_pil: Optional[Image.Image] = None
-    if back_candidates:
-        best_back_pil, _, _ = max(back_candidates, key=lambda x: x[1])
+    img_embs, txt_embs = embed_images_and_text(images_to_embed, text_reps)
+    front_vec = back_vec = text_vec = None
+    if best_front and not best_back:
+        front_vec = img_embs[0].tolist(); text_vec = txt_embs[0].tolist() if txt_embs.size else None
+    elif best_front and best_back:
+        front_vec = img_embs[0].tolist(); back_vec = img_embs[1].tolist()
+        if txt_embs.size: text_vec = txt_embs[0].tolist()
+    elif best_back and not best_front:
+        back_vec = img_embs[0].tolist(); text_vec = txt_embs[0].tolist() if txt_embs.size else None
 
-    # 4) Prepare for embeddings
-    images_to_embed: List[Image.Image] = []
-    text_replicas:   List[str]       = []
-    if best_front_pil:
-        images_to_embed.append(best_front_pil)
-        if req.metaData.strip():
-            text_replicas.append(req.metaData)
-    if best_back_pil:
-        images_to_embed.append(best_back_pil)
-        if req.metaData.strip():
-            text_replicas.append(req.metaData)
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
-    # 5) Generate embeddings
-    if images_to_embed:
-        img_embs, txt_embs = embed_images_and_text(images_to_embed, text_replicas)
-    else:
-        img_embs = np.zeros((0, DIM), dtype=np.float32)
-        txt_embs = np.zeros((0, DIM), dtype=np.float32)
-
-    # Map to vectors
-    front_vec: Optional[List[float]] = None
-    back_vec:  Optional[List[float]] = None
-    text_vec:  Optional[List[float]] = None
-
-    if best_front_pil and not best_back_pil:
-        front_vec = img_embs[0].tolist()
-        if txt_embs.shape[0] > 0:
-            text_vec = txt_embs[0].tolist()
-
-    elif best_front_pil and best_back_pil:
-        front_vec = img_embs[0].tolist()
-        back_vec  = img_embs[1].tolist()
-        if txt_embs.shape[0] > 0:
-            text_vec = txt_embs[0].tolist()
-
-    elif best_back_pil and not best_front_pil:
-        back_vec = img_embs[0].tolist()
-        if txt_embs.shape[0] > 0:
-            text_vec = txt_embs[0].tolist()
-
-    
-    # 7) Return the embeddings JSON
     return EmbedResponse(
         productId=req.id,
         frontEmbedding=front_vec,
-        backEmbedding=back_vec,
-        textEmbedding=text_vec,
-        frontFacingImages=front_facing_images
+        backEmbedding =back_vec,
+        textEmbedding =text_vec,
+        frontFacingImages=front_flags,
     )
 
+@router.post("/products-embed-batch", response_model=BatchEmbedResponse)
+async def products_embed_batch(req: BatchEmbedRequest):
+    results = []
+    for prod in req.products:
+        try:  results.append(await product_embed(prod))
+        except Exception:
+            results.append(EmbedResponse(productId=prod.id))
+    return BatchEmbedResponse(results=results)
 
 @router.post("/text-embed", response_model=TextEmbedResponse)
 async def text_embed(req: TextEmbedRequest):
-    """
-    Return a single 512-D Fashion-CLIP embedding for arbitrary free text.
-    No DB writes - pure inference.
-    """
-    cleaned = req.text.strip()
-    if not cleaned:
-        raise HTTPException(status_code=400, detail="text must be non-empty")
-
-    inputs = clip_proc(
-        text=[cleaned],
-        return_tensors="pt",
-        padding=True,
-        truncation=True,
-        max_length=77
-    ).to(device)
-
+    cleaned = clean_meta_data(req.text)
+    if not cleaned: raise HTTPException(status_code=400, detail="text must be non-empty")
+    inputs = clip_proc(text=[cleaned], return_tensors="pt", padding=True, truncation=True).to(device)
     with torch.no_grad():
-        txt_emb = clip_model.get_text_features(**inputs)
-        txt_emb = txt_emb / txt_emb.norm(p=2, dim=-1, keepdim=True)
-
-    vec = txt_emb[0].cpu().tolist()
-    return TextEmbedResponse(embedding=vec)
+        vec = clip_model.get_text_features(**inputs)[0]
+    if torch.cuda.is_available(): torch.cuda.empty_cache()
+    return TextEmbedResponse(embedding=(vec/vec.norm()).cpu().tolist())
 
 @router.post("/image-embed", response_model=ImageEmbedResponse)
 async def image_embed(file: UploadFile = File(...)):
-    """
-    Accepts one uploaded picture (JPEG/PNG/etc., field name `file`).
+    pil = Image.open(BytesIO(await file.read())).convert("RGB")
+    label, _ = classify_image(pil)
+    vec, _ = embed_images_and_text([pil], [])
+    if torch.cuda.is_available(): torch.cuda.empty_cache()
+    return ImageEmbedResponse(label="front" if label else "back", embedding=vec[0].tolist())
 
-    1. Attempt to open it with PIL (even if content_type is missing or not image/).
-    2. If PIL can't open, raise 400.
-    3. Classify as 'front' or 'back'.
-    4. Produce exactly one 512-D embedding for that image.
-    5. Return JSON: { "label": "front"|"back", "embedding": [ …512 floats… ] }.
-    """
-
-    # 1) Read raw bytes
-    raw = await file.read()
-    try:
-        pil = Image.open(BytesIO(raw)).convert("RGB")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Uploaded file is not a valid image: {e}")
-
-    # 2) Classify front/back
-    label, _ = classify_image(pil)  # "front" or "back"
-
-    # 3) Embed this single image (no text reps)
-    img_vecs, _ = embed_images_and_text([pil], [])
-    embedding_vector = img_vecs[0].tolist()
-
-    return ImageEmbedResponse(label=label, embedding=embedding_vector)
-# --------------------------------------------------
+app.include_router(router, prefix="/api/v1/embedding")

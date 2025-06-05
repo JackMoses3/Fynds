@@ -98,8 +98,10 @@ async def insert_vector(data: InsertVector):
     Upsert a single vector with metadata into the specified collection.
     """
     # Validate collection exists
-    if data.collection not in client.get_collections().collections:
-        raise HTTPException(status_code=404, detail="Collection not found")
+    collections = client.get_collections()
+    collection_names = [col.name for col in collections.collections]
+    if data.collection not in collection_names:
+        raise HTTPException(status_code=404, detail=f"Collection '{data.collection}' not found. Available: {collection_names}")
 
     point = PointStruct(
         id=data.product_id,
@@ -125,8 +127,10 @@ async def search(req: SearchRequest):
     """
     Search for nearest neighbors, applying optional filters.
     """
-    if req.collection not in client.get_collections().collections:
-        raise HTTPException(status_code=404, detail="Collection not found")
+    collections = client.get_collections()
+    collection_names = [col.name for col in collections.collections]
+    if req.collection not in collection_names:
+        raise HTTPException(status_code=404, detail=f"Collection '{req.collection}' not found. Available: {collection_names}")
 
     vect = np.array(req.vector, dtype="float32").tolist()
     filter_obj = build_filter(req.style, req.price_lte, req.category, req.gender, req.brand, req.retailer)
@@ -154,8 +158,10 @@ async def search_product(req: SearchProduct):
     """
     Find a product and return similar items.
     """
-    if req.collection not in client.get_collections().collections:
-        raise HTTPException(status_code=404, detail="Collection not found")
+    collections = client.get_collections()
+    collection_names = [col.name for col in collections.collections]
+    if req.collection not in collection_names:
+        raise HTTPException(status_code=404, detail=f"Collection '{req.collection}' not found. Available: {collection_names}")
 
     # First, get the target product's vector
     target_points = client.scroll(
@@ -194,13 +200,15 @@ async def search_product(req: SearchProduct):
 
 
 
-@router.delete("/delete")
+@router.post("/delete")
 async def delete(req: DeleteRequest):
     """
     Delete a vector (by product_id) from the specified collection.
     """
-    if req.collection not in client.get_collections().collections:
-        raise HTTPException(status_code=404, detail="Collection not found")
+    collections = client.get_collections()
+    collection_names = [col.name for col in collections.collections]
+    if req.collection not in collection_names:
+        raise HTTPException(status_code=404, detail=f"Collection '{req.collection}' not found. Available: {collection_names}")
 
     client.delete(
         collection_name=req.collection,

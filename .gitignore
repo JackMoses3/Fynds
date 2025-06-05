@@ -78,3 +78,6 @@ ml/__pycache__
 ml/embedding/model_files/
 ml/ml_services/embedding_service/model_files/
 ml/src/generate_product_embeddings/model_files/
+
+#QDRANT
+/qdrant

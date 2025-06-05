@@ -11,10 +11,10 @@ import {
 } from 'class-validator';
 
 export enum CollectionType {
-  TEXT_EMBEDDINGS = 'text_embeddings',
-  IMAGE_FRONT_EMBEDDINGS = 'image_front_embeddings',
-  IMAGE_BACK_EMBEDDINGS = 'image_back_embeddings',
-  USER_EMBEDDINGS = 'user_embeddings',
+  TEXT_EMBEDDINGS = 'TEXT_EMBEDDINGS',
+  IMAGE_FRONT_EMBEDDINGS = 'IMAGE_FRONT_EMBEDDINGS',
+  IMAGE_BACK_EMBEDDINGS = 'IMAGE_BACK_EMBEDDINGS',
+  USER_EMBEDDINGS = 'USER_EMBEDDINGS',
 }
 
 export enum Gender {
