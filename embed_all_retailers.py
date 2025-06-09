@@ -14,14 +14,20 @@ BATCH_SIZE = 8
 CONCURRENCY = 8
 
 # Retailers to skip
-SKIP_RETAILERS = {"Mango", "H&M", "Urban Outfitters", "Adidas"}
+SKIP_RETAILERS = {"Mango", "H&M", "Urban Outfitters", "Adidas", "AJE"}
 
 # --- GET ALL RETAILERS ---
 def get_all_retailers():
     conn = psycopg2.connect(**DB_CONFIG)
     cur = conn.cursor()
-    cur.execute('SELECT DISTINCT retailer FROM "ProductItem" WHERE retailer IS NOT NULL')
-    retailers = [row[0] for row in cur.fetchall()]
+    # Fetch both id and retailer name from SiteDataConfig
+    cur.execute('''
+        SELECT DISTINCT s.id, s."retailerName"
+        FROM "SiteDataConfig" s
+        JOIN "ProductItem" p ON s.id = p."siteDataConfigId"
+        WHERE s."retailerName" IS NOT NULL
+    ''')
+    retailers = [{"id": row[0], "name": row[1]} for row in cur.fetchall()]
     cur.close()
     conn.close()
     return retailers
@@ -29,20 +35,20 @@ def get_all_retailers():
 # --- PROCESS EACH RETAILER ---
 def process_all_retailers():
     retailers = get_all_retailers()
-    # Filter out the unwanted retailers
-    retailers_to_process = [r for r in retailers if r not in SKIP_RETAILERS]
+    # Filter out unwanted retailers by name and by id < 30
+    retailers_to_process = [r for r in retailers if r["name"] not in SKIP_RETAILERS and r["id"] <= 95]
 
-    print(f"Found {len(retailers)} total retailers, processing {len(retailers_to_process)} (excluding {', '.join(SKIP_RETAILERS)}).")
+    print(f"Found {len(retailers)} total retailers, processing {len(retailers_to_process)} (excluding {', '.join(SKIP_RETAILERS)} and id < 30).")
     for retailer in retailers_to_process:
-        print(f"\n🚀 Processing retailer: {retailer}")
+        print(f"\n🚀 Processing retailer: {retailer['name']} (ID: {retailer['id']})")
         resp = requests.post(
             BACKEND_URL,
-            json={"retailer": retailer, "batchSize": BATCH_SIZE, "concurrency": CONCURRENCY},
+            json={"retailer": retailer['name'], "batchSize": BATCH_SIZE, "concurrency": CONCURRENCY},
         )
         if resp.status_code in [200, 201]:
-            print(f"✅ {retailer}: {resp.json()}")
+            print(f"✅ {retailer['name']}: {resp.json()}")
         else:
-            print(f"❌ {retailer}: {resp.status_code} - {resp.text}")
+            print(f"❌ {retailer['name']}: {resp.status_code} - {resp.text}")
 
 if __name__ == "__main__":
     process_all_retailers()
