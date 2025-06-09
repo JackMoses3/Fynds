@@ -35,7 +35,7 @@ def get_all_retailers():
 # --- PROCESS EACH RETAILER ---
 def process_all_retailers():
     retailers = get_all_retailers()
-    # Filter out unwanted retailers by name and by id < 30
+    # Filter out unwanted retailers by name and by id <=95
     retailers_to_process = [r for r in retailers if r["name"] not in SKIP_RETAILERS and r["id"] <= 95]
 
     print(f"Found {len(retailers)} total retailers, processing {len(retailers_to_process)} (excluding {', '.join(SKIP_RETAILERS)} and id < 30).")
