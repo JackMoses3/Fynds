@@ -6,7 +6,7 @@ Optimisations added:
   • torch.cuda.empty_cache() after every request – prevents fragmentation
 """
 
-import os, re, asyncio, logging, atexit
+import os, re, asyncio, logging, atexit, time
 from io import BytesIO
 from typing import List, Optional
 
@@ -77,13 +77,21 @@ def _close_session():
         asyncio.get_event_loop().run_until_complete(_session.close())
 
 async def fetch_image(url: str) -> Optional[Image.Image]:
+    # Shopify CDN resize for PNGs
     if url.startswith("//"):
         url = "https:" + url
+    # If it's a Shopify PNG, add width param for resizing
+    if "cdn.shopify.com" in url and ".png" in url and "width=" not in url:
+        url = url + "&width=600"
+
     try:
+        #t0 = time.time()
         async with get_session().get(url, timeout=15) as resp:
-            if resp.status != 200 or not resp.headers.get("Content-Type","").startswith("image"):
+            if resp.status != 200 or not resp.headers.get("Content-Type", "").startswith("image"):
                 return None
             data = await resp.read()
+        #t1 = time.time()
+        #logger.info(f"⏱️ Downloaded image {url} in {t1 - t0:.2f}s")
         return Image.open(BytesIO(data)).convert("RGB")
     except Exception:
         return None
@@ -141,56 +149,89 @@ router = APIRouter()
 @router.post("/product-embed", response_model=EmbedResponse)
 async def product_embed(req: EmbedRequest):
     cleaned_meta = clean_meta_data(req.metaData)
-    imgs: List[Image.Image] = await asyncio.gather(*(fetch_image(u) for u in req.imageUrls))
+
+    # 1. Kick off all fetches in parallel
+    fetch_tasks = [fetch_image(url) for url in req.imageUrls]
+    imgs: List[Optional[Image.Image]] = await asyncio.gather(*fetch_tasks)
 
     front_flags: List[bool] = []
     front_cand, back_cand = [], []
+
+    # 2. Classify each image
     for img in imgs:
         if img is None:
-            front_flags.append(False); continue
+            front_flags.append(False)
+            continue
+
         is_front, p_back = classify_image(img)
         front_flags.append(is_front)
-        (front_cand if is_front else back_cand).append((img, p_back))
 
+        if is_front:
+            front_cand.append((img, p_back))
+        else:
+            back_cand.append((img, p_back))
+
+    # 3. Pick best front/back candidates
     best_front = min(front_cand, key=lambda x: x[1])[0] if front_cand else None
     best_back  = max(back_cand , key=lambda x: x[1])[0] if back_cand  else None
 
+    # 4. Assemble for embedding
     images_to_embed, text_reps = [], []
     if best_front:
         images_to_embed.append(best_front)
-        if cleaned_meta: text_reps.append(cleaned_meta)
+        if cleaned_meta:
+            text_reps.append(cleaned_meta)
     if best_back:
         images_to_embed.append(best_back)
-        if cleaned_meta: text_reps.append(cleaned_meta)
+        if cleaned_meta:
+            text_reps.append(cleaned_meta)
 
+    # 5. Run through CLIP
     img_embs, txt_embs = embed_images_and_text(images_to_embed, text_reps)
+
     front_vec = back_vec = text_vec = None
     if best_front and not best_back:
-        front_vec = img_embs[0].tolist(); text_vec = txt_embs[0].tolist() if txt_embs.size else None
-    elif best_front and best_back:
-        front_vec = img_embs[0].tolist(); back_vec = img_embs[1].tolist()
-        if txt_embs.size: text_vec = txt_embs[0].tolist()
-    elif best_back and not best_front:
-        back_vec = img_embs[0].tolist(); text_vec = txt_embs[0].tolist() if txt_embs.size else None
+        front_vec = img_embs[0].tolist()
+        text_vec  = txt_embs[0].tolist() if txt_embs.size else None
 
+    elif best_front and best_back:
+        front_vec = img_embs[0].tolist()
+        back_vec  = img_embs[1].tolist()
+        text_vec  = txt_embs[0].tolist() if txt_embs.size else None
+
+    elif best_back and not best_front:
+        back_vec  = img_embs[0].tolist()
+        text_vec  = txt_embs[0].tolist() if txt_embs.size else None
+
+    # 6. Clear GPU memory
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
+    # 7. Return
     return EmbedResponse(
         productId=req.id,
         frontEmbedding=front_vec,
-        backEmbedding =back_vec,
-        textEmbedding =text_vec,
+        backEmbedding=back_vec,
+        textEmbedding=text_vec,
         frontFacingImages=front_flags,
     )
 
+
 @router.post("/products-embed-batch", response_model=BatchEmbedResponse)
 async def products_embed_batch(req: BatchEmbedRequest):
+    batch_start = time.time()
+    # Create a task for each product embed so that they're processed concurrently.
+    tasks = [asyncio.create_task(product_embed(prod)) for prod in req.products]
+    # Wait for all tasks to complete; gather any exceptions.
+    results_raw = await asyncio.gather(*tasks, return_exceptions=True)
     results = []
-    for prod in req.products:
-        try:  results.append(await product_embed(prod))
-        except Exception:
+    for prod, res in zip(req.products, results_raw):
+        if isinstance(res, Exception):
             results.append(EmbedResponse(productId=prod.id))
+        else:
+            results.append(res)
+    batch_end = time.time()
+    logger.info(f"⏱️ Batch of {len(req.products)} products embedded in {batch_end - batch_start:.2f}s")
     return BatchEmbedResponse(results=results)
 
 @router.post("/text-embed", response_model=TextEmbedResponse)

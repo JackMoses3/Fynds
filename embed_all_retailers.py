@@ -14,7 +14,7 @@ BATCH_SIZE = 8
 CONCURRENCY = 8
 
 # Retailers to skip
-SKIP_RETAILERS = {"Mango", "H&M", "Urban Outfitters"}
+SKIP_RETAILERS = {"Mango", "H&M", "Urban Outfitters", "Adidas"}
 
 # --- GET ALL RETAILERS ---
 def get_all_retailers():

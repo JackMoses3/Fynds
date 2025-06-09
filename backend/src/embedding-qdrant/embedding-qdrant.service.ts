@@ -164,7 +164,9 @@ export class EmbeddingQdrantService {
     }[] = [];
 
     while (true) {
-      /* 1. next slice of work */
+      const t0 = Date.now();
+
+      // 1. Fetch DB rows
       const rows = await this.db.productItem.findMany({
         where: { retailer, embedding: null },
         select: {
@@ -179,10 +181,12 @@ export class EmbeddingQdrantService {
         take: dbBatchSize,
       });
       if (!rows.length) break;
+      const t1 = Date.now();
 
-      /* 2. call ML once for the slice */
+      // 2. Call ML service
       let embeds: EmbedResponseDto[] = [];
       try {
+        const mlStart = Date.now();
         const { data } = await axios.post(
           `${process.env.ML_URL}/api/v1/embedding/products-embed-batch`,
           {
@@ -195,6 +199,10 @@ export class EmbeddingQdrantService {
           { timeout: 120_000 },
         );
         embeds = data.results;
+        const mlEnd = Date.now();
+        this.logger.log(
+          `⏱️ ML batch: ${(mlEnd - mlStart) / 1000}s for ${rows.length} products`,
+        );
       } catch (err: any) {
         failed += rows.length;
         rows.forEach((r) =>
@@ -202,77 +210,35 @@ export class EmbeddingQdrantService {
         );
         continue;
       }
+      const t2 = Date.now();
 
-      /* 3. one query for all metas in this slice */
-      const metaMap = new Map<
-        number,
-        Awaited<ReturnType<typeof this.fetchProductMeta>>
-      >();
-      (
-        await this.db.productItem.findMany({
-          where: { id: { in: embeds.map((e) => e.productId) } },
-          select: {
-            id: true,
-            price: true,
-            brand: true,
-            category: true,
-            sex: true,
-            retailer: true,
-            productStyles: { select: { style: { select: { name: true } } } },
-          },
-        })
-      ).forEach((p) =>
-        metaMap.set(p.id, {
-          id: p.id,
-          style: p.productStyles.map((s) => s.style.name),
-          price: p.price,
-          category: [p.category].filter(Boolean),
-          gender: [p.sex as Gender],
-          brand: [p.brand],
-          retailer: [p.retailer],
-        }),
-      );
-
-      /* 4. collect vectors per collection */
+      // 3. Qdrant upsert
+      const qdrantStart = Date.now();
       const byCollection = new Map<CollectionType, any[]>();
-
-      for (const e of embeds) {
-        const meta = metaMap.get(e.productId);
-        if (!meta) continue;
-
-        if (e.frontEmbedding)
+      embeds.forEach((e) => {
+        if (e.frontEmbedding) {
           this.pushVector(byCollection, CollectionType.IMAGE_FRONT_EMBEDDINGS, {
             id: e.productId,
             vector: e.frontEmbedding,
-            payload: meta,
           });
-        if (e.backEmbedding)
+        }
+        if (e.backEmbedding) {
           this.pushVector(byCollection, CollectionType.IMAGE_BACK_EMBEDDINGS, {
             id: e.productId,
             vector: e.backEmbedding,
-            payload: meta,
           });
-        if (e.textEmbedding)
+        }
+        if (e.textEmbedding) {
           this.pushVector(byCollection, CollectionType.TEXT_EMBEDDINGS, {
             id: e.productId,
             vector: e.textEmbedding,
-            payload: meta,
           });
-
-        summaries.push({
-          productId: e.productId,
-          hasF: !!e.frontEmbedding,
-          hasB: !!e.backEmbedding,
-          hasT: !!e.textEmbedding,
-        });
-      }
-
-      /* 5. bulk upsert to Qdrant */
+        }
+      });
       await Promise.all(
         [...byCollection.entries()].map(async ([collection, pts]) => {
           try {
             await this.qdrantService.upsertPointsBulk(collection, pts);
-            inserted += pts.length;
           } catch (err: any) {
             failed += pts.length;
             pts.forEach((p) =>
@@ -285,34 +251,51 @@ export class EmbeddingQdrantService {
           }
         }),
       );
+      const qdrantEnd = Date.now();
+      this.logger.log(`⏱️ Qdrant upsert: ${(qdrantEnd - qdrantStart) / 1000}s`);
 
-      /* 6. one DB transaction updates */
-      await this.db.$transaction(async (tx) => {
-        for (const e of embeds) {
-          await tx.productItem.update({
+      // 4. DB update
+      const dbStart = Date.now();
+      const updateOps = [];
+
+      for (const e of embeds) {
+        // Update embedding field
+        const embeddingValue =
+          e.frontEmbedding || e.backEmbedding || e.textEmbedding
+            ? this.embeddingService.determineEmbeddingConfig(e)
+            : 'skip';
+
+        updateOps.push(
+          this.db.productItem.update({
             where: { id: e.productId },
             data: {
-              embedding: this.embeddingService.determineEmbeddingConfig(e),
+              embedding: embeddingValue,
             },
-          });
+          }),
+        );
 
-          if (e.frontFacingImages?.length) {
-            const row = rows.find((r) => r.id === e.productId);
-            if (row) {
-              for (let idx = 0; idx < row.productImages.length; idx++) {
-                await tx.productImage.update({
+        // Update frontFacing flags if present
+        if (e.frontFacingImages?.length) {
+          const row = rows.find((r) => r.id === e.productId);
+          if (row) {
+            for (let idx = 0; idx < row.productImages.length; idx++) {
+              updateOps.push(
+                this.db.productImage.update({
                   where: { id: row.productImages[idx].id },
                   data: { frontFacing: e.frontFacingImages[idx] ?? false },
-                });
-              }
+                }),
+              );
             }
           }
         }
-      });
+      }
 
-      processed += rows.length;
+      await this.db.$transaction(updateOps);
+      const dbEnd = Date.now();
+      this.logger.log(`⏱️ DB update: ${(dbEnd - dbStart) / 1000}s`);
+
       this.logger.log(
-        `✅ batch done – ${rows.length} products (total ${processed})`,
+        `⏱️ Batch total: ${(Date.now() - t0) / 1000}s (DB fetch: ${(t1 - t0) / 1000}s, ML: ${(t2 - t1) / 1000}s, Qdrant: ${(qdrantEnd - qdrantStart) / 1000}s, DB update: ${(dbEnd - dbStart) / 1000}s)`,
       );
     }
 
