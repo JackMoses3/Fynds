@@ -1,5 +1,3 @@
-# ml/Dockerfile
-
 FROM python:3.10-slim
 WORKDIR /app
 
@@ -11,12 +9,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY .env ./
 
 # 3) Copy pipeline code & model
-COPY embedding/ ./embedding/
+COPY ml_services/ ./ml_services/
 RUN mkdir -p /app/models
-COPY embedding/best_front_back_model_convnext_82.3_88.19.pth /app/models/
+COPY ml_services/embedding_service/model_files/best_front_back_model_convnext_82.3_88.19.pth /app/models/
 
 # 4) Make sure imports work
 ENV PYTHONPATH=/app
 
-# 5) Run your script
-CMD ["python", "embedding/embedding.py"]
+# 5) Run your embedding service
+CMD ["python", "ml_services/qdrant_service/main.py"]

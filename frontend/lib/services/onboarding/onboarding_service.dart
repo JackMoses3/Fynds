@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:frontend/core/dio_client.dart';
-import 'package:frontend/models/style.dart';
+import 'package:fynds/core/dio_client.dart';
+import 'package:fynds/models/style.dart';
 
 class OnboardingService {
   final Dio _dio = DioClient().client;

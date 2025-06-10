@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/screens/onboarding/style_choice_screen.dart';
+import 'package:fynds/screens/onboarding/style_choice_screen.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:frontend/services/onboarding/onboarding_service.dart';
+import 'package:fynds/services/onboarding/onboarding_service.dart';
 
 class UserDetailsScreen extends StatefulWidget {
   const UserDetailsScreen({super.key});

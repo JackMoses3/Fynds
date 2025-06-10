@@ -1,9 +1,12 @@
 # ml/qdrant/init_collections.py
+import os
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
+QDRANT_CLIENT_URL = os.getenv("QDRANT_CLIENT_URL")
+
 def create_collections():
-    client = QdrantClient(url="http://localhost:6333")
+    client = QdrantClient(url=QDRANT_CLIENT_URL)
 
     # Common HNSW index parameters
     hnsw_config = models.HnswConfigDiff(

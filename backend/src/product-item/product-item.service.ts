@@ -1,14 +1,18 @@
+/* eslint-disable */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ProductImage, ProductItem } from '@prisma/client';
+import { ProductImage, ProductItem } from '../../generated/prisma';
 import { DatabaseService } from '../database/database.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
 import { FilterProductItemDto } from './dto/filter-product-item.dto';
 
 @Injectable()
 export class ProductItemService {
-  constructor(private readonly db: DatabaseService) { }
+  constructor(private readonly db: DatabaseService) {}
 
-  async getUniqueBrands(filters?: { category?: string[]; retailer?: string[] }): Promise<string[]> {
+  async getUniqueBrands(filters?: {
+    category?: string[];
+    retailer?: string[];
+  }): Promise<string[]> {
     const where: any = {};
     if (filters?.category?.length) where.category = { in: filters.category };
     if (filters?.retailer?.length) where.retailer = { in: filters.retailer };
@@ -22,7 +26,10 @@ export class ProductItemService {
   }
 
   /** Get distinct retailers */
-  async getUniqueRetailers(filters?: { brand?: string[]; category?: string[] }): Promise<string[]> {
+  async getUniqueRetailers(filters?: {
+    brand?: string[];
+    category?: string[];
+  }): Promise<string[]> {
     const where: any = {};
     if (filters?.brand?.length) where.brand = { in: filters.brand };
     if (filters?.category?.length) where.category = { in: filters.category };
@@ -36,7 +43,10 @@ export class ProductItemService {
   }
 
   /** Get distinct categories */
-  async getUniqueCategories(filters?: { brand?: string[]; retailer?: string[] }): Promise<string[]> {
+  async getUniqueCategories(filters?: {
+    brand?: string[];
+    retailer?: string[];
+  }): Promise<string[]> {
     const where: any = {};
     if (filters?.brand?.length) where.brand = { in: filters.brand };
     if (filters?.retailer?.length) where.retailer = { in: filters.retailer };

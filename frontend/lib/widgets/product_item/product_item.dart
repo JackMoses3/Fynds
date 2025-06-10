@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/product_item/product_item.dart';
-import 'package:frontend/services/basket/basket_service.dart';
+import 'package:fynds/services/basket/basket_service.dart';
 
 class ProductItemWidget extends StatefulWidget {
   final ProductItem product;

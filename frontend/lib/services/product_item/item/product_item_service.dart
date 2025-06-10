@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
-import 'package:frontend/core/dio_client.dart';
-import 'package:frontend/models/product_item/product_item.dart';
-import 'package:frontend/models/product_item/filter.dart';
+import 'package:fynds/core/dio_client.dart';
+import 'package:fynds/models/product_item/product_item.dart';
+import 'package:fynds/models/product_item/filter.dart';
 
 class ProductItemService {
   final Dio _dio = DioClient().client;

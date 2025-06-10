@@ -1,5 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
+  output = "../generated/prisma"
   binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }
 
@@ -16,19 +17,15 @@ model ProductItem {
   metaData         String
   retailer         String
   price            Float
-  frontEmbeddingId BigInt?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-  backEmbeddingId  BigInt?
-  textEmbeddingId  BigInt?
   brand            String
   category         String?
-  subCategory      String?
   lastModified     DateTime?
   sale             Boolean?          @default(false)
   siteDataConfigId Int?
-  storeId          BigInt?
   standardPrice    Float?
+  embedding        String?           // Changed from 'embedding' to match database
   CollectionItem   CollectionItem[]
   itemVideos       ItemVideo[]
   Like             Like[]
@@ -39,8 +36,6 @@ model ProductItem {
   PurchaseHistory  PurchaseHistory[]
   TrolleyItem      TrolleyItem[]
   ViewingHistory   ViewingHistory[]
-
-  @@unique([retailer, storeId])
 }
 
 model ProductImage {
@@ -51,8 +46,6 @@ model ProductImage {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   productItem   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
-
-  @@index([productItemId], map: "idx_productimage_productitemid")
 }
 
 model SiteDataConfig {
@@ -126,7 +119,7 @@ model User {
 model Style {
   id           Int            @id @default(autoincrement())
   name         String
-  description  String
+  description  String?
   embeddingId  BigInt?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt

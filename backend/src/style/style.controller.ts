@@ -1,8 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { StyleService } from './style.service';
-import { CreateStyleDto } from './dto/create-style.dto';
-import { UpdateStyleDto } from './dto/update-style.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma';
 
 @Controller('style')
 export class StyleController {
@@ -24,7 +30,10 @@ export class StyleController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateStyleDto: Prisma.StyleUpdateInput) {
+  update(
+    @Param('id') id: string,
+    @Body() updateStyleDto: Prisma.StyleUpdateInput,
+  ) {
     return this.styleService.update(+id, updateStyleDto);
   }
 

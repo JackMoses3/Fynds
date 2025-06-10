@@ -1,6 +1,7 @@
 # Node.js
 node_modules/
 dist/
+generated/
 .env
 .env.*.local
 *.log
@@ -8,6 +9,7 @@ dist/
 # Prisma
 *.db
 *.sqlite
+
 
 # Flutter
 **/build/
@@ -57,8 +59,11 @@ macos/build/
 !.vscode/extensions.json
 
 # Pycache
-__pycache__/
+*__pycache__/
 *.pyc
+__pycache__/
+*.py[cod]
+
 
 # Misc
 .DS_Store
@@ -66,7 +71,13 @@ __pycache__/
 *.iml
 *.swp
 ml/venv/
+ml/.env/
+ml/__pycache__
 
 #ML
 ml/embedding/model_files/
+ml/ml_services/embedding_service/model_files/
 ml/src/generate_product_embeddings/model_files/
+
+#QDRANT
+/qdrant

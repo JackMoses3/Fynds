@@ -1,7 +1,11 @@
 import * as argon2 from 'argon2';
-import { Injectable, BadRequestException, UnauthorizedException, Inject } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { UserService } from '../user/user.service';
-import { User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from './strategies/jwt/jwt.strategy';
 import { RegisterDto } from 'src/auth/dto/register.dto';
@@ -10,7 +14,9 @@ import { randomInt } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '../mailer/mailer.service';
 import { OAuth2Client } from 'google-auth-library';
-import { AuthTokens } from './dto/types';
+import { AuthTokens } from './dto/tokens.dto';
+import { User } from '../../generated/prisma';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -20,8 +26,7 @@ export class AuthService {
     private jwtService: JwtService,
     private mailerService: MailerService,
     private googleClient: OAuth2Client,
-    @Inject('REFRESH_SERVICE') private refreshJwtService: JwtService,
-  ) { }
+  ) {}
 
   async register(registerDto: RegisterDto): Promise<User> {
     const passwordHash = await argon2.hash(registerDto.password);
@@ -33,7 +38,10 @@ export class AuthService {
     }
 
     try {
-      await this.mailerService.sendVerificationEmail(registerDto.email, verifyCode);
+      await this.mailerService.sendVerificationEmail(
+        registerDto.email,
+        verifyCode,
+      );
     } catch (err) {
       console.error('Failed to send verification email:', err);
     }
@@ -42,8 +50,8 @@ export class AuthService {
       firstName: registerDto.firstName,
       lastName: registerDto.lastName,
       email: registerDto.email,
-      clothingPreferences: "null",
       passwordHash,
+      clothingPreferences: '',
       provider: 'local',
       isVerified: false,
       verifyCode,
@@ -51,8 +59,8 @@ export class AuthService {
   }
 
   async verifyEmail(email: string, code: number): Promise<AuthTokens | null> {
+    console.log(`Verifying email for ${email} with code ${code}`);
     const user = await this.userService.findOneByEmail(email);
-
     if (!user) return null;
     if (user.isVerified) return null;
     if (user.verifyCode !== Number(code)) return null;
@@ -110,15 +118,15 @@ export class AuthService {
       email,
       firstName,
       lastName,
-      clothingPreferences: "null",
       passwordHash: null, // No password for Google users
       provider: 'google',
+      clothingPreferences: '',
       providerId,
       isVerified: true,
     });
   }
 
-  async login(user: User) {
+  login(user: User) {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -126,12 +134,12 @@ export class AuthService {
       lastName: user.lastName,
     };
     return {
-      access_token: this.jwtService.sign(payload, { expiresIn: '45m' }),
-      refresh_token: this.refreshJwtService.sign(payload, { expiresIn: '7d' }),
+      access_token: this.jwtService.sign(payload, { expiresIn: '1m' }),
+      refresh_token: this.jwtService.sign(payload, { expiresIn: '30d' }),
     };
   }
 
-  async refreshAccessToken(token: string): Promise<{ access_token: string }> {
+  refreshAccessToken(token: string): Promise<{ access_token: string }> {
     try {
       const { sub, email, firstName, lastName } =
         this.jwtService.verify<JwtPayload>(token, {
@@ -142,14 +150,16 @@ export class AuthService {
         { sub, email, firstName, lastName },
         { expiresIn: '45m' },
       );
-      return { access_token };
+      return Promise.resolve({ access_token });
     } catch (error) {
       console.error('❌ [AuthService] refreshAccessToken error:', error);
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }
 
-  async validateGoogleToken(token: string): Promise<{ access_token: string; refresh_token: string } | null> {
+  async validateGoogleToken(
+    token: string,
+  ): Promise<{ access_token: string; refresh_token: string } | null> {
     const ticket = await this.googleClient.verifyIdToken({
       idToken: token,
       audience: [
@@ -173,4 +183,37 @@ export class AuthService {
     return this.login(user);
   }
 
+  async changePassword(
+    user: { id: number },
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<void> {
+    const { oldPassword, newPassword } = changePasswordDto;
+
+    // Find the user
+    const existingUser = await this.userService.findOneById(user.id);
+
+    if (!existingUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Compare old password with that stored in database
+    if (!existingUser.passwordHash) {
+      throw new BadRequestException(
+        'User has no password set. Ensure this account was not created using Google login.',
+      );
+    }
+
+    const isPasswordValid = await argon2.verify(
+      existingUser.passwordHash,
+      oldPassword,
+    );
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid old password');
+    }
+
+    // Change user's password
+    const newPasswordHash = await argon2.hash(newPassword);
+    await this.userService.update(user.id, { passwordHash: newPasswordHash });
+  }
 }

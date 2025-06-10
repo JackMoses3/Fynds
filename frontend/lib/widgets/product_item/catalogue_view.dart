@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/models/product_item/product_item.dart';
+import 'package:fynds/models/product_item/product_item.dart';
 
-import 'package:frontend/widgets/product_item/product_carousel.dart';
+import 'package:fynds/widgets/product_item/product_carousel.dart';
 
 class CatalogueView extends StatelessWidget {
   final List<ProductItem> items;

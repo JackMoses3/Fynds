@@ -1,4 +1,4 @@
 export class AddItemDto {
-    productId!: number;
-    quantity?: number;
+  productId!: number;
+  quantity?: number;
 }

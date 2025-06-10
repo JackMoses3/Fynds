@@ -72,7 +72,7 @@ export class ProductItemController {
       brand: p.brand,
       retailer: p.retailer,
       price: p.price,
-      url: p.url!,
+      url: p.url,
       images: p.productImages.map((img) => ({
         id: img.id,
         imageUrl: img.imageUrl,

@@ -1,7 +1,7 @@
 // lib/services/product_item/search/search_service.dart
 
 import 'package:dio/dio.dart';
-import 'package:frontend/core/dio_client.dart';
+import 'package:fynds/core/dio_client.dart';
 
 /// Note: We assume your DioClient is already configured to talk to localhost:3000
 /// (NestJS), e.g. baseUrl="http://10.0.2.2:3000" for Android emulator.

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
@@ -23,9 +24,7 @@ export class MailerService {
       auth: { user, pass },
 
       // In non-production, accept self-signed certificates
-      tls: isProd
-        ? undefined
-        : { rejectUnauthorized: false },
+      tls: isProd ? undefined : { rejectUnauthorized: false },
     });
   }
 

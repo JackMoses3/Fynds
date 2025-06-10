@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
 import { EmbeddingService } from './embedding.service';
-import { EmbeddingController } from './embedding.controller';
 import { HttpModule } from '@nestjs/axios';
-import { PrismaService } from '../../prisma/prisma.service';
+import { DatabaseModule } from '../database/database.module';
 
 @Module({
-  imports: [HttpModule],
-  controllers: [EmbeddingController],
-  providers: [EmbeddingService, PrismaService],
+  imports: [HttpModule, DatabaseModule],
+  providers: [EmbeddingService],
+  exports: [EmbeddingService],
 })
 export class EmbeddingModule {}

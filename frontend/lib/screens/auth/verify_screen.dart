@@ -1,8 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:frontend/screens/onboarding/user_details_screen.dart';
-import 'package:frontend/services/auth/auth_service.dart';
+import 'package:fynds/screens/onboarding/user_details_screen.dart';
+import 'package:fynds/services/auth/auth_service.dart';
 
 class VerifyScreen extends StatefulWidget {
   final String email;
@@ -137,7 +137,6 @@ class _VerifyScreenState extends State<VerifyScreen> {
                     child: IconButton(
                       icon: const Icon(Icons.arrow_back),
                       onPressed: () async {
-                        await _authService.deleteAccount(widget.email);
                         if (mounted) {
                           Navigator.pop(context);
                         }

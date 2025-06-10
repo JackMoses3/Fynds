@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/services/onboarding/onboarding_service.dart';
-import 'package:frontend/models/style.dart';
-import 'package:frontend/widgets/main_shell.dart';
+import 'package:fynds/services/onboarding/onboarding_service.dart';
+import 'package:fynds/models/style.dart';
+import 'package:fynds/widgets/main_shell.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StyleChoiceScreen extends StatefulWidget {

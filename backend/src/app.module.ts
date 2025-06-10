@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -13,6 +14,7 @@ import { CollectionModule } from './collection/collection.module';
 import { ProductItemModule } from './product-item/product-item.module';
 import { ShoppingTrolleyModule } from './shopping-trolley/shopping-trolley.module';
 import { EmbeddingModule } from './embedding/embedding.module'; // Import the embedding module
+import { EmbeddingQdrantModule } from './embedding-qdrant/embedding-qdrant.module'; // Import the embedding-qdrant module
 import { QdrantModule } from './qdrant/qdrant.module';
 
 @Module({
@@ -60,6 +62,7 @@ import { QdrantModule } from './qdrant/qdrant.module';
     ProductItemModule,
     ShoppingTrolleyModule,
     EmbeddingModule, // Register the embedding module
+    EmbeddingQdrantModule, // Register the embedding-qdrant module
     QdrantModule,
   ],
 })
