@@ -183,6 +183,8 @@ export class EmbeddingQdrantService {
       if (!rows.length) break;
       const t1 = Date.now();
 
+      this.logger.log(`📦 Fetched ${rows.length} products from DB`);
+
       // 2. Call ML service
       let embeds: EmbedResponseDto[] = [];
       try {
@@ -211,6 +213,18 @@ export class EmbeddingQdrantService {
         continue;
       }
       const t2 = Date.now();
+
+      this.logger.log(
+        `🤖 ML returned ${embeds.length} embeddings for ${rows.length} products`,
+      );
+
+      // Log which products got embeddings
+      embeds.forEach((e) => {
+        const hasAny = e.frontEmbedding || e.backEmbedding || e.textEmbedding;
+        this.logger.log(
+          `Product ${e.productId}: ${hasAny ? 'HAS' : 'NO'} embeddings`,
+        );
+      });
 
       // 3. Qdrant upsert
       const qdrantStart = Date.now();
@@ -321,7 +335,10 @@ export class EmbeddingQdrantService {
     backEmbedding?: number[];
     textEmbedding?: number[];
   }> {
+    const overallStart = Date.now();
+
     /* 1. pull product + images */
+    const dbFetchStart = Date.now();
     const product = await this.db.productItem.findUnique({
       where: { id: productId },
       select: {
@@ -333,6 +350,7 @@ export class EmbeddingQdrantService {
         },
       },
     });
+    const dbFetchEnd = Date.now();
 
     if (!product) {
       throw new HttpException(
@@ -348,10 +366,25 @@ export class EmbeddingQdrantService {
     }
 
     /* 2. ML embed call */
+    const mlStart = Date.now();
     const embedResp = await this.embeddingService.embedProduct(product);
+    const mlEnd = Date.now();
 
     /* 3. write vectors → Qdrant & update DB */
+    const qdrantStart = Date.now();
     await this.addProductEmbedding(embedResp);
+    const qdrantEnd = Date.now();
+
+    const overallEnd = Date.now();
+
+    // Log detailed timing
+    this.logger.log(
+      `⏱️ Product ${productId} timing breakdown:` +
+        ` DB fetch: ${dbFetchEnd - dbFetchStart}ms` +
+        ` | ML: ${mlEnd - mlStart}ms` +
+        ` | Qdrant+DB: ${qdrantEnd - qdrantStart}ms` +
+        ` | TOTAL: ${overallEnd - overallStart}ms`,
+    );
 
     return {
       frontEmbedding: embedResp.frontEmbedding ?? undefined,
@@ -361,19 +394,6 @@ export class EmbeddingQdrantService {
   }
 
   /* ───────────── smaller helpers, unchanged except tiny refactor ─────────── */
-
-  private async fetchProductMeta(productId: number): Promise<{
-    id: number;
-    style: string[];
-    price: number;
-    category: (string | null)[];
-    gender: Gender[];
-    brand: string[];
-    retailer: string[];
-  } | null> {
-    /* kept for other calls */
-    return null;
-  }
 
   private pushVector(
     byCollection: Map<CollectionType, any[]>,
@@ -431,11 +451,8 @@ export class EmbeddingQdrantService {
       this.embeddingService.determineEmbeddingConfig(e),
     );
 
-    /* build insert ops */
-    const ops: Parameters<typeof this.qdrantService.insertVector>[0][] = [];
-
     if (frontEmbedding) {
-      ops.push({
+      this.qdrantService.insertVector({
         collection: CollectionType.IMAGE_FRONT_EMBEDDINGS,
         productId,
         vector: frontEmbedding,
@@ -443,7 +460,7 @@ export class EmbeddingQdrantService {
       });
     }
     if (backEmbedding) {
-      ops.push({
+      this.qdrantService.insertVector({
         collection: CollectionType.IMAGE_BACK_EMBEDDINGS,
         productId,
         vector: backEmbedding,
@@ -451,23 +468,13 @@ export class EmbeddingQdrantService {
       });
     }
     if (textEmbedding) {
-      ops.push({
+      this.qdrantService.insertVector({
         collection: CollectionType.TEXT_EMBEDDINGS,
         productId,
         vector: textEmbedding,
         ...metadata,
       });
     }
-
-    if (!ops.length) {
-      throw new HttpException(
-        `No embeddings available for product ${productId}`,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    /* run inserts in parallel */
-    await Promise.all(ops.map((o) => this.qdrantService.insertVector(o)));
 
     return { status: 'success' };
   }

@@ -14,7 +14,7 @@ BATCH_SIZE = 8
 CONCURRENCY = 8
 
 # Retailers to skip
-SKIP_RETAILERS = {"Mango", "H&M", "Urban Outfitters", "Adidas", "AJE"}
+SKIP_RETAILERS = {"Mango", "H&M", "Urban Outfitters", "Adidas", "AJE", "Meski"}
 
 # --- GET ALL RETAILERS ---
 def get_all_retailers():
@@ -36,7 +36,8 @@ def get_all_retailers():
 def process_all_retailers():
     retailers = get_all_retailers()
     # Filter out unwanted retailers by name and by id <=95
-    retailers_to_process = [r for r in retailers if r["name"] not in SKIP_RETAILERS and r["id"] <= 95]
+    retailers_to_process = [r for r in retailers if r["name"] and r["name"] not in SKIP_RETAILERS]
+
 
     print(f"Found {len(retailers)} total retailers, processing {len(retailers_to_process)} (excluding {', '.join(SKIP_RETAILERS)} and id < 30).")
     for retailer in retailers_to_process:
