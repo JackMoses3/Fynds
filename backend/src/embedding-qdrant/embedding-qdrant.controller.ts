@@ -1,19 +1,8 @@
 // backend/src/embedding/embedding.controller.ts
 
 import {
-  Controller,
-  Post,
-  Body,
-  Logger,
-  UploadedFile,
-  UseInterceptors,
-} from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
-import { EmbeddingQdrantService } from './embedding-qdrant.service';
-import {
-  SearchDto,
   TextSearchDto,
+  SearchDto,
   SimilarProductDto,
   ProcessProductDto,
   ProcessProductResponseDto,
@@ -21,8 +10,19 @@ import {
   EmbeddingQdrantBatchResult,
 } from './dto/embedding-qdrant.dto';
 import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
-import { QdrantService } from '../qdrant/qdrant.service';
 import { Public } from '../types';
+import {
+  Controller,
+  Post,
+  Body,
+  Logger,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { EmbeddingQdrantService } from './embedding-qdrant.service';
+import { QdrantService } from '../qdrant/qdrant.service';
 
 @Controller('embedding-qdrant')
 export class EmbeddingQdrantController {
@@ -86,13 +86,13 @@ export class EmbeddingQdrantController {
 
   /**
    * POST /api/embedding-qdrant/similar-product
-   * Finds similar products based on productId
+   * Finds similar products based on productId by querying Qdrant
    */
   @Public()
   @Post('similar-product')
   async similarProduct(
     @Body() request: SimilarProductDto,
-  ): Promise<ProductItemTransferDto[]> {
+  ): Promise<{ id: number; distance: number }[]> {
     const { productId, ...filters } = request;
     return this.qdrantService.searchProduct({ productId, searchDto: filters });
   }

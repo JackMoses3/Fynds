@@ -22,6 +22,10 @@ Set environment variables and start the ML service:
 $env:QDRANT_URL="http://54.79.38.226:6333"
 $env:DATABASE_URL="postgresql://postgres:L%3B0q%25CUXb223%28%21J%60%3E9JNX6%7E@fynds.crq8ooq0qrgr.ap-southeast-2.rds.amazonaws.com:5432/fynds"
 python app.py
+
+
+
+$env:DATABASE_URL="postgresql://postgres:L%3B0q%25CUXb223%28%21J%60%3E9JNX6%7E@fynds.crq8ooq0qrgr.ap-southeast-2.rds.amazonaws.com:5432/fynds" $env:ML_URL="http://localhost:8000" $env:AUTH_SECRET="test-secret-key" $env:REFRESH_SECRET="test-refresh-key" $env:GOOGLE_CLIENT_ID="test" $env:GOOGLE_CLIENT_SECRET="test" $env:GOOGLE_CALLBACK_URL="test" $env:GOOGLE_CLIENT_ID_ANDROID="test" $env:GOOGLE_CLIENT_ID_IOS="test" $env:MAIL_USER="test@test.com" $env:MAIL_PASS="test" npm run start:dev
 ```
 
 **Note**: If you see warnings about missing model files, that's normal. The ML service will use fallback models for testing.
@@ -36,6 +40,7 @@ Set environment variables and start the backend service:
 
 ```bash
    ./monitor_all_retailers.sh
+   ./monitor_all_products.sh
 ```
 
 The backend service should start on port 3000.

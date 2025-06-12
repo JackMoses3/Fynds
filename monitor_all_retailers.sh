@@ -13,7 +13,7 @@ while true; do
   PYTHON_PID=$!
 
   echo "Running for 2 hours..."
-  sleep $((2 * 60 * 60))  # 2 hours
+  sleep $((1 * 60 * 60))  # 2 hours
 
   echo "Stopping backend and Python script..."
   kill $BACKEND_PID

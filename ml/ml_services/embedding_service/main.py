@@ -33,7 +33,14 @@ _STOPWORDS = {"a","an","the","and","or","but","if","else","on","in","with","of",
 def clean_meta_data(raw: str) -> str:
     txt = re.sub(r"[^a-z0-9\s]", " ", raw.lower().strip())
     tokens = [t for t in re.sub(r"\s+", " ", txt).split() if t not in _STOPWORDS]
-    return " ".join(tokens[:77])
+    text = " ".join(tokens)
+    
+    # Use the CLIP processor to properly tokenize and truncate
+    inputs = clip_proc(text=[text], return_tensors="pt", padding=True, truncation=True, max_length=77)
+    # Decode back to get the truncated text
+    truncated_text = clip_proc.tokenizer.decode(inputs["input_ids"][0], skip_special_tokens=True)
+    
+    return truncated_text
 
 # ─────────── front/back classifier ───────────
 classifier_tf = transforms.Compose([
@@ -61,8 +68,8 @@ def classify_image(pil: Image.Image) -> tuple[bool, float]:
     return bool(label), float(probs[1])  # back-prob
 
 # ─────────── Fashion-CLIP ───────────
-clip_model = AutoModel.from_pretrained("Marqo/marqo-fashionCLIP").to(device)
-clip_proc  = AutoProcessor.from_pretrained("Marqo/marqo-fashionCLIP")
+clip_model = AutoModel.from_pretrained("Marqo/marqo-fashionCLIP", trust_remote_code=True)
+clip_proc  = AutoProcessor.from_pretrained("Marqo/marqo-fashionCLIP", trust_remote_code=True)
 
 # ─────────── global aiohttp session ───────────
 _session: aiohttp.ClientSession | None = None
@@ -80,40 +87,46 @@ async def fetch_image(url: str) -> Optional[Image.Image]:
     # Shopify CDN resize for PNGs
     if url.startswith("//"):
         url = "https:" + url
-    # If it's a Shopify PNG, add width param for resizing
-    if "cdn.shopify.com" in url and ".png" in url and "width=" not in url:
-        url = url + "&width=600"
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    }
 
     try:
-        #t0 = time.time()
-        async with get_session().get(url, timeout=15) as resp:
-            if resp.status != 200 or not resp.headers.get("Content-Type", "").startswith("image"):
+        async with get_session().get(url, timeout=15, headers=headers) as resp:
+            if resp.status != 200:
+                logger.warning(f"❌ Failed to fetch {url}: HTTP {resp.status}")
+                return None
+            if not resp.headers.get("Content-Type", "").startswith("image"):
+                logger.warning(f"❌ Not an image {url}: {resp.headers.get('Content-Type')}")
                 return None
             data = await resp.read()
-        #t1 = time.time()
-        #logger.info(f"⏱️ Downloaded image {url} in {t1 - t0:.2f}s")
         return Image.open(BytesIO(data)).convert("RGB")
-    except Exception:
+    except Exception as e:
+        logger.warning(f"❌ Exception fetching {url}: {type(e).__name__}: {str(e)}")
         return None
 
-def embed_images_and_text(images: List[Image.Image], texts: List[str]):
-    if not images:
+def embed_images_and_text(image: Image.Image, text: str, have_text: bool):
+    if not image:
         return np.zeros((0,DIM), np.float32), np.zeros((0,DIM), np.float32)
+    
+    if not have_text and len(text) > 0: 
+        inputs = clip_proc(images=image,
+                        text=text,
+                        return_tensors="pt",
+                        padding='max_length',
+                        )
+        with torch.no_grad():
+            img_emb = clip_model.get_image_features(inputs["pixel_values"], normalize=True)
+            txt_emb = clip_model.get_text_features(inputs["input_ids"], normalize=True)
+        return img_emb, txt_emb
+    else:
+        inputs = clip_proc(images=image, return_tensors="pt", padding='max_length')
 
-    inputs = clip_proc(images=images,
-                       text=texts if texts else None,
-                       return_tensors="pt",
-                       padding=True,
-                       truncation=True).to(device)
+        with torch.no_grad():
+            img_emb = clip_model.get_image_features(inputs["pixel_values"], normalize=True)
 
-    with torch.no_grad():
-        img_emb = clip_model.get_image_features(pixel_values=inputs["pixel_values"])
-        txt_emb = (clip_model.get_text_features(**{k:v for k,v in inputs.items() if k.startswith("input_ids")})
-                   if texts else torch.zeros((0,DIM), device=device))
-
-    img_emb = (img_emb / img_emb.norm(p=2, dim=-1, keepdim=True)).cpu().numpy()
-    txt_emb = (txt_emb / txt_emb.norm(p=2, dim=-1, keepdim=True)).cpu().numpy()
-    return img_emb, txt_emb
+        return img_emb, None
 
 # ─────────── Pydantic IO models ───────────
 class EmbedRequest(BaseModel):
@@ -148,18 +161,19 @@ router = APIRouter()
 
 @router.post("/product-embed", response_model=EmbedResponse)
 async def product_embed(req: EmbedRequest):
+    logger.info(f"🔍 Processing product {req.id} with {len(req.imageUrls)} images")
+    
     cleaned_meta = clean_meta_data(req.metaData)
-
-    # 1. Kick off all fetches in parallel
-    fetch_tasks = [fetch_image(url) for url in req.imageUrls]
-    imgs: List[Optional[Image.Image]] = await asyncio.gather(*fetch_tasks)
 
     front_flags: List[bool] = []
     front_cand, back_cand = [], []
 
-    # 2. Classify each image
-    for img in imgs:
-        if img is None:
+    # Parallel image fetching
+    image_tasks = [fetch_image(url) for url in req.imageUrls]
+    images = await asyncio.gather(*image_tasks, return_exceptions=True)
+
+    for img in images:
+        if isinstance(img, Exception) or img is None:
             front_flags.append(False)
             continue
 
@@ -175,39 +189,35 @@ async def product_embed(req: EmbedRequest):
     best_front = min(front_cand, key=lambda x: x[1])[0] if front_cand else None
     best_back  = max(back_cand , key=lambda x: x[1])[0] if back_cand  else None
 
-    # 4. Assemble for embedding
-    images_to_embed, text_reps = [], []
-    if best_front:
-        images_to_embed.append(best_front)
-        if cleaned_meta:
-            text_reps.append(cleaned_meta)
-    if best_back:
-        images_to_embed.append(best_back)
-        if cleaned_meta:
-            text_reps.append(cleaned_meta)
-
     # 5. Run through CLIP
-    img_embs, txt_embs = embed_images_and_text(images_to_embed, text_reps)
-
     front_vec = back_vec = text_vec = None
     if best_front and not best_back:
-        front_vec = img_embs[0].tolist()
-        text_vec  = txt_embs[0].tolist() if txt_embs.size else None
+        front_vec, text_vec = embed_images_and_text(best_front, cleaned_meta, have_text=False)
 
     elif best_front and best_back:
-        front_vec = img_embs[0].tolist()
-        back_vec  = img_embs[1].tolist()
-        text_vec  = txt_embs[0].tolist() if txt_embs.size else None
+        front_vec, text_vec = embed_images_and_text(best_front, cleaned_meta, have_text=False) 
+        back_vec, _ = embed_images_and_text(best_back, cleaned_meta, have_text=True)
 
     elif best_back and not best_front:
-        back_vec  = img_embs[0].tolist()
-        text_vec  = txt_embs[0].tolist() if txt_embs.size else None
+        back_vec, text_vec = embed_images_and_text(best_back, cleaned_meta, have_text=False)
+
+    # ✅ CONVERT TENSORS TO LISTS
+    front_vec = front_vec.cpu().flatten().tolist() if front_vec is not None else None
+    back_vec = back_vec.cpu().flatten().tolist() if back_vec is not None else None
+    text_vec = text_vec.cpu().flatten().tolist() if text_vec is not None else None
 
     # 6. Clear GPU memory
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
     # 7. Return
+    embeddings_generated = []
+    if front_vec: embeddings_generated.append("front")
+    if back_vec: embeddings_generated.append("back") 
+    if text_vec: embeddings_generated.append("text")
+    
+    logger.info(f"✅ Product {req.id} generated: {', '.join(embeddings_generated) if embeddings_generated else 'NONE'}")
+    
     return EmbedResponse(
         productId=req.id,
         frontEmbedding=front_vec,
@@ -237,11 +247,20 @@ async def products_embed_batch(req: BatchEmbedRequest):
 @router.post("/text-embed", response_model=TextEmbedResponse)
 async def text_embed(req: TextEmbedRequest):
     cleaned = clean_meta_data(req.text)
-    if not cleaned: raise HTTPException(status_code=400, detail="text must be non-empty")
-    inputs = clip_proc(text=[cleaned], return_tensors="pt", padding=True, truncation=True).to(device)
+    if not cleaned: 
+        raise HTTPException(status_code=400, detail="text must be non-empty")
+    
+    # ✅ FIXED: Use the clip_proc properly with padding and truncation
+    inputs = clip_proc(text=[cleaned], return_tensors="pt", padding=True, truncation=True, max_length=77).to(device)
+    
     with torch.no_grad():
-        vec = clip_model.get_text_features(**inputs)[0]
-    if torch.cuda.is_available(): torch.cuda.empty_cache()
+        # ✅ FIXED: Use the correct method to get text features
+        text_features = clip_model.get_text_features(inputs["input_ids"], normalize=True)
+        vec = text_features[0]  # Get the first (and only) result
+    
+    if torch.cuda.is_available(): 
+        torch.cuda.empty_cache()
+    
     return TextEmbedResponse(embedding=(vec/vec.norm()).cpu().tolist())
 
 @router.post("/image-embed", response_model=ImageEmbedResponse)

@@ -11,7 +11,6 @@ import {
   QdrantInsertResponse,
   QdrantDeleteResponse,
 } from './models/qdrant.model';
-
 import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
 import { DatabaseService } from '../database/database.service';
 import { SearchDto } from '../embedding-qdrant/dto/embedding-qdrant.dto';
@@ -20,6 +19,7 @@ import { SearchDto } from '../embedding-qdrant/dto/embedding-qdrant.dto';
 export class QdrantService {
   constructor(private readonly db: DatabaseService) {}
   private readonly logger = new Logger(QdrantService.name);
+  // The mlServiceUrl is used by other methods like insertVector; not used here.
   private readonly mlServiceUrl = process.env.ML_URL + '/api/v1/vector';
 
   async insertVector(params: {
@@ -172,152 +172,188 @@ export class QdrantService {
       );
     }
   }
-  // Search for products by productId
-  // we need to grab the embedding (e.g., fb) for the given productId
-  //
+  /**
+   * Searches for similar products by retrieving the target product’s embedding,
+   * and then querying Qdrant’s search API on each collection (TEXT, IMAGE_BACK, IMAGE_FRONT).
+   * Returns an array of objects with the product id and distance.
+   */
   async searchProduct(params: {
     productId: number;
     searchDto: SearchDto;
-  }): Promise<ProductItemTransferDto[]> {
-    // get the embedding form the given product
-    const embeddingString = await this.db.productItem.findUnique({
-      where: { id: params.productId },
-      select: { embedding: true },
-    });
-    if (!embeddingString) {
-      this.logger.warn(
-        `No embedding found for productId=${params.productId}. Returning empty results.`,
-      );
-      return [];
-    }
-    // Parse embedding string to determine which collections to search
-    const embeddingStr = embeddingString.embedding;
-    if (!embeddingStr) {
-      this.logger.warn(`Empty embedding for productId=${params.productId}`);
-      return [];
-    }
-
-    const collections = [];
-    if (embeddingStr.includes('f')) collections.push('IMAGE_FRONT_EMBEDDINGS');
-    if (embeddingStr.includes('b')) collections.push('IMAGE_BACK_EMBEDDINGS');
-    if (embeddingStr.includes('t')) collections.push('TEXT_EMBEDDINGS');
-
-    if (collections.length === 0) {
-      this.logger.warn(
-        `No valid embedding types found in string: ${embeddingStr}`,
-      );
-      return [];
-    }
-
+  }): Promise<{ id: number; distance: number }[]> {
+    this.logger.debug(
+      `Starting searchProduct for productId=${params.productId}`,
+    );
+    // Define the collections to search in.
+    const collections = [
+      'IMAGE_FRONT_EMBEDDINGS',
+      'IMAGE_BACK_EMBEDDINGS',
+      'TEXT_EMBEDDINGS',
+    ];
     const allResults: Array<{ id: number; score: number; collection: string }> =
       [];
+    const searchLimit = params.searchDto.top_k || 20; // Request 20 from each collection
 
-    // Search in each collection
+    // Loop through each collection.
     for (const collection of collections) {
+      let targetVector: number[];
+      this.logger.debug(`Searching in collection: ${collection}`);
+
+      // 1. fetches a point (vector) from qdrant. Vector is fetches if productId
+      const getUrl = `${process.env.QDRANT_URL}/collections/${collection}/points`;
+      const getPayload = {
+        ids: [params.productId],
+        with_vector: true,
+        with_payload: false,
+      };
+      this.logger.debug(`GET URL: ${getUrl}`);
+      this.logger.debug(`GET Payload: ${JSON.stringify(getPayload)}`);
+
+      // try fetch the embedding from qdrant getResp is the response when fetched, including embedding of productId
       try {
-        const searchProductPayload = {
-          collection: collection,
-          product_id: params.productId, // ML service expects product_id
-          top_k: params.searchDto.top_k || 10,
-          style: params.searchDto.style,
-          price_lte: params.searchDto.price_lte,
-          category: params.searchDto.category,
-          gender: params.searchDto.gender,
-          brand: params.searchDto.brand,
-          retailer: params.searchDto.retailer,
-        };
-
-        const response = await fetch(`${this.mlServiceUrl}/search_product`, {
+        const getResp = await fetch(getUrl, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(searchProductPayload),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(getPayload),
         });
+        this.logger.debug(`GET Response Status: ${getResp.status}`);
 
-        if (!response.ok) {
-          this.logger.error(
-            `ML Service error for collection ${collection}: ${response.statusText}`,
+        if (!getResp.ok) {
+          this.logger.warn(
+            `Failed to fetch embedding from ${collection} for productId=${params.productId}: ${getResp.statusText}`,
           );
-          continue; // Skip this collection and try the next one
+          continue;
         }
 
-        const result = (await response.json()) as {
-          results: Array<{ id: number; score: number }>;
+        const getData = await getResp.json();
+        this.logger.debug(
+          `GET Data from ${collection}: ${JSON.stringify(getData)}`,
+        );
+
+        // Adjusted: Qdrant returns the points array directly in getData.result.
+        if (
+          !getData.result ||
+          !Array.isArray(getData.result) ||
+          getData.result.length === 0
+        ) {
+          this.logger.warn(
+            `No embedding found in ${collection} for productId=${params.productId}`,
+          );
+          continue;
+        }
+        // Get the vector from the first returned point.
+        targetVector = getData.result[0].vector;
+        this.logger.debug(
+          `Fetched vector in ${collection}: ${JSON.stringify(targetVector)}`,
+        );
+
+        // Check that targetVector is a valid numeric array.
+        if (!targetVector || !Array.isArray(targetVector)) {
+          this.logger.warn(
+            `Invalid or missing vector data in ${collection} for productId=${params.productId}: ${targetVector}`,
+          );
+          continue;
+        }
+      } catch (error) {
+        this.logger.error(`Error fetching embedding in ${collection}:`, error);
+        continue;
+      }
+
+      // 2. Use the fetched vector to search for similar products in this collection.
+      try {
+        const searchUrl = `${process.env.QDRANT_URL}/collections/${collection}/points/search`;
+        const searchPayload = {
+          vector: targetVector,
+          limit: params.searchDto.top_k || 10,
+          score_threshold: 0, // Allow even low-similarity matches
         };
+        this.logger.debug(`Search URL: ${searchUrl}`);
+        this.logger.debug(`Search Payload: ${JSON.stringify(searchPayload)}`);
 
-        // Add collection info to results for debugging
-        const resultsWithCollection = result.results.map((item) => ({
-          ...item,
-          collection: collection,
-        }));
+        const searchResp = await fetch(searchUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(searchPayload),
+        });
 
-        allResults.push(...resultsWithCollection);
+        this.logger.debug(
+          `Search Response Status in ${collection}: ${searchResp.status}`,
+        );
+
+        if (!searchResp.ok) {
+          this.logger.error(
+            `Qdrant search error for collection ${collection}: ${searchResp.statusText}`,
+          );
+          continue;
+        }
+
+        const searchResult = await searchResp.json();
+        this.logger.debug(
+          `Search Result from ${collection}: ${JSON.stringify(searchResult)}`,
+        );
+        // Expected response shape: { result: { hits: Array<{ id: number; score: number, ... }> } }
+        const hits = Array.isArray(searchResult.result)
+          ? searchResult.result
+          : searchResult.result.hits;
+        if (Array.isArray(hits)) {
+          const results = hits
+            .filter((r: any) => r.id !== params.productId) // Exclude the queried product.
+            .map((r: any) => ({ id: r.id, score: r.score, collection }));
+          this.logger.debug(
+            `Results from ${collection}: ${JSON.stringify(results)}`,
+          );
+          allResults.push(...results);
+        }
       } catch (error) {
         this.logger.error(
           `Error searching in collection ${collection}:`,
           error,
         );
-        continue; // Continue with other collections
+        continue;
       }
     }
 
     if (allResults.length === 0) {
+      this.logger.debug('No similar products found in any collection.');
       return [];
     }
 
-    // Remove duplicates and sort by score
-    const uniqueResults: Array<{
-      id: number;
-      score: number;
-      collection: string;
-    }> = allResults.reduce(
-      (acc, current) => {
-        const existingIndex = acc.findIndex((item) => item.id === current.id);
-        if (existingIndex === -1) {
+    // 3. Deduplicate results: keep one entry per product ID with the highest score.
+    const uniqueResults = allResults.reduce(
+      (acc: any[], current) => {
+        const existing = acc.find((item) => item.id === current.id);
+        if (!existing) {
           acc.push(current);
-        } else {
-          // Keep the one with higher score
-          if (current.score > acc[existingIndex].score) {
-            acc[existingIndex] = current;
-          }
+        } else if (current.score > existing.score) {
+          existing.score = current.score;
         }
         return acc;
       },
       [] as Array<{ id: number; score: number; collection: string }>,
     );
+    this.logger.debug(`Unique Results: ${JSON.stringify(uniqueResults)}`);
 
-    // Sort by score (highest first) and limit results
+    // 4. Sort by descending score and limit the results.
     uniqueResults.sort((a, b) => b.score - a.score);
     const limitedResults = uniqueResults.slice(0, params.searchDto.top_k || 10);
+    this.logger.debug(`Limited Results: ${JSON.stringify(limitedResults)}`);
 
-    this.logger.log(
-      `Product search completed with ${limitedResults.length} unique results`,
-    );
-
-    // Fetch product details from database
-    const productIds = limitedResults.map((item) => item.id);
+    // 5. Fetch URLs from the database for each product id.
+    const productIds = limitedResults.map((r) => r.id);
     const products = await this.db.productItem.findMany({
       where: { id: { in: productIds } },
-      include: { productImages: true },
+      select: { id: true, url: true },
     });
+    const idToUrl = Object.fromEntries(products.map((p) => [p.id, p.url]));
 
-    // Map to ProductItemTransferDto format
-    return products.map((product) => ({
-      id: product.id,
-      name: product.name,
-      brand: product.brand,
-      category: product.category || '',
-      price: product.price,
-      retailer: product.retailer,
-      style: [], // TODO: Add styles if needed
-      images: product.productImages.map((img) => ({
-        id: img.id,
-        imageUrl: img.imageUrl,
-        frontFacing: img.frontFacing,
-      })),
-      url: product.url,
+    // 6. Return objects with id, url, and distance.
+    const finalResults = limitedResults.map((r) => ({
+      id: r.id,
+      url: idToUrl[r.id] || null,
+      distance: r.score,
     }));
+    this.logger.debug(`Final Results: ${JSON.stringify(finalResults)}`);
+    return finalResults;
   }
 
   async deleteVector(params: {
