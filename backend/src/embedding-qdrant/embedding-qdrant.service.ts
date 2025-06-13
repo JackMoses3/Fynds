@@ -524,4 +524,59 @@ export class EmbeddingQdrantService {
       data: { embedding: embeddingConfig },
     });
   }
+
+  /**
+   * Generate embeddings for all styles and store them in Qdrant
+   */
+  async generateStyleEmbeddings(): Promise<{
+    processed: number;
+    successful: number;
+    failed: number;
+  }> {
+    this.logger.log('🎨 Starting style embeddings generation...');
+
+    // Get all styles from database
+    const styles = await this.db.style.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+      },
+    });
+
+    this.logger.log(`📋 Found ${styles.length} styles to process`);
+
+    let successful = 0;
+    let failed = 0;
+
+    for (const style of styles) {
+      try {
+        // Create text for embedding
+        const styleText = style.description
+          ? `${style.name}. ${style.description}`
+          : style.name;
+
+        // Generate embedding
+        const embedding =
+          await this.embeddingService.generateTextEmbedding(styleText);
+
+        // Store in Qdrant
+        await this.qdrantService.addStyle(style.id, style.name, embedding);
+
+        this.logger.log(`✅ Processed style: ${style.name}`);
+        successful++;
+      } catch (error) {
+        this.logger.error(`❌ Failed to process style ${style.name}: ${error}`);
+        failed++;
+      }
+    }
+
+    this.logger.log(`🏁 Complete: ${successful} successful, ${failed} failed`);
+
+    return {
+      processed: styles.length,
+      successful,
+      failed,
+    };
+  }
 }

@@ -26,6 +26,11 @@ class InsertVector(BaseModel):
     retailer: Optional[List[str]] = None
     vector: List[float] = Field(..., min_items=512, max_items=512)
 
+class InsertStyleVector(BaseModel):
+    style_id: int
+    style_name: str
+    vector: List[float] = Field(..., min_items=512, max_items=512)
+
 class SearchRequest(BaseModel):
     collection: str
     vector: List[float] = Field(..., min_items=512, max_items=512)
@@ -52,6 +57,11 @@ class SearchProduct(BaseModel):
 class DeleteRequest(BaseModel):
     collection: str
     product_id: int
+
+class MultiModalStyleClassification(BaseModel):
+    product_id: int
+    top_k: Optional[int] = 5
+    min_confidence: Optional[float] = 0.0
 
 # -------------- Helper Functions --------------
 
@@ -121,6 +131,26 @@ async def insert_vector(data: InsertVector):
         points=[point]
     )
     return {"status": "upserted", "id": data.product_id}
+
+@router.post("/insert_style")
+async def insert_style_vector(data: InsertStyleVector):
+    """
+    Upsert a style vector into the STYLE_EMBEDDINGS collection.
+    """
+
+    point = PointStruct(
+        id=data.style_id,
+        vector=np.array(data.vector, dtype="float32").tolist(),
+        payload={
+            "style_id": data.style_id,
+            "style_name": data.style_name
+        }
+    )
+    client.upsert(
+        collection_name="STYLE_EMBEDDINGS",
+        points=[point]
+    )
+    return {"status": "upserted", "id": data.style_id}
 
 @router.post("/search")
 async def search(req: SearchRequest):
@@ -198,7 +228,115 @@ async def search_product(req: SearchProduct):
     return {"results": output}
     
 
-
+@router.post("/classify_multimodal_style")
+async def classify_multimodal_style(req: MultiModalStyleClassification):
+    """
+    Get style classification for a product by running similarity searches on 
+    TEXT_EMBEDDINGS, IMAGE_FRONT_EMBEDDINGS, and IMAGE_BACK_EMBEDDINGS separately,
+    then averaging the similarity scores for each style.
+    """
+    
+    # Check if STYLE_EMBEDDINGS collection exists
+    collections = client.get_collections()
+    collection_names = [col.name for col in collections.collections]
+    if "STYLE_EMBEDDINGS" not in collection_names:
+        raise HTTPException(status_code=404, detail="STYLE_EMBEDDINGS collection not found")
+    
+    # Collections to check for product vectors
+    embedding_collections = ["TEXT_EMBEDDINGS", "IMAGE_FRONT_EMBEDDINGS", "IMAGE_BACK_EMBEDDINGS"]
+    all_style_scores = {}  # Dictionary to store scores by style_id
+    found_collections = []
+    
+    try:
+        # Process each collection separately
+        for collection_name in embedding_collections:
+            if collection_name not in collection_names:
+                continue
+                
+            try:
+                # Get the product vector from this collection
+                points = client.retrieve(
+                    collection_name=collection_name,
+                    ids=[req.product_id],
+                    with_vectors=True,
+                    with_payload=False
+                )
+                
+                if not points or not points[0].vector:
+                    continue
+                
+                product_vector = points[0].vector
+                found_collections.append(collection_name)
+                
+                # Search for similar styles using this vector
+                style_results = client.search(
+                    collection_name="STYLE_EMBEDDINGS",
+                    query_vector=product_vector,
+                    limit=20,  # Get more results to ensure we capture all relevant styles
+                    with_payload=True,
+                    with_vectors=False,
+                    score_threshold=0.0  # Don't filter here, we'll filter after averaging
+                )
+                
+                # Store scores for each style
+                for result in style_results:
+                    style_id = result.payload.get("style_id")
+                    if style_id is not None:
+                        if style_id not in all_style_scores:
+                            all_style_scores[style_id] = {
+                                "style_name": result.payload.get("style_name"),
+                                "scores": [],
+                                "total_score": 0.0
+                            }
+                        all_style_scores[style_id]["scores"].append(result.score)
+                        
+            except Exception as e:
+                # Continue with other collections if one fails
+                continue
+        
+        # Check if we found any vectors
+        if not found_collections:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Product {req.product_id} not found in any embedding collections"
+            )
+        
+        # Calculate average scores for each style
+        averaged_styles = []
+        for style_id, data in all_style_scores.items():
+            if data["scores"]:  # Only process styles that have scores
+                avg_score = sum(data["scores"]) / len(data["scores"])
+                if avg_score >= req.min_confidence:  # Apply confidence filter
+                    averaged_styles.append({
+                        "style_id": style_id,
+                        "similarity_score": round(avg_score, 4),
+                        "collections_count": len(data["scores"])  # How many collections contributed
+                    })
+        
+        # Sort by similarity score (highest first) and limit results
+        averaged_styles.sort(key=lambda x: x["similarity_score"], reverse=True)
+        final_styles = averaged_styles[:req.top_k]
+        
+        if not final_styles:
+            return {
+                "product_id": req.product_id,
+                "found_in_collections": found_collections,
+                "styles": [],
+                "message": f"No styles found above confidence threshold of {req.min_confidence}"
+            }
+        
+        return {
+            "product_id": req.product_id,
+            "found_in_collections": found_collections,
+            "collections_used": len(found_collections),
+            "styles": final_styles
+        }
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Multimodal classification failed: {str(e)}")
 
 @router.post("/delete")
 async def delete(req: DeleteRequest):

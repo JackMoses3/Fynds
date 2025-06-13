@@ -127,9 +127,15 @@ export class EmbeddingQdrantController {
 
       return {
         success: false,
-        message: `Failed to process product ${request.productId}: ${error.message}`,
+        message: `Failed to process product ${request.productId}: ${error}`,
         productId: request.productId,
       };
     }
+  }
+
+  @Public()
+  @Post('generate-style-embeddings')
+  async generateStyleEmbeddings() {
+    return await this.embeddingQdrantService.generateStyleEmbeddings();
   }
 }

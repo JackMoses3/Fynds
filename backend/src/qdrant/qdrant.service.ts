@@ -1,17 +1,12 @@
+/* eslint-disable */
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
-import {
-  CollectionType,
-  Gender,
-  InsertVectorDto,
-  SearchVectorDto,
-  DeleteVectorDto,
-} from './dto/qdrant.dto';
+import { CollectionType, Gender, SearchVectorDto } from './dto/qdrant.dto';
 import {
   QdrantSearchResponse,
   QdrantInsertResponse,
   QdrantDeleteResponse,
 } from './models/qdrant.model';
-import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
+
 import { DatabaseService } from '../database/database.service';
 import { SearchDto } from '../embedding-qdrant/dto/embedding-qdrant.dto';
 
@@ -454,6 +449,193 @@ export class QdrantService {
         'Failed to upsert points in bulk',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  async addStyle(
+    style_id: number,
+    style_name: string,
+    vector: number[],
+  ): Promise<QdrantInsertResponse> {
+    const payload = {
+      style_id: style_id,
+      style_name: style_name,
+      vector: vector,
+    };
+
+    try {
+      this.logger.log(
+        `🔄 Adding style to STYLE_EMBEDDINGS: ${JSON.stringify({
+          style_id,
+          style_name,
+          vector_length: vector.length,
+        })}`,
+      );
+
+      const response = await fetch(`${this.mlServiceUrl}/insert_style`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        this.logger.error(
+          `ML Service error (${response.status}): ${errorText}`,
+        );
+        throw new HttpException(
+          `ML Service error: ${response.statusText} - ${errorText}`,
+          response.status,
+        );
+      }
+
+      const result = await response.json();
+      this.logger.log(
+        `✅ Added style ${style_name} (ID: ${style_id}): ${JSON.stringify(result)}`,
+      );
+
+      // Transform ML service response to expected format
+      return {
+        status: result.status === 'upserted' ? 'success' : result.status,
+        inserted_count: 1,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `❌ Failed to add style ${style_name} (ID: ${style_id}): ${errorMessage}`,
+      );
+
+      // Re-throw HTTP exceptions as-is
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Failed to add style',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Classify a product's style using multimodal approach (text + images)
+   * Returns style classifications with similarity scores
+   */
+  async classifyProductStyle(params: {
+    productId: number;
+    topK?: number;
+    minConfidence?: number;
+  }): Promise<{
+    product_id: number;
+    found_in_collections: string[];
+    collections_used: number;
+    styles: Array<{
+      style_id: number;
+      similarity_score: number;
+      collections_count: number;
+    }>;
+  }> {
+    const { productId, topK = 5, minConfidence = 0.0 } = params;
+
+    const payload = {
+      product_id: productId,
+      top_k: topK,
+      min_confidence: minConfidence,
+    };
+
+    try {
+      this.logger.log(
+        `🔍 Classifying product style for productId=${productId} (topK=${topK}, minConfidence=${minConfidence})`,
+      );
+
+      const response = await fetch(
+        `${this.mlServiceUrl}/classify_multimodal_style`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        this.logger.error(
+          `ML Service error (${response.status}): ${errorText}`,
+        );
+        throw new HttpException(
+          `ML Service error: ${response.statusText} - ${errorText}`,
+          response.status,
+        );
+      }
+
+      const result = await response.json();
+
+      this.logger.log(
+        `✅ Style classification for productId=${productId}: ${result.styles?.length || 0} styles found using ${result.collections_used || 0} collections`,
+      );
+
+      // Log the top style if found
+      if (result.styles && result.styles.length > 0) {
+        const topStyle = result.styles[0];
+        this.logger.log(
+          `🎯 Top style for productId=${productId}: style_id=${topStyle.style_id}, score=${topStyle.similarity_score}`,
+        );
+      }
+
+      return result;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `❌ Failed to classify product style for productId=${productId}: ${errorMessage}`,
+      );
+
+      // Re-throw HTTP exceptions as-is
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Failed to classify product style',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get the best matching style for a product (convenience method)
+   * Returns only the top style or null if none found
+   */
+  async getBestProductStyle(
+    productId: number,
+    minConfidence: number = 0.3,
+  ): Promise<{
+    style_id: number;
+    similarity_score: number;
+    collections_count: number;
+  } | null> {
+    try {
+      const result = await this.classifyProductStyle({
+        productId,
+        topK: 1,
+        minConfidence,
+      });
+
+      if (result.styles && result.styles.length > 0) {
+        return result.styles[0];
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get best style for productId=${productId}: ${error}`,
+      );
+      return null;
     }
   }
 }
