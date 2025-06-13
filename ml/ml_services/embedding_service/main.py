@@ -34,13 +34,7 @@ def clean_meta_data(raw: str) -> str:
     txt = re.sub(r"[^a-z0-9\s]", " ", raw.lower().strip())
     tokens = [t for t in re.sub(r"\s+", " ", txt).split() if t not in _STOPWORDS]
     text = " ".join(tokens)
-    
-    # Use the CLIP processor to properly tokenize and truncate
-    inputs = clip_proc(text=[text], return_tensors="pt", padding=True, truncation=True, max_length=77)
-    # Decode back to get the truncated text
-    truncated_text = clip_proc.tokenizer.decode(inputs["input_ids"][0], skip_special_tokens=True)
-    
-    return truncated_text
+    return text
 
 # ─────────── front/back classifier ───────────
 classifier_tf = transforms.Compose([
@@ -250,16 +244,10 @@ async def text_embed(req: TextEmbedRequest):
     if not cleaned: 
         raise HTTPException(status_code=400, detail="text must be non-empty")
     
-    inputs = clip_proc(
-        text=[cleaned], 
-        return_tensors="pt", 
-        padding='max_length',  
-        truncation=True, 
-        max_length=77
-    ).to(device)
-    
+    processed_text = clip_proc(text=cleaned, return_tensors="pt", padding='max_length')
+
     with torch.no_grad():
-        text_features = clip_model.get_text_features(inputs["input_ids"], normalize=True)
+        text_features = clip_model.get_text_features(processed_text['input_ids'], normalize=True)
         vec = text_features[0]
     
     if torch.cuda.is_available(): 

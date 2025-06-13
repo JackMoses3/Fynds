@@ -233,7 +233,7 @@ async def classify_multimodal_style(req: MultiModalStyleClassification):
     """
     Get style classification for a product by running similarity searches on 
     TEXT_EMBEDDINGS, IMAGE_FRONT_EMBEDDINGS, and IMAGE_BACK_EMBEDDINGS separately,
-    then averaging the similarity scores for each style.
+    returning the top styles for each modality without averaging.
     """
     
     # Check if STYLE_EMBEDDINGS collection exists
@@ -244,7 +244,7 @@ async def classify_multimodal_style(req: MultiModalStyleClassification):
     
     # Collections to check for product vectors
     embedding_collections = ["TEXT_EMBEDDINGS", "IMAGE_FRONT_EMBEDDINGS", "IMAGE_BACK_EMBEDDINGS"]
-    all_style_scores = {}  # Dictionary to store scores by style_id
+    modality_results = {}  # Dictionary to store results by collection type
     found_collections = []
     
     try:
@@ -272,23 +272,40 @@ async def classify_multimodal_style(req: MultiModalStyleClassification):
                 style_results = client.search(
                     collection_name="STYLE_EMBEDDINGS",
                     query_vector=product_vector,
-                    limit=20,  # Get more results to ensure we capture all relevant styles
+                    limit=req.top_k,  # Use the requested top_k for each modality
                     with_payload=True,
                     with_vectors=False,
-                    score_threshold=0.0  # Don't filter here, we'll filter after averaging
+                    score_threshold=req.min_confidence
                 )
                 
-                # Store scores for each style
+                # Format results for this modality
+                modality_styles = []
                 for result in style_results:
                     style_id = result.payload.get("style_id")
-                    if style_id is not None:
-                        if style_id not in all_style_scores:
-                            all_style_scores[style_id] = {
-                                "style_name": result.payload.get("style_name"),
-                                "scores": [],
-                                "total_score": 0.0
-                            }
-                        all_style_scores[style_id]["scores"].append(result.score)
+                    style_name = result.payload.get("style_name")
+                    if style_id is not None and result.score >= req.min_confidence:
+                        modality_styles.append({
+                            "style_id": style_id,
+                            "style_name": style_name,
+                            "similarity_score": round(result.score, 4)
+                        })
+                
+                # Determine modality type for cleaner naming
+                modality_type = collection_name.replace("_EMBEDDINGS", "").replace("IMAGE_", "").lower()
+                if modality_type == "text":
+                    modality_key = "text_styles"
+                elif modality_type == "front":
+                    modality_key = "image_front_styles"
+                elif modality_type == "back":
+                    modality_key = "image_back_styles"
+                else:
+                    modality_key = f"{modality_type}_styles"
+                
+                modality_results[modality_key] = {
+                    "collection": collection_name,
+                    "styles": modality_styles,
+                    "count": len(modality_styles)
+                }
                         
             except Exception as e:
                 # Continue with other collections if one fails
@@ -301,35 +318,20 @@ async def classify_multimodal_style(req: MultiModalStyleClassification):
                 detail=f"Product {req.product_id} not found in any embedding collections"
             )
         
-        # Calculate average scores for each style
-        averaged_styles = []
-        for style_id, data in all_style_scores.items():
-            if data["scores"]:  # Only process styles that have scores
-                avg_score = sum(data["scores"]) / len(data["scores"])
-                if avg_score >= req.min_confidence:  # Apply confidence filter
-                    averaged_styles.append({
-                        "style_id": style_id,
-                        "similarity_score": round(avg_score, 4),
-                        "collections_count": len(data["scores"])  # How many collections contributed
-                    })
-        
-        # Sort by similarity score (highest first) and limit results
-        averaged_styles.sort(key=lambda x: x["similarity_score"], reverse=True)
-        final_styles = averaged_styles[:req.top_k]
-        
-        if not final_styles:
-            return {
-                "product_id": req.product_id,
-                "found_in_collections": found_collections,
-                "styles": [],
-                "message": f"No styles found above confidence threshold of {req.min_confidence}"
-            }
+        # Calculate total unique styles found across all modalities
+        all_style_ids = set()
+        for modality_data in modality_results.values():
+            for style in modality_data["styles"]:
+                all_style_ids.add(style["style_id"])
         
         return {
             "product_id": req.product_id,
             "found_in_collections": found_collections,
-            "collections_used": len(found_collections),
-            "styles": final_styles
+            "total_modalities": len(modality_results),
+            "total_unique_styles": len(all_style_ids),
+            "top_k_per_modality": req.top_k,
+            "min_confidence": req.min_confidence,
+            "results": modality_results
         }
         
     except HTTPException:
