@@ -250,13 +250,17 @@ async def text_embed(req: TextEmbedRequest):
     if not cleaned: 
         raise HTTPException(status_code=400, detail="text must be non-empty")
     
-    # ✅ FIXED: Use the clip_proc properly with padding and truncation
-    inputs = clip_proc(text=[cleaned], return_tensors="pt", padding=True, truncation=True, max_length=77).to(device)
+    inputs = clip_proc(
+        text=[cleaned], 
+        return_tensors="pt", 
+        padding='max_length',  
+        truncation=True, 
+        max_length=77
+    ).to(device)
     
     with torch.no_grad():
-        # ✅ FIXED: Use the correct method to get text features
         text_features = clip_model.get_text_features(inputs["input_ids"], normalize=True)
-        vec = text_features[0]  # Get the first (and only) result
+        vec = text_features[0]
     
     if torch.cuda.is_available(): 
         torch.cuda.empty_cache()
