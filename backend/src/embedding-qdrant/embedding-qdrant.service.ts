@@ -41,20 +41,51 @@ export class EmbeddingQdrantService {
     const queryEmbedding =
       await this.embeddingService.generateTextEmbedding(query);
 
-    const searchRes: QdrantSearchResponse = await this.qdrantService.search({
-      collection: CollectionType.TEXT_EMBEDDINGS,
-      vector: queryEmbedding,
-      ...filters,
-    });
-    if (!searchRes.results.length) {
+    // ✅ HYBRID SEARCH: Search both text and image collections
+    const [textResults, imageResults] = await Promise.all([
+      // Search text embeddings (product descriptions)
+      this.qdrantService
+        .search({
+          collection: CollectionType.TEXT_EMBEDDINGS,
+          vector: queryEmbedding,
+          top_k: Math.ceil((filters.top_k || 10) / 2), // Half from text
+          ...filters,
+        })
+        .catch(() => ({ results: [] })), // Fallback if no text embeddings
+
+      // Search image embeddings (visual similarity to text description)
+      this.qdrantService
+        .search({
+          collection: CollectionType.IMAGE_FRONT_EMBEDDINGS,
+          vector: queryEmbedding,
+          top_k: Math.ceil((filters.top_k || 10) / 2), // Half from images
+          ...filters,
+        })
+        .catch(() => ({ results: [] })), // Fallback if no image embeddings
+    ]);
+
+    // Combine and deduplicate results
+    const allResults = [...textResults.results, ...imageResults.results];
+    const uniqueIds = new Set<number>();
+    const combinedResults = allResults
+      .filter((result) => {
+        if (uniqueIds.has(result.id)) return false;
+        uniqueIds.add(result.id);
+        return true;
+      })
+      .sort((a, b) => b.score - a.score) // Sort by relevance score
+      .slice(0, filters.top_k || 10);
+
+    if (!combinedResults.length) {
       throw new HttpException(
         'No products matched your search',
         HttpStatus.NOT_FOUND,
       );
     }
 
+    // Fetch product details
     const products = await this.db.productItem.findMany({
-      where: { id: { in: searchRes.results.map((r) => r.id) } },
+      where: { id: { in: combinedResults.map((r) => r.id) } },
       select: {
         id: true,
         name: true,
@@ -71,7 +102,13 @@ export class EmbeddingQdrantService {
       },
     });
 
-    return products.map((p) => ({
+    // Maintain search result order
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    const orderedProducts = combinedResults
+      .map((result) => productMap.get(result.id))
+      .filter((p): p is NonNullable<typeof p> => p !== undefined);
+
+    return orderedProducts.map((p) => ({
       id: p.id,
       name: p.name,
       brand: p.brand,
