@@ -204,4 +204,31 @@ export class EmbeddingQdrantController {
       dryRun,
     );
   }
+
+  @Public()
+  @Post('process-retailer-styles')
+  async processRetailerStyles(
+    @Body()
+    body: {
+      retailer: string;
+      config?: StyleAnalysisConfig;
+      dryRun?: boolean;
+    },
+  ) {
+    const {
+      retailer,
+      config = new StyleAnalysisConfig(),
+      dryRun = false,
+    } = body;
+
+    if (!retailer) {
+      throw new HttpException('retailer is required', HttpStatus.BAD_REQUEST);
+    }
+
+    return await this.embeddingQdrantService.processProductsByRetailer(
+      retailer,
+      config,
+      dryRun,
+    );
+  }
 }

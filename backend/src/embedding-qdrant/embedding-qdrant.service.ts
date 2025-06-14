@@ -898,4 +898,209 @@ export class EmbeddingQdrantService {
       );
     }
   }
+
+  /**
+   * Process all products and update their styles using multimodal analysis
+   */
+  async processAllProductsForStyleUpdate(
+    config: StyleAnalysisConfig = new StyleAnalysisConfig(),
+    options: {
+      batchSize?: number;
+      retailer?: string;
+      category?: string;
+      brand?: string;
+      dryRun?: boolean;
+      skipProductsWithStyles?: boolean;
+      maxProducts?: number;
+    } = {},
+  ): Promise<{
+    processed: number;
+    successful: number;
+    failed: number;
+    skipped: number;
+    results: Array<{
+      productId: number;
+      status: 'success' | 'failed' | 'skipped';
+      error?: string;
+      stylesAdded?: number;
+      stylesRemoved?: number;
+      analysisResult?: StyleAnalysisResult;
+    }>;
+  }> {
+    const {
+      batchSize = 50,
+      retailer,
+      category,
+      brand,
+      dryRun = false,
+      skipProductsWithStyles = false,
+      maxProducts,
+    } = options;
+
+    this.logger.log(
+      `🚀 Starting bulk style update process (dryRun: ${dryRun})`,
+    );
+    this.logger.log(
+      `📊 Config: threshold=${config.updateThreshold}, minModalities=${config.requireMinModalities}`,
+    );
+
+    // Build query filters
+    const whereClause: any = {};
+    if (retailer) whereClause.retailer = retailer;
+    if (category) whereClause.category = category;
+    if (brand) whereClause.brand = brand;
+
+    if (skipProductsWithStyles) {
+      whereClause.productStyles = {
+        none: {},
+      };
+    }
+
+    // Get total count first
+    const totalProducts = await this.db.productItem.count({
+      where: whereClause,
+    });
+    const productsToProcess = maxProducts
+      ? Math.min(totalProducts, maxProducts)
+      : totalProducts;
+
+    this.logger.log(
+      `📦 Found ${totalProducts} products, processing ${productsToProcess}`,
+    );
+
+    let processed = 0;
+    let successful = 0;
+    let failed = 0;
+    let skipped = 0;
+    const results: Array<{
+      productId: number;
+      status: 'success' | 'failed' | 'skipped';
+      error?: string;
+      stylesAdded?: number;
+      stylesRemoved?: number;
+      analysisResult?: StyleAnalysisResult;
+    }> = [];
+
+    // Process in batches to avoid memory issues
+    for (let offset = 0; offset < productsToProcess; offset += batchSize) {
+      const currentBatchSize = Math.min(batchSize, productsToProcess - offset);
+
+      this.logger.log(
+        `📋 Processing batch ${Math.floor(offset / batchSize) + 1}/${Math.ceil(
+          productsToProcess / batchSize,
+        )} (${offset + 1}-${offset + currentBatchSize})`,
+      );
+
+      const products = await this.db.productItem.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          name: true,
+          brand: true,
+          retailer: true,
+          productStyles: {
+            select: {
+              styleId: true,
+            },
+          },
+        },
+        skip: offset,
+        take: currentBatchSize,
+      });
+
+      // Process each product in the batch
+      for (const product of products) {
+        try {
+          this.logger.log(
+            `🔍 Processing product ${product.id}: ${product.name} (${product.brand})`,
+          );
+          // Analyze and update styles
+          const analysisResult = await this.analyzeAndUpdateProductStyles(
+            product.id,
+            config,
+            dryRun,
+          );
+
+          successful++;
+          results.push({
+            productId: product.id,
+            status: 'success',
+            stylesAdded: analysisResult.styles_to_add.length,
+            stylesRemoved: analysisResult.styles_to_remove.length,
+            analysisResult,
+          });
+
+          this.logger.log(
+            `✅ Product ${product.id}: +${analysisResult.styles_to_add.length} styles, -${analysisResult.styles_to_remove.length} styles`,
+          );
+        } catch (error) {
+          failed++;
+          results.push({
+            productId: product.id,
+            status: 'failed',
+            error: error.message,
+          });
+          this.logger.error(
+            `❌ Failed to process product ${product.id}: ${error.message}`,
+          );
+        }
+
+        processed++;
+
+        // Add small delay to prevent overwhelming the system
+        if (processed % 10 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
+      // Log batch completion
+      this.logger.log(
+        `✅ Batch completed: ${successful}/${processed} successful`,
+      );
+    }
+
+    const summary = {
+      processed,
+      successful,
+      failed,
+      skipped,
+      results,
+    };
+
+    this.logger.log(`🎉 Bulk processing complete!`);
+    this.logger.log(
+      `📊 Results: ${successful} successful, ${failed} failed, ${skipped} skipped out of ${processed} processed`,
+    );
+
+    return summary;
+  }
+
+  /**
+   * Process products by retailer (convenient wrapper)
+   */
+  async processProductsByRetailer(
+    retailer: string,
+    config: StyleAnalysisConfig = new StyleAnalysisConfig(),
+    dryRun: boolean = false,
+  ) {
+    return this.processAllProductsForStyleUpdate(config, {
+      retailer,
+      dryRun,
+      batchSize: 25, // Smaller batches for retailer-specific processing
+    });
+  }
+
+  /**
+   * Process only products without existing styles
+   */
+  async processProductsWithoutStyles(
+    config: StyleAnalysisConfig = new StyleAnalysisConfig(),
+    dryRun: boolean = false,
+  ) {
+    return this.processAllProductsForStyleUpdate(config, {
+      skipProductsWithStyles: true,
+      dryRun,
+      batchSize: 100, // Larger batches since these are likely easier to process
+    });
+  }
 }
