@@ -10,32 +10,33 @@ datasource db {
 }
 
 model ProductItem {
-  id               Int               @id @default(autoincrement())
-  sex              String
-  name             String
-  url              String            @unique
-  metaData         String
-  retailer         String
-  price            Float
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  brand            String
-  category         String?
-  lastModified     DateTime?
-  sale             Boolean?          @default(false)
-  siteDataConfigId Int?
-  standardPrice    Float?
-  embedding        String? // Changed from 'embedding' to match database
-  CollectionItem   CollectionItem[]
-  itemVideos       ItemVideo[]
-  Like             Like[]
-  productImages    ProductImage[]
-  siteDataConfig   SiteDataConfig?   @relation(fields: [siteDataConfigId], references: [id])
-  productItemLook  ProductItemLook[]
-  productStyles    ProductStyle[]
-  PurchaseHistory  PurchaseHistory[]
-  TrolleyItem      TrolleyItem[]
-  ViewingHistory   ViewingHistory[]
+  id                 Int                 @id @default(autoincrement())
+  sex                String
+  name               String
+  url                String              @unique
+  metaData           String
+  retailer           String
+  price              Float
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  brand              String
+  category           String?
+  lastModified       DateTime?
+  sale               Boolean?            @default(false)
+  siteDataConfigId   Int?
+  standardPrice      Float?
+  embedding          String? // Changed from 'embedding' to match database
+  CollectionItems    CollectionItem[]
+  itemVideos         ItemVideo[]
+  likes              Like[]
+  productImages      ProductImage[]
+  siteDataConfig     SiteDataConfig?     @relation(fields: [siteDataConfigId], references: [id])
+  productItemLooks   ProductItemLook[]
+  productStyles      ProductStyle[]
+  purchaseHistory    PurchaseHistory[]
+  trolleyItems       TrolleyItem[]
+  viewingHistory     ViewingHistory[]
+  onboardingProducts OnboardingProduct[]
 }
 
 model ProductImage {
@@ -92,26 +93,27 @@ model ItemVideo {
 }
 
 model User {
-  id                  Int               @id @default(autoincrement())
+  id                  Int                 @id @default(autoincrement())
   firstName           String
   lastName            String
   clothingPreferences String
   verifyCode          Int?
-  isVerified          Boolean           @default(false)
-  email               String            @unique
+  isVerified          Boolean             @default(false)
+  email               String              @unique
   passwordHash        String?
   provider            String
   providerId          String?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
   birthdate           DateTime?
   location            String?
   collections         Collection[]
   likes               Like[]
   purchaseHistory     PurchaseHistory[]
   shoppingTrolleys    ShoppingTrolley[]
-  userStyle           UserStyle[]
+  userStyles          UserStyle[]
   viewingHistory      ViewingHistory[]
+  onboardingProducts  OnboardingProduct[]
 
   @@unique([provider, providerId])
 }
@@ -124,7 +126,7 @@ model Style {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   productItems ProductStyle[]
-  userStyle    UserStyle[]
+  userStyles   UserStyle[]
 }
 
 model ProductStyle {
@@ -217,4 +219,17 @@ model PurchaseHistory {
   quantity      Int         @default(1)
   product       ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OnboardingProduct {
+  id            Int      @id @default(autoincrement())
+  productItemId Int
+  userId        Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  productItem ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productItemId, userId])
 }

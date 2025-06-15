@@ -26,16 +26,17 @@ model ProductItem {
   siteDataConfigId Int?
   standardPrice    Float?
   embedding        String?           // Changed from 'embedding' to match database
-  CollectionItem   CollectionItem[]
+  CollectionItems   CollectionItem[]
   itemVideos       ItemVideo[]
-  Like             Like[]
+  likes            Like[]
   productImages    ProductImage[]
   siteDataConfig   SiteDataConfig?   @relation(fields: [siteDataConfigId], references: [id])
-  productItemLook  ProductItemLook[]
+  productItemLooks  ProductItemLook[]
   productStyles    ProductStyle[]
-  PurchaseHistory  PurchaseHistory[]
-  TrolleyItem      TrolleyItem[]
-  ViewingHistory   ViewingHistory[]
+  purchaseHistory  PurchaseHistory[]
+  trolleyItems      TrolleyItem[]
+  viewingHistory   ViewingHistory[]
+  onboardingProducts OnboardingProduct[]
 }
 
 model ProductImage {
@@ -110,8 +111,10 @@ model User {
   likes               Like[]
   purchaseHistory     PurchaseHistory[]
   shoppingTrolleys    ShoppingTrolley[]
-  userStyle           UserStyle[]
+  userStyles           UserStyle[]
   viewingHistory      ViewingHistory[]
+  onboardingProducts  OnboardingProduct[]
+
 
   @@unique([provider, providerId])
 }
@@ -124,7 +127,7 @@ model Style {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   productItems ProductStyle[]
-  userStyle    UserStyle[]
+  userStyles    UserStyle[]
 }
 
 model ProductStyle {
@@ -217,4 +220,17 @@ model PurchaseHistory {
   quantity      Int         @default(1)
   product       ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OnboardingProduct {
+  id            Int         @id @default(autoincrement())
+  productItemId Int
+  userId        Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  productItem   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productItemId, userId])
 }
