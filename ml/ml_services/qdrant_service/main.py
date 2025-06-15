@@ -75,7 +75,7 @@ def build_filter(style: Optional[List[str]], price_lte: Optional[float],
 
     if style:
         must_clauses.append(
-            FieldCondition(key="style", match=MatchAny(value=style))  # Use first value for now
+            FieldCondition(key="style", match=MatchAny(value=any))  # Use first value for now
         )
     if price_lte:
         must_clauses.append(

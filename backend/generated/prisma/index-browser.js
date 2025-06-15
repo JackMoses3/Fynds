@@ -274,6 +274,14 @@ exports.Prisma.PurchaseHistoryScalarFieldEnum = {
   quantity: 'quantity'
 };
 
+exports.Prisma.OnboardingProductScalarFieldEnum = {
+  id: 'id',
+  productItemId: 'productItemId',
+  userId: 'userId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -307,7 +315,8 @@ exports.Prisma.ModelName = {
   Collection: 'Collection',
   CollectionItem: 'CollectionItem',
   ViewingHistory: 'ViewingHistory',
-  PurchaseHistory: 'PurchaseHistory'
+  PurchaseHistory: 'PurchaseHistory',
+  OnboardingProduct: 'OnboardingProduct'
 };
 
 /**
