@@ -74,7 +74,7 @@ def build_filter(style: Optional[List[str]], price_lte: Optional[float],
 
     if style:
         must_clauses.append(
-            FieldCondition(key="style", match=MatchAny(value=any))  # Use first value for now
+            FieldCondition(key="style", match=MatchAny(any=style))  # Use first value for now
         )
     if price_lte:
         must_clauses.append(
@@ -82,20 +82,20 @@ def build_filter(style: Optional[List[str]], price_lte: Optional[float],
         )
     if category:
         must_clauses.append(
-            FieldCondition(key="category", match=MatchAny(value=category))
+            FieldCondition(key="category", match=MatchAny(any=category))
         )
     if gender:
         must_clauses.append(
-            FieldCondition(key="gender", match=MatchAny(value=gender))
+            FieldCondition(key="gender", match=MatchAny(any=gender))
         )
     if brand:
         must_clauses.append(
-            FieldCondition(key="brand", match=MatchAny(value=brand))
+            FieldCondition(key="brand", match=MatchAny(any=brand))
         )
 
     if retailer:
         must_clauses.append(
-            FieldCondition(key="retailer", match=MatchAny(value=retailer))
+            FieldCondition(key="retailer", match=MatchAny(any=retailer))
         )
     return Filter(must=must_clauses) if must_clauses else None
 
