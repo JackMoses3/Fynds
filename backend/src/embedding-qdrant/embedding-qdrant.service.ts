@@ -7,7 +7,7 @@ import { QdrantService } from '../qdrant/qdrant.service';
 import { DatabaseService } from '../database/database.service';
 
 import { CollectionType, Gender } from '../qdrant/dto/qdrant.dto';
-
+import { MultimodalStyleClassificationResponse } from './dto/embedding-style.dto';
 import {
   QdrantInsertResponse,
   QdrantSearchResponse,
@@ -21,6 +21,11 @@ import {
 } from './dto/embedding-qdrant.dto';
 
 import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
+import {
+  StyleAnalysisConfig,
+  WeightedStyleScore,
+  StyleAnalysisResult,
+} from './dto/multimodal-style-classification.dto';
 
 @Injectable()
 export class EmbeddingQdrantService {
@@ -522,6 +527,580 @@ export class EmbeddingQdrantService {
     await this.db.productItem.update({
       where: { id: productId },
       data: { embedding: embeddingConfig },
+    });
+  }
+
+  /**
+   * Generate embeddings for all styles and store them in Qdrant
+   */
+  async generateStyleEmbeddings(): Promise<{
+    processed: number;
+    successful: number;
+    failed: number;
+  }> {
+    this.logger.log('🎨 Starting style embeddings generation...');
+
+    // Get all styles from database
+    const styles = await this.db.style.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+      },
+    });
+
+    this.logger.log(`📋 Found ${styles.length} styles to process`);
+
+    let successful = 0;
+    let failed = 0;
+
+    for (const style of styles) {
+      try {
+        // Create text for embedding
+        const styleText = style.description
+          ? `${style.name}. ${style.description}`
+          : style.name;
+
+        // Generate embedding
+        const embedding =
+          await this.embeddingService.generateTextEmbedding(styleText);
+
+        // Store in Qdrant
+        await this.qdrantService.addStyle(style.id, style.name, embedding);
+
+        this.logger.log(`✅ Processed style: ${style.name}`);
+        successful++;
+      } catch (error) {
+        this.logger.error(`❌ Failed to process style ${style.name}: ${error}`);
+        failed++;
+      }
+    }
+
+    this.logger.log(`🏁 Complete: ${successful} successful, ${failed} failed`);
+
+    return {
+      processed: styles.length,
+      successful,
+      failed,
+    };
+  }
+
+  /**
+   * Test multimodal style classification for a product
+   */
+  async testMultimodalStyleClassification(
+    productId: number,
+    topK: number = 5,
+    minConfidence: number = 0.0,
+  ): Promise<MultimodalStyleClassificationResponse> {
+    this.logger.log(
+      `🔍 Testing multimodal style classification for product ${productId}`,
+    );
+
+    try {
+      // Call ML service for multimodal classification
+      const { data } = await axios.post(
+        `${process.env.ML_URL}/api/v1/vector/classify_multimodal_style`,
+        {
+          product_id: productId,
+          top_k: topK,
+          min_confidence: minConfidence,
+        },
+        { timeout: 30_000 },
+      );
+
+      this.logger.log(`🎯 Classification complete for product ${productId}`);
+      this.logger.log(
+        `📊 Found ${data.total_modalities} modalities with ${data.total_unique_styles} unique styles`,
+      );
+
+      // Log results for each modality
+      if (data.results.text_styles) {
+        this.logger.log(
+          `📝 Text styles (${data.results.text_styles.count}): ${data.results.text_styles.styles
+            .map(
+              (s: { style_name: string; similarity_score: number }) =>
+                `${s.style_name}(${s.similarity_score})`,
+            )
+            .join(', ')}`,
+        );
+      }
+      if (data.results.image_front_styles) {
+        this.logger.log(
+          `🖼️ Front image styles (${data.results.image_front_styles.count}): ${data.results.image_front_styles.styles
+            .map(
+              (s: { style_name: string; similarity_score: number }) =>
+                `${s.style_name}(${s.similarity_score})`,
+            )
+            .join(', ')}`,
+        );
+      }
+      if (data.results.image_back_styles) {
+        this.logger.log(
+          `🖼️ Back image styles (${data.results.image_back_styles.count}): ${data.results.image_back_styles.styles
+            .map(
+              (s: { style_name: string; similarity_score: number }) =>
+                `${s.style_name}(${s.similarity_score})`,
+            )
+            .join(', ')}`,
+        );
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `❌ Multimodal classification failed for product ${productId}: ${error.message}`,
+      );
+      throw new HttpException(
+        `Multimodal classification failed: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Analyze multimodal style classification and determine best styles for a product
+   */
+  async analyzeAndUpdateProductStyles(
+    productId: number,
+    config: StyleAnalysisConfig = new StyleAnalysisConfig(),
+    dryRun: boolean = false,
+  ): Promise<StyleAnalysisResult> {
+    this.logger.log(
+      `🔍 Analyzing styles for product ${productId} (dryRun: ${dryRun})`,
+    );
+
+    // Get multimodal classification
+    const classification = await this.testMultimodalStyleClassification(
+      productId,
+      10,
+      0.1,
+    );
+
+    // Get current product styles
+    const currentProduct = await this.db.productItem.findUnique({
+      where: { id: productId },
+      include: {
+        productStyles: {
+          include: { style: true },
+        },
+      },
+    });
+
+    if (!currentProduct) {
+      throw new HttpException(
+        `Product ${productId} not found`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const currentStyleIds = currentProduct.productStyles.map(
+      (ps) => ps.style.id,
+    );
+
+    // Calculate weighted scores
+    const weightedStyles = this.calculateWeightedStyleScores(
+      classification,
+      config,
+    );
+
+    // Determine styles to add/remove
+    const stylesToAdd = weightedStyles
+      .filter((ws) => ws.weighted_score >= config.updateThreshold)
+      .filter((ws) => ws.modalities_count >= config.requireMinModalities)
+      .slice(0, config.maxStyles)
+      .map((ws) => ws.style_id)
+      .filter((styleId) => !currentStyleIds.includes(styleId));
+
+    // For removal, you might want to be more conservative
+    // Only remove styles that score very low across all modalities
+    const stylesToRemove = currentStyleIds.filter((currentStyleId) => {
+      const foundStyle = weightedStyles.find(
+        (ws) => ws.style_id === currentStyleId,
+      );
+      return (
+        foundStyle && foundStyle.weighted_score < config.updateThreshold * 0.5
+      );
+    });
+
+    const analysisResult: StyleAnalysisResult = {
+      product_id: productId,
+      recommended_styles: weightedStyles,
+      styles_to_add: stylesToAdd,
+      styles_to_remove: stylesToRemove,
+      current_styles: currentStyleIds,
+      analysis_summary: {
+        total_candidates: weightedStyles.length,
+        above_threshold: weightedStyles.filter(
+          (ws) => ws.weighted_score >= config.updateThreshold,
+        ).length,
+        modalities_analyzed: classification.total_modalities,
+        confidence_distribution: {
+          high: weightedStyles.filter((ws) => ws.confidence === 'high').length,
+          medium: weightedStyles.filter((ws) => ws.confidence === 'medium')
+            .length,
+          low: weightedStyles.filter((ws) => ws.confidence === 'low').length,
+        },
+      },
+    };
+
+    this.logger.log(
+      `📊 Analysis complete: ${stylesToAdd.length} to add, ${stylesToRemove.length} to remove`,
+    );
+
+    // Apply changes if not dry run
+    if (!dryRun && (stylesToAdd.length > 0 || stylesToRemove.length > 0)) {
+      await this.updateProductStyles(productId, stylesToAdd, stylesToRemove);
+      this.logger.log(`✅ Product ${productId} styles updated successfully`);
+    }
+
+    return analysisResult;
+  }
+
+  /**
+   * Calculate weighted scores for styles across all modalities
+   */
+  private calculateWeightedStyleScores(
+    classification: MultimodalStyleClassificationResponse,
+    config: StyleAnalysisConfig,
+  ): WeightedStyleScore[] {
+    const styleScores = new Map<
+      number,
+      {
+        style_id: number;
+        style_name: string;
+        text_score?: number;
+        front_score?: number;
+        back_score?: number;
+        modalities: number;
+      }
+    >();
+
+    // Collect scores from each modality
+    if (classification.results.text_styles) {
+      classification.results.text_styles.styles.forEach((style) => {
+        const existing = styleScores.get(style.style_id) || {
+          style_id: style.style_id,
+          style_name: style.style_name,
+          modalities: 0,
+        };
+        existing.text_score = style.similarity_score;
+        existing.modalities++;
+        styleScores.set(style.style_id, existing);
+      });
+    }
+
+    if (classification.results.image_front_styles) {
+      classification.results.image_front_styles.styles.forEach((style) => {
+        const existing = styleScores.get(style.style_id) || {
+          style_id: style.style_id,
+          style_name: style.style_name,
+          modalities: 0,
+        };
+        existing.front_score = style.similarity_score;
+        existing.modalities++;
+        styleScores.set(style.style_id, existing);
+      });
+    }
+
+    if (classification.results.image_back_styles) {
+      classification.results.image_back_styles.styles.forEach((style) => {
+        const existing = styleScores.get(style.style_id) || {
+          style_id: style.style_id,
+          style_name: style.style_name,
+          modalities: 0,
+        };
+        existing.back_score = style.similarity_score;
+        existing.modalities++;
+        styleScores.set(style.style_id, existing);
+      });
+    }
+
+    // Calculate weighted scores
+    return Array.from(styleScores.values())
+      .map((style) => {
+        const textScore = (style.text_score || 0) * config.textWeight;
+        const frontScore = (style.front_score || 0) * config.frontImageWeight;
+        const backScore = (style.back_score || 0) * config.backImageWeight;
+
+        // Normalize by the weights of modalities that actually contributed
+        let totalWeight = 0;
+        if (style.text_score) totalWeight += config.textWeight;
+        if (style.front_score) totalWeight += config.frontImageWeight;
+        if (style.back_score) totalWeight += config.backImageWeight;
+
+        const weightedScore =
+          totalWeight > 0
+            ? (textScore + frontScore + backScore) / totalWeight
+            : 0;
+
+        // Determine confidence based on modalities and score
+        let confidence: 'high' | 'medium' | 'low' = 'low';
+        if (style.modalities >= 3 && weightedScore >= 0.8) confidence = 'high';
+        else if (style.modalities >= 2 && weightedScore >= 0.6)
+          confidence = 'medium';
+
+        return {
+          style_id: style.style_id,
+          style_name: style.style_name,
+          weighted_score: weightedScore,
+          modality_scores: {
+            text: style.text_score,
+            front_image: style.front_score,
+            back_image: style.back_score,
+          },
+          modalities_count: style.modalities,
+          confidence,
+        };
+      })
+      .sort((a, b) => b.weighted_score - a.weighted_score);
+  }
+
+  /**
+   * Update product styles in database
+   */
+  private async updateProductStyles(
+    productId: number,
+    stylesToAdd: number[],
+    stylesToRemove: number[],
+  ): Promise<void> {
+    this.logger.log(
+      `Updating product ${productId} styles: add ${stylesToAdd.length}, remove ${stylesToRemove.length}`,
+    );
+
+    // Add new styles
+    if (stylesToAdd.length > 0) {
+      await this.db.productStyle.createMany({
+        data: stylesToAdd.map((styleId) => ({
+          productItemId: productId,
+          styleId,
+        })),
+      });
+      this.logger.log(
+        `Added ${stylesToAdd.length} styles to product ${productId}`,
+      );
+    }
+
+    // Remove old styles
+    if (stylesToRemove.length > 0) {
+      await this.db.productStyle.deleteMany({
+        where: {
+          productItemId: productId,
+          styleId: { in: stylesToRemove },
+        },
+      });
+      this.logger.log(
+        `Removed ${stylesToRemove.length} styles from product ${productId}`,
+      );
+    }
+  }
+
+  /**
+   * Process all products and update their styles using multimodal analysis
+   */
+  async processAllProductsForStyleUpdate(
+    config: StyleAnalysisConfig = new StyleAnalysisConfig(),
+    options: {
+      batchSize?: number;
+      retailer?: string;
+      category?: string;
+      brand?: string;
+      dryRun?: boolean;
+      skipProductsWithStyles?: boolean;
+      maxProducts?: number;
+    } = {},
+  ): Promise<{
+    processed: number;
+    successful: number;
+    failed: number;
+    skipped: number;
+    results: Array<{
+      productId: number;
+      status: 'success' | 'failed' | 'skipped';
+      error?: string;
+      stylesAdded?: number;
+      stylesRemoved?: number;
+      analysisResult?: StyleAnalysisResult;
+    }>;
+  }> {
+    const {
+      batchSize = 50,
+      retailer,
+      category,
+      brand,
+      dryRun = false,
+      skipProductsWithStyles = false,
+      maxProducts,
+    } = options;
+
+    this.logger.log(
+      `🚀 Starting bulk style update process (dryRun: ${dryRun})`,
+    );
+    this.logger.log(
+      `📊 Config: threshold=${config.updateThreshold}, minModalities=${config.requireMinModalities}`,
+    );
+
+    // Build query filters
+    const whereClause: any = {};
+    if (retailer) whereClause.retailer = retailer;
+    if (category) whereClause.category = category;
+    if (brand) whereClause.brand = brand;
+
+    if (skipProductsWithStyles) {
+      whereClause.productStyles = {
+        none: {},
+      };
+    }
+
+    // Get total count first
+    const totalProducts = await this.db.productItem.count({
+      where: whereClause,
+    });
+    const productsToProcess = maxProducts
+      ? Math.min(totalProducts, maxProducts)
+      : totalProducts;
+
+    this.logger.log(
+      `📦 Found ${totalProducts} products, processing ${productsToProcess}`,
+    );
+
+    let processed = 0;
+    let successful = 0;
+    let failed = 0;
+    let skipped = 0;
+    const results: Array<{
+      productId: number;
+      status: 'success' | 'failed' | 'skipped';
+      error?: string;
+      stylesAdded?: number;
+      stylesRemoved?: number;
+      analysisResult?: StyleAnalysisResult;
+    }> = [];
+
+    // Process in batches to avoid memory issues
+    for (let offset = 0; offset < productsToProcess; offset += batchSize) {
+      const currentBatchSize = Math.min(batchSize, productsToProcess - offset);
+
+      this.logger.log(
+        `📋 Processing batch ${Math.floor(offset / batchSize) + 1}/${Math.ceil(
+          productsToProcess / batchSize,
+        )} (${offset + 1}-${offset + currentBatchSize})`,
+      );
+
+      const products = await this.db.productItem.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          name: true,
+          brand: true,
+          retailer: true,
+          productStyles: {
+            select: {
+              styleId: true,
+            },
+          },
+        },
+        skip: offset,
+        take: currentBatchSize,
+      });
+
+      // Process each product in the batch
+      for (const product of products) {
+        try {
+          this.logger.log(
+            `🔍 Processing product ${product.id}: ${product.name} (${product.brand})`,
+          );
+          // Analyze and update styles
+          const analysisResult = await this.analyzeAndUpdateProductStyles(
+            product.id,
+            config,
+            dryRun,
+          );
+
+          successful++;
+          results.push({
+            productId: product.id,
+            status: 'success',
+            stylesAdded: analysisResult.styles_to_add.length,
+            stylesRemoved: analysisResult.styles_to_remove.length,
+            analysisResult,
+          });
+
+          this.logger.log(
+            `✅ Product ${product.id}: +${analysisResult.styles_to_add.length} styles, -${analysisResult.styles_to_remove.length} styles`,
+          );
+        } catch (error) {
+          failed++;
+          results.push({
+            productId: product.id,
+            status: 'failed',
+            error: error.message,
+          });
+          this.logger.error(
+            `❌ Failed to process product ${product.id}: ${error.message}`,
+          );
+        }
+
+        processed++;
+
+        // Add small delay to prevent overwhelming the system
+        if (processed % 10 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+
+      // Log batch completion
+      this.logger.log(
+        `✅ Batch completed: ${successful}/${processed} successful`,
+      );
+    }
+
+    const summary = {
+      processed,
+      successful,
+      failed,
+      skipped,
+      results,
+    };
+
+    this.logger.log(`🎉 Bulk processing complete!`);
+    this.logger.log(
+      `📊 Results: ${successful} successful, ${failed} failed, ${skipped} skipped out of ${processed} processed`,
+    );
+
+    return summary;
+  }
+
+  /**
+   * Process products by retailer (convenient wrapper)
+   */
+  async processProductsByRetailer(
+    retailer: string,
+    config: StyleAnalysisConfig = new StyleAnalysisConfig(),
+    dryRun: boolean = false,
+  ) {
+    return this.processAllProductsForStyleUpdate(config, {
+      retailer,
+      dryRun,
+      batchSize: 25, // Smaller batches for retailer-specific processing
+    });
+  }
+
+  /**
+   * Process only products without existing styles
+   */
+  async processProductsWithoutStyles(
+    config: StyleAnalysisConfig = new StyleAnalysisConfig(),
+    dryRun: boolean = false,
+  ) {
+    return this.processAllProductsForStyleUpdate(config, {
+      skipProductsWithStyles: true,
+      dryRun,
+      batchSize: 100, // Larger batches since these are likely easier to process
     });
   }
 }

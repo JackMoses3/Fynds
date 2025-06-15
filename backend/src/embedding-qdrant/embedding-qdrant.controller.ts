@@ -18,11 +18,18 @@ import {
   Logger,
   UseInterceptors,
   UploadedFile,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { EmbeddingQdrantService } from './embedding-qdrant.service';
 import { QdrantService } from '../qdrant/qdrant.service';
+import {
+  MultimodalStyleClassificationRequest,
+  MultimodalStyleClassificationResponse,
+} from './dto/embedding-style.dto';
+import { StyleAnalysisConfig } from './dto/multimodal-style-classification.dto';
 
 @Controller('embedding-qdrant')
 export class EmbeddingQdrantController {
@@ -127,9 +134,101 @@ export class EmbeddingQdrantController {
 
       return {
         success: false,
-        message: `Failed to process product ${request.productId}: ${error.message}`,
+        message: `Failed to process product ${request.productId}: ${error}`,
         productId: request.productId,
       };
     }
+  }
+
+  @Public()
+  @Post('generate-style-embeddings')
+  async generateStyleEmbeddings() {
+    return await this.embeddingQdrantService.generateStyleEmbeddings();
+  }
+  @Public()
+  @Post('test-multimodal-classification')
+  async testMultimodalClassification(
+    @Body()
+    body: MultimodalStyleClassificationRequest,
+  ): Promise<MultimodalStyleClassificationResponse> {
+    const { productId, topK = 5, minConfidence = 0.0 } = body;
+
+    if (!productId) {
+      throw new HttpException('productId is required', HttpStatus.BAD_REQUEST);
+    }
+
+    this.logger.log(
+      `🧪 Testing multimodal classification for product ${productId}`,
+    );
+
+    try {
+      const result =
+        await this.embeddingQdrantService.testMultimodalStyleClassification(
+          productId,
+          topK,
+          minConfidence,
+        );
+
+      this.logger.log(
+        `✅ Test completed successfully for product ${productId}`,
+      );
+      return result;
+    } catch (error) {
+      this.logger.error(`❌ Test failed for product `);
+      throw error;
+    }
+  }
+  @Public()
+  @Post('analyze-and-update-styles')
+  async analyzeAndUpdateStyles(
+    @Body()
+    body: {
+      productId: number;
+      config?: StyleAnalysisConfig;
+      dryRun?: boolean;
+    },
+  ) {
+    const {
+      productId,
+      config = new StyleAnalysisConfig(),
+      dryRun = false,
+    } = body;
+
+    if (!productId) {
+      throw new HttpException('productId is required', HttpStatus.BAD_REQUEST);
+    }
+
+    return await this.embeddingQdrantService.analyzeAndUpdateProductStyles(
+      productId,
+      config,
+      dryRun,
+    );
+  }
+
+  @Public()
+  @Post('process-retailer-styles')
+  async processRetailerStyles(
+    @Body()
+    body: {
+      retailer: string;
+      config?: StyleAnalysisConfig;
+      dryRun?: boolean;
+    },
+  ) {
+    const {
+      retailer,
+      config = new StyleAnalysisConfig(),
+      dryRun = false,
+    } = body;
+
+    if (!retailer) {
+      throw new HttpException('retailer is required', HttpStatus.BAD_REQUEST);
+    }
+
+    return await this.embeddingQdrantService.processProductsByRetailer(
+      retailer,
+      config,
+      dryRun,
+    );
   }
 }

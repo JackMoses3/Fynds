@@ -7,7 +7,6 @@ import {
   Max,
   IsEnum,
 } from 'class-validator';
-import { EmbedResponseDto } from '../../embedding/dto/embeded-response.dto';
 import { Gender } from '../../qdrant/dto/qdrant.dto';
 
 export class SearchDto {
