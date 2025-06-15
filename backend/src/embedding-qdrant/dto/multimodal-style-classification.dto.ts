@@ -2,7 +2,7 @@ export class StyleAnalysisConfig {
   textWeight: number = 0.6; // Weight for text-based classification
   frontImageWeight: number = 0.3; // Weight for front image classification
   backImageWeight: number = 0.1; // Weight for back image classification
-  updateThreshold: number = 0.3; // Minimum score to update product styles
+  updateThreshold: number = 0.2; // Minimum score to update product styles
   maxStyles: number = 4; // Maximum styles to assign per product
   requireMinModalities: number = 1; // Require at least 2 modalities for update
 }
