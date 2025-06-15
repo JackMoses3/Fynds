@@ -16,6 +16,7 @@ import { ShoppingTrolleyModule } from './shopping-trolley/shopping-trolley.modul
 import { EmbeddingModule } from './embedding/embedding.module'; // Import the embedding module
 import { EmbeddingQdrantModule } from './embedding-qdrant/embedding-qdrant.module'; // Import the embedding-qdrant module
 import { QdrantModule } from './qdrant/qdrant.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { QdrantModule } from './qdrant/qdrant.module';
     EmbeddingModule, // Register the embedding module
     EmbeddingQdrantModule, // Register the embedding-qdrant module
     QdrantModule,
+    OnboardingModule,
   ],
 })
 export class AppModule {}

@@ -14,8 +14,8 @@ export class UserController {
   ) {
     try {
       return this.userService.update(req.user.sub, {
-        clothingPreferences: body.clothingPreferences, // 🧠 map properly
-        birthdate: new Date(body.birthDate), // ✅ parse date
+        clothingPreferences: body.clothingPreferences,
+        birthdate: new Date(body.birthDate),
         location: body.location,
       });
     } catch (error) {
@@ -30,5 +30,16 @@ export class UserController {
     @Body() body: { styleIds: number[] },
   ) {
     return this.userService.assignStylesToUser(req.user.sub, body.styleIds);
+  }
+
+  @Post('onboarding/save-selections')
+  async saveOnboardingSelections(
+    @Req() req: RequestUser,
+    @Body() body: { productIds: number[] },
+  ) {
+    return this.userService.saveOnboardingSelections(
+      req.user.sub,
+      body.productIds,
+    );
   }
 }

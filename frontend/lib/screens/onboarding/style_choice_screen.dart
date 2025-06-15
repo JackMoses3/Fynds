@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fynds/services/onboarding/onboarding_service.dart';
 import 'package:fynds/models/style.dart';
-import 'package:fynds/widgets/main_shell.dart';
+import 'package:fynds/screens/onboarding/style_image_choice_screen.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StyleChoiceScreen extends StatefulWidget {
@@ -15,6 +16,8 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
   final OnboardingService _onboardingService = OnboardingService();
 
   List<Style>? _styles;
+  final Set<int> _selectedStyles = {};
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -28,8 +31,6 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
       _styles = styles;
     });
   }
-
-  final Set<int> _selectedStyles = {};
 
   void _toggleStyle(int styleId) {
     setState(() {
@@ -49,25 +50,32 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
       return;
     }
 
-    final success = await _onboardingService.assignStylesToUser(
-      _selectedStyles.toList(),
-    );
+    setState(() => _isLoading = true);
+    try {
+      // this will throw on failure
+      await _onboardingService.assignStylesToUser(_selectedStyles.toList());
 
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Styles submitted successfully")),
+      // retrieve clothing preference
+      final prefs = await SharedPreferences.getInstance();
+      final clothingPref = prefs.getString('clothing_preference') ?? 'Male';
+
+      // navigate to image choice
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder:
+              (_) => StyleImageChoiceScreen(
+                selectedStyleIds: _selectedStyles.toList(),
+                clothingPreference: clothingPref,
+              ),
+        ),
       );
-    } else {
+    } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Submission failed")));
+      ).showSnackBar(SnackBar(content: Text("Submission failed: $e")));
+    } finally {
+      setState(() => _isLoading = false);
     }
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboardingComplete', true);
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const MainShell()));
   }
 
   @override
@@ -127,7 +135,7 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        // Handle skip
+                        /* skip */
                       },
                       child: const Text('Skip'),
                     ),
@@ -135,14 +143,24 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => {_submitDetails()},
+                      onPressed: _isLoading ? null : _submitDetails,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                       ),
-                      child: const Text(
-                        'Next',
-                        style: TextStyle(color: Colors.white),
-                      ),
+                      child:
+                          _isLoading
+                              ? const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                              : const Text(
+                                'Next',
+                                style: TextStyle(color: Colors.white),
+                              ),
                     ),
                   ),
                 ],
