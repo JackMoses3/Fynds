@@ -1,124 +1,198 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
 import { ProductItemTransferDto } from 'src/product-item/dto/product-item.dto';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 @Injectable()
 export class OnboardingService {
-  constructor(private readonly db: DatabaseService) {}
+  private readonly imagesBasePath = path.join(__dirname, '../onboarding');
 
   async getStyleProducts(
     selectedStyleIds: number[],
     clothingPreference: string,
-    limit = 50,
+    limit = 25, // Changed to 25
   ): Promise<ProductItemTransferDto[]> {
-    // 1) Determine gender filter (null means “no filter”)
-    const genderFilter = this.getGenderFilter(clothingPreference);
-    const baseWhere: any = {};
-    if (genderFilter) {
-      baseWhere.sex = genderFilter;
-    }
+    const startTime = Date.now();
 
-    console.log('🔍 [Onboarding] Incoming:', {
-      selectedStyleIds,
-      clothingPreference,
-      genderFilter,
-      limit,
-    });
+    // Determine gender folder
+    const genderFolder = this.getGenderFolder(clothingPreference);
+    const imagesPath = path.join(this.imagesBasePath, genderFolder, 'styles');
 
-    // 2) Fetch 5 items per selected style
-    const perStyle = await Promise.all(
-      selectedStyleIds.map((styleId) =>
-        this.db.productItem.findMany({
-          where: {
-            ...baseWhere,
-            productStyles: { some: { styleId } },
-          },
-          select: this.selectClause(),
-          take: 5,
-          orderBy: { id: 'asc' },
-        }),
-      ),
-    );
-    const selected = perStyle.flat();
+    console.log(`🔍 [Onboarding] Using images from: ${imagesPath}`);
     console.log(
-      `📦 [Onboarding] Found ${selected.length} items across selected styles`,
+      `🎯 [Onboarding] Selected styles: [${selectedStyleIds.join(', ')}]`,
     );
 
-    // 3) Fill up to `limit` with items from other styles
-    const excludedIds = selected.map((p) => p.id);
-    const remaining = Math.max(0, limit - selected.length);
-    const randomOthers = remaining
-      ? await this.db.productItem.findMany({
-          where: {
-            ...baseWhere,
-            id: { notIn: excludedIds },
-            productStyles: { some: { styleId: { notIn: selectedStyleIds } } },
-          },
-          select: this.selectClause(),
-          take: remaining,
-          orderBy: { id: 'desc' },
-        })
-      : [];
-    console.log(
-      `🧩 [Onboarding] Fetched ${randomOthers.length} random “other” items`,
-    );
+    const results: Array<{ id: number; imageUrl: string }> = [];
 
-    let all = [...selected, ...randomOthers];
+    try {
+      // 1) Take 3 items from each selected style
+      for (const styleId of selectedStyleIds) {
+        if (results.length >= limit) break;
 
-    // 4) FALLBACK: if still empty, ignore all filters and grab the first `limit` items
-    if (all.length === 0) {
-      console.warn(
-        '⚠️ [Onboarding] No items found with filters, falling back to first items in DB',
+        const styleDir = path.join(imagesPath, styleId.toString());
+
+        try {
+          const files = await fs.readdir(styleDir);
+          const imageFiles = files.filter(
+            (file) =>
+              file.toLowerCase().endsWith('.jpg') ||
+              file.toLowerCase().endsWith('.jpeg') ||
+              file.toLowerCase().endsWith('.png'),
+          );
+
+          console.log(
+            `📂 [Onboarding] Style ${styleId}: found ${imageFiles.length} images`,
+          );
+
+          // Shuffle for randomness and take up to 3
+          const shuffled = this.shuffle(imageFiles);
+          const toTake = Math.min(3, shuffled.length, limit - results.length);
+
+          for (let i = 0; i < toTake; i++) {
+            const fileName = shuffled[i];
+            const productId = parseInt(path.parse(fileName).name);
+
+            if (!isNaN(productId)) {
+              const imageUrl = `/api/onboarding/images/${genderFolder}/styles/${styleId}/${fileName}`;
+              results.push({
+                id: productId,
+                imageUrl: imageUrl,
+              });
+              console.log(
+                `🔗 [Onboarding] Generated URL: ${imageUrl} for product ${productId}`,
+              );
+            }
+          }
+
+          console.log(
+            `📦 [Onboarding] Added ${toTake} items from style ${styleId}`,
+          );
+        } catch (error) {
+          console.warn(
+            `⚠️ [Onboarding] Style directory ${styleId} not found or empty`,
+          );
+        }
+      }
+
+      // 2) Fill remaining space with items from other styles (1 image each)
+      const remaining = limit - results.length;
+      console.log(
+        `🔄 [Onboarding] Need ${remaining} more items from other styles`,
       );
-      all = await this.db.productItem.findMany({
-        select: this.selectClause(),
-        take: limit,
-        orderBy: { id: 'asc' },
-      });
-      console.log(`🔄 [Onboarding] Fallback returned ${all.length} items`);
+
+      if (remaining > 0) {
+        const usedIds = new Set(results.map((r) => r.id));
+
+        try {
+          // Get all available style directories
+          const allStyleDirs = await fs.readdir(imagesPath);
+          const availableStyleIds = allStyleDirs
+            .filter((dir) => !selectedStyleIds.includes(parseInt(dir)))
+            .map((dir) => parseInt(dir))
+            .filter((id) => !isNaN(id));
+
+          console.log(
+            `📊 [Onboarding] Available other styles: [${availableStyleIds.join(', ')}]`,
+          );
+
+          // Shuffle style order for randomness
+          const shuffledStyles = this.shuffle(availableStyleIds);
+
+          for (const styleId of shuffledStyles) {
+            if (results.length >= limit) break;
+
+            const styleDir = path.join(imagesPath, styleId.toString());
+
+            try {
+              const files = await fs.readdir(styleDir);
+              const imageFiles = files.filter(
+                (file) =>
+                  file.toLowerCase().endsWith('.jpg') ||
+                  file.toLowerCase().endsWith('.jpeg') ||
+                  file.toLowerCase().endsWith('.png'),
+              );
+
+              // Shuffle files and find one we haven't used
+              const shuffledFiles = this.shuffle(imageFiles);
+
+              for (const fileName of shuffledFiles) {
+                const productId = parseInt(path.parse(fileName).name);
+
+                if (!isNaN(productId) && !usedIds.has(productId)) {
+                  const imageUrl = `/api/onboarding/images/${genderFolder}/styles/${styleId}/${fileName}`;
+                  results.push({
+                    id: productId,
+                    imageUrl: imageUrl,
+                  });
+                  usedIds.add(productId);
+                  console.log(
+                    `📦 [Onboarding] Added 1 item from other style ${styleId}`,
+                  );
+                  break; // Only take 1 from each style
+                }
+              }
+            } catch (error) {
+              console.warn(
+                `⚠️ [Onboarding] Could not read style directory ${styleId}`,
+              );
+            }
+          }
+        } catch (error) {
+          console.warn(`⚠️ [Onboarding] Could not read main images directory`);
+        }
+      }
+
+      // 3) Final shuffle for extra randomness
+      const finalResults = this.shuffle(results).slice(0, limit);
+      const productIds = finalResults.map((r) => r.id);
+      const endTime = Date.now();
+
+      console.log(
+        `✅ [Onboarding] Returning ${finalResults.length} items in ${endTime - startTime}ms`,
+      );
+      console.log(`🆔 [Onboarding] Product IDs: [${productIds.join(', ')}]`);
+
+      // Convert to ProductItemTransferDto format - minimal data needed
+      return finalResults.map((item) => ({
+        id: item.id,
+        name: '',
+        brand: '',
+        category: '',
+        price: 0,
+        retailer: '',
+        url: '',
+        style: [],
+        images: [
+          {
+            id: item.id,
+            imageUrl: item.imageUrl,
+            frontFacing: true,
+          },
+        ],
+      }));
+    } catch (error) {
+      console.error(`❌ [Onboarding] Error loading cached images:`, error);
+      return [];
     }
-
-    // 5) Final logging
-    console.log(`✅ [Onboarding] Returning ${all.length} items total`);
-    return all.slice(0, limit).map((p) => ({
-      id: p.id,
-      name: p.name,
-      brand: p.brand,
-      category: p.category,
-      price: p.price,
-      retailer: p.retailer,
-      url: p.url,
-      style: p.productStyles.map((ps) => ps.style.name),
-      images: p.productImages,
-    }));
   }
 
-  private selectClause() {
-    return {
-      id: true,
-      name: true,
-      brand: true,
-      category: true,
-      price: true,
-      retailer: true,
-      url: true,
-      productImages: {
-        select: { id: true, imageUrl: true, frontFacing: true },
-        orderBy: [{ frontFacing: 'desc' as const }, { id: 'asc' as const }],
-        take: 1,
-      },
-      productStyles: {
-        select: {
-          style: { select: { id: true, name: true } },
-        },
-      },
-    };
+  private getGenderFolder(clothingPreference: string): string {
+    const pref = clothingPreference.toLowerCase();
+    if (pref === 'male' || pref.includes('men')) {
+      return 'men_images';
+    } else if (pref === 'female' || pref.includes('women')) {
+      return 'women_images';
+    }
+    return 'men_images';
   }
 
-  private getGenderFilter(pref: string): string | null {
-    const p = pref.toLowerCase();
-    if (p === 'male') return 'Male';
-    if (p === 'female') return 'Female';
-    return null; // both or unspecified
+  private shuffle<T>(array: T[]): T[] {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
   }
 }

@@ -57,7 +57,7 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
 
       // retrieve clothing preference
       final prefs = await SharedPreferences.getInstance();
-      final clothingPref = prefs.getString('clothing_preference') ?? 'Male';
+      final clothingPref = prefs.getString('clothing_preference') ?? 'both';
 
       // navigate to image choice
       Navigator.of(context).pushReplacement(
