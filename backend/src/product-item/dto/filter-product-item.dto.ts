@@ -2,10 +2,26 @@ import { IsOptional, IsArray, IsNumber, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class FilterProductItemDto {
+  // Support both singular and plural forms
   @IsOptional()
   @IsArray()
   @Type(() => String)
   brands?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @Type(() => String)
+  brand?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @Type(() => String)
+  retailers?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @Type(() => String)
+  retailer?: string[];
 
   @IsOptional()
   @IsArray()
@@ -15,7 +31,7 @@ export class FilterProductItemDto {
   @IsOptional()
   @IsArray()
   @Type(() => String)
-  retailers?: string[];
+  category?: string[];
 
   @IsOptional()
   @Type(() => Number)
