@@ -9,7 +9,17 @@ generated/
 # Prisma
 *.db
 *.sqlite
+generated/
+generated/prisma/
+node_modules/.prisma/
+prisma/generated/
 
+# Alternative patterns (use the one that matches your setup)
+/generated/
+**/generated/
+
+# Prisma
+generated/
 
 # Flutter
 **/build/
