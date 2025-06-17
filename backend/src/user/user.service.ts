@@ -47,4 +47,17 @@ export class UserService {
       skipDuplicates: true, // avoid unique constraint errors
     });
   }
+
+  // ✅ Add the missing method
+  async saveOnboardingSelections(userId: number, productIds: number[]) {
+    const data = productIds.map((productItemId) => ({
+      userId,
+      productItemId,
+    }));
+
+    return this.db.onboardingProduct.createMany({
+      data,
+      skipDuplicates: true,
+    });
+  }
 }

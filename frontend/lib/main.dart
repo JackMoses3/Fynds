@@ -17,6 +17,7 @@ void main() async {
   // check if the user is authenticated
   final authService = AuthService();
   final bool isAuthenticated = await authService.checkLoginStatus();
+
   runApp(MyApp(onboardingDone: done, isAuthenticated: isAuthenticated));
 }
 
