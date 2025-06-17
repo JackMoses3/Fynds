@@ -10,44 +10,94 @@ export class OnboardingService {
   async getStyleProducts(
     selectedStyleIds: number[],
     clothingPreference: string,
-    limit = 25, // Changed to 25
+    limit = 25,
   ): Promise<ProductItemTransferDto[]> {
     const startTime = Date.now();
+    const pref = clothingPreference.toLowerCase();
 
-    // Determine gender folder
+    if (pref === 'both') {
+      // Handle "both" case: 12 male + 13 female
+      console.log(
+        `🔍 [Onboarding] Both genders requested: 12 male + 13 female`,
+      );
+
+      const maleItems = await this.loadFromGenderFolder(
+        selectedStyleIds,
+        'men_images',
+        12,
+      );
+      const femaleItems = await this.loadFromGenderFolder(
+        selectedStyleIds,
+        'women_images',
+        13,
+      );
+
+      // Combine and shuffle for final randomness
+      const combined = this.shuffle([...maleItems, ...femaleItems]);
+      const endTime = Date.now();
+
+      console.log(
+        `✅ [Onboarding] Returning ${combined.length} items (${maleItems.length} male + ${femaleItems.length} female) in ${endTime - startTime}ms`,
+      );
+
+      return this.convertToDto(combined.slice(0, limit));
+    }
+
+    // Single gender case
     const genderFolder = this.getGenderFolder(clothingPreference);
-    const imagesPath = path.join(this.imagesBasePath, genderFolder, 'styles');
+    const items = await this.loadFromGenderFolder(
+      selectedStyleIds,
+      genderFolder,
+      limit,
+    );
 
-    console.log(`🔍 [Onboarding] Using images from: ${imagesPath}`);
+    const endTime = Date.now();
+    console.log(
+      `✅ [Onboarding] Returning ${items.length} items from ${genderFolder} in ${endTime - startTime}ms`,
+    );
+
+    return this.convertToDto(this.shuffle(items).slice(0, limit));
+  }
+
+  private async loadFromGenderFolder(
+    selectedStyleIds: number[],
+    genderFolder: string,
+    targetLimit: number,
+  ): Promise<Array<{ id: number; imageUrl: string }>> {
+    const imagesPath = path.join(this.imagesBasePath, genderFolder, 'styles');
+    const results: Array<{ id: number; imageUrl: string }> = [];
+
+    console.log(
+      `🔍 [Onboarding] Loading from: ${imagesPath} (limit: ${targetLimit})`,
+    );
     console.log(
       `🎯 [Onboarding] Selected styles: [${selectedStyleIds.join(', ')}]`,
     );
 
-    const results: Array<{ id: number; imageUrl: string }> = [];
-
     try {
-      // 1) Take 3 items from each selected style
+      // 1) Take up to 3 items from each selected style
       for (const styleId of selectedStyleIds) {
-        if (results.length >= limit) break;
+        if (results.length >= targetLimit) break;
 
         const styleDir = path.join(imagesPath, styleId.toString());
 
         try {
           const files = await fs.readdir(styleDir);
-          const imageFiles = files.filter(
-            (file) =>
-              file.toLowerCase().endsWith('.jpg') ||
-              file.toLowerCase().endsWith('.jpeg') ||
-              file.toLowerCase().endsWith('.png'),
+          const imageFiles = files.filter((file) =>
+            /\.(jpe?g|png)$/i.test(file),
           );
 
           console.log(
             `📂 [Onboarding] Style ${styleId}: found ${imageFiles.length} images`,
           );
 
-          // Shuffle for randomness and take up to 3
+          // Shuffle and take up to 3
           const shuffled = this.shuffle(imageFiles);
-          const toTake = Math.min(3, shuffled.length, limit - results.length);
+          const toTake = Math.min(
+            3,
+            shuffled.length,
+            targetLimit - results.length,
+          );
 
           for (let i = 0; i < toTake; i++) {
             const fileName = shuffled[i];
@@ -55,10 +105,7 @@ export class OnboardingService {
 
             if (!isNaN(productId)) {
               const imageUrl = `/api/onboarding/images/${genderFolder}/styles/${styleId}/${fileName}`;
-              results.push({
-                id: productId,
-                imageUrl: imageUrl,
-              });
+              results.push({ id: productId, imageUrl });
               console.log(
                 `🔗 [Onboarding] Generated URL: ${imageUrl} for product ${productId}`,
               );
@@ -69,14 +116,12 @@ export class OnboardingService {
             `📦 [Onboarding] Added ${toTake} items from style ${styleId}`,
           );
         } catch (error) {
-          console.warn(
-            `⚠️ [Onboarding] Style directory ${styleId} not found or empty`,
-          );
+          console.warn(`⚠️ [Onboarding] Style directory ${styleId} not found`);
         }
       }
 
-      // 2) Fill remaining space with items from other styles (1 image each)
-      const remaining = limit - results.length;
+      // 2) Fill remaining space with items from other styles (1 each)
+      const remaining = targetLimit - results.length;
       console.log(
         `🔄 [Onboarding] Need ${remaining} more items from other styles`,
       );
@@ -85,7 +130,6 @@ export class OnboardingService {
         const usedIds = new Set(results.map((r) => r.id));
 
         try {
-          // Get all available style directories
           const allStyleDirs = await fs.readdir(imagesPath);
           const availableStyleIds = allStyleDirs
             .filter((dir) => !selectedStyleIds.includes(parseInt(dir)))
@@ -96,24 +140,19 @@ export class OnboardingService {
             `📊 [Onboarding] Available other styles: [${availableStyleIds.join(', ')}]`,
           );
 
-          // Shuffle style order for randomness
           const shuffledStyles = this.shuffle(availableStyleIds);
 
           for (const styleId of shuffledStyles) {
-            if (results.length >= limit) break;
+            if (results.length >= targetLimit) break;
 
             const styleDir = path.join(imagesPath, styleId.toString());
 
             try {
               const files = await fs.readdir(styleDir);
-              const imageFiles = files.filter(
-                (file) =>
-                  file.toLowerCase().endsWith('.jpg') ||
-                  file.toLowerCase().endsWith('.jpeg') ||
-                  file.toLowerCase().endsWith('.png'),
+              const imageFiles = files.filter((file) =>
+                /\.(jpe?g|png)$/i.test(file),
               );
 
-              // Shuffle files and find one we haven't used
               const shuffledFiles = this.shuffle(imageFiles);
 
               for (const fileName of shuffledFiles) {
@@ -121,15 +160,12 @@ export class OnboardingService {
 
                 if (!isNaN(productId) && !usedIds.has(productId)) {
                   const imageUrl = `/api/onboarding/images/${genderFolder}/styles/${styleId}/${fileName}`;
-                  results.push({
-                    id: productId,
-                    imageUrl: imageUrl,
-                  });
+                  results.push({ id: productId, imageUrl });
                   usedIds.add(productId);
                   console.log(
                     `📦 [Onboarding] Added 1 item from other style ${styleId}`,
                   );
-                  break; // Only take 1 from each style
+                  break; // Only 1 per style
                 }
               }
             } catch (error) {
@@ -143,38 +179,39 @@ export class OnboardingService {
         }
       }
 
-      // 3) Final shuffle for extra randomness
-      const finalResults = this.shuffle(results).slice(0, limit);
-      const productIds = finalResults.map((r) => r.id);
-      const endTime = Date.now();
-
-      console.log(
-        `✅ [Onboarding] Returning ${finalResults.length} items in ${endTime - startTime}ms`,
-      );
-      console.log(`🆔 [Onboarding] Product IDs: [${productIds.join(', ')}]`);
-
-      // Convert to ProductItemTransferDto format - minimal data needed
-      return finalResults.map((item) => ({
-        id: item.id,
-        name: '',
-        brand: '',
-        category: '',
-        price: 0,
-        retailer: '',
-        url: '',
-        style: [],
-        images: [
-          {
-            id: item.id,
-            imageUrl: item.imageUrl,
-            frontFacing: true,
-          },
-        ],
-      }));
+      return results.slice(0, targetLimit);
     } catch (error) {
-      console.error(`❌ [Onboarding] Error loading cached images:`, error);
+      console.error(
+        `❌ [Onboarding] Error loading from ${genderFolder}:`,
+        error,
+      );
       return [];
     }
+  }
+
+  private convertToDto(
+    items: Array<{ id: number; imageUrl: string }>,
+  ): ProductItemTransferDto[] {
+    const productIds = items.map((r) => r.id);
+    console.log(`🆔 [Onboarding] Product IDs: [${productIds.join(', ')}]`);
+
+    return items.map((item) => ({
+      id: item.id,
+      name: '',
+      brand: '',
+      category: '',
+      price: 0,
+      retailer: '',
+      url: '',
+      style: [],
+      images: [
+        {
+          id: item.id,
+          imageUrl: item.imageUrl,
+          frontFacing: true,
+        },
+      ],
+    }));
   }
 
   private getGenderFolder(clothingPreference: string): string {

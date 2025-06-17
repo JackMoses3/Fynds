@@ -1,10 +1,21 @@
-import { Controller, Post, Body, Req } from '@nestjs/common';
+import { Controller, Post, Body, Req, Get } from '@nestjs/common';
 import { UserService } from './user.service';
 import { RequestUser } from '../types';
 
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  @Get('clothing-preference')
+  async getUserClothingPreference(@Req() req: RequestUser) {
+    try {
+      const user = await this.userService.findOneById(req.user.sub);
+      return { clothingPreference: user?.clothingPreferences || 'Both' };
+    } catch (error) {
+      console.error('❌ Error getting clothing preference:', error);
+      throw error;
+    }
+  }
 
   @Post('onboarding/additional-info')
   async updateUserOnboarding(

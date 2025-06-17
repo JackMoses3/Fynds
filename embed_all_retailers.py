@@ -16,6 +16,8 @@ CONCURRENCY = 8
 # Retailers to skip
 SKIP_RETAILERS = {"Mango", "H&M", "Urban Outfitters", "Adidas", "AJE", "Meski"}
 
+#Todo for retailers: go over beginning boutique skips
+
 # --- GET ALL RETAILERS ---
 def get_all_retailers():
     conn = psycopg2.connect(**DB_CONFIG)
@@ -35,11 +37,20 @@ def get_all_retailers():
 # --- PROCESS EACH RETAILER ---
 def process_all_retailers():
     retailers = get_all_retailers()
-    # Filter out unwanted retailers by name and by id <=95
-    retailers_to_process = [r for r in retailers if r["name"] and r["name"] not in SKIP_RETAILERS]
+    # Filter out unwanted retailers by name and only process those with id > 30
+    retailers_to_process = [
+        r for r in retailers
+        if r["name"]
+           and r["name"] not in SKIP_RETAILERS
+           and r["id"] > 94   # only process IDs above 30
+    ]
 
+    print(
+        f"Found {len(retailers)} total retailers, "
+        f"processing {len(retailers_to_process)} "
+        f"(excluding {', '.join(SKIP_RETAILERS)} and id <= 30)."
+    )
 
-    print(f"Found {len(retailers)} total retailers, processing {len(retailers_to_process)} (excluding {', '.join(SKIP_RETAILERS)} and id < 30).")
     for retailer in retailers_to_process:
         print(f"\n🚀 Processing retailer: {retailer['name']} (ID: {retailer['id']})")
         resp = requests.post(

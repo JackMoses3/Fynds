@@ -15,12 +15,44 @@ class OnboardingService {
     };
   }
 
+  /// Get the user's clothing preference from backend
+  Future<String> getClothingPreference() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('$_baseUrl/user/clothing-preference'),
+        headers: headers,
+      );
+
+      print(
+        '🐞 [OnboardingService] Clothing preference status: ${response.statusCode}',
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        final preference = data['clothingPreference'] as String? ?? 'Both';
+        print('🐞 [OnboardingService] Retrieved preference: $preference');
+        return preference;
+      } else {
+        print(
+          '❌ [OnboardingService] Failed to get preference: ${response.body}',
+        );
+        return 'Both'; // fallback
+      }
+    } catch (e) {
+      print('❌ [OnboardingService] Exception getting preference: $e');
+      return 'Both'; // fallback
+    }
+  }
+
   /// Get products for multiple selected styles with discovery products
   Future<List<ProductItem>> getStyleProducts({
     required List<int> selectedStyleIds,
-    required String clothingPreference,
-    int limit = 25,
+    int limit = 25
   }) async {
+    // Get clothing preference from backend instead of parameter
+    final clothingPreference = await getClothingPreference();
+
     final styleIdsParam = selectedStyleIds.join(',');
     final url =
         '$_baseUrl/onboarding/style-products'
@@ -39,16 +71,13 @@ class OnboardingService {
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
 
-      // Convert each product and fix image URLs
       final products =
           data.map((productJson) {
-            // Convert relative URLs to absolute URLs in the JSON before parsing
             if (productJson['images'] is List) {
               for (var imageJson in productJson['images']) {
                 if (imageJson['imageUrl'] is String) {
                   final imageUrl = imageJson['imageUrl'] as String;
                   if (imageUrl.startsWith('/api/')) {
-                    // Convert relative to absolute
                     imageJson['imageUrl'] = 'http://10.0.2.2:3000$imageUrl';
                   }
                 }
@@ -57,7 +86,6 @@ class OnboardingService {
             return ProductItem.fromJson(productJson);
           }).toList();
 
-      // Debug: print first few image URLs to verify they're absolute now
       for (int i = 0; i < math.min(3, products.length); i++) {
         final product = products[i];
         if (product.images.isNotEmpty) {

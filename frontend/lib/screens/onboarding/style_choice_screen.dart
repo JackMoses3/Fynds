@@ -65,7 +65,6 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
           builder:
               (_) => StyleImageChoiceScreen(
                 selectedStyleIds: _selectedStyles.toList(),
-                clothingPreference: clothingPref,
               ),
         ),
       );

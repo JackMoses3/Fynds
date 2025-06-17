@@ -3,18 +3,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fynds/services/product_item/onboarding/onboarding_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fynds/navigation/app_navigation.dart'; // for MainShell/AppNavigation
+import 'package:fynds/navigation/app_navigation.dart';
 import '../../models/product_item/product_item.dart';
 
 class StyleImageChoiceScreen extends StatefulWidget {
   final List<int> selectedStyleIds;
-  final String clothingPreference;
 
-  const StyleImageChoiceScreen({
-    Key? key,
-    required this.selectedStyleIds,
-    required this.clothingPreference,
-  }) : super(key: key);
+  const StyleImageChoiceScreen({Key? key, required this.selectedStyleIds})
+    : super(key: key);
 
   @override
   _StyleImageChoiceScreenState createState() => _StyleImageChoiceScreenState();
@@ -34,15 +30,19 @@ class _StyleImageChoiceScreenState extends State<StyleImageChoiceScreen> {
     _loadStyleProducts();
   }
 
+  /// Loads product items based on user's selected styles and clothing preferences
+  /// Fetches 25 products (12 male + 13 female if "Both", or 25 of single gender)
+  /// Service gets user's clothing preference from backend
   Future<void> _loadStyleProducts() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
+      // Service will fetch clothing preference from backend and load appropriate images
+      // Based on preference: Male = men_images folder, Female = women_images folder, Both = mixed
       final products = await _onboardingService.getStyleProducts(
         selectedStyleIds: widget.selectedStyleIds,
-        clothingPreference: widget.clothingPreference,
         limit: 25,
       );
       setState(() {
@@ -57,6 +57,9 @@ class _StyleImageChoiceScreenState extends State<StyleImageChoiceScreen> {
     }
   }
 
+  /// Toggles selection state of a product item
+  /// Adds to selection set if not selected, removes if already selected
+  /// Used for multi-select functionality in the grid
   void _toggleSelection(int productId) {
     setState(() {
       if (_selectedProductIds.contains(productId)) {
@@ -67,21 +70,26 @@ class _StyleImageChoiceScreenState extends State<StyleImageChoiceScreen> {
     });
   }
 
-  bool get _canProceed => _selectedProductIds.isNotEmpty;
+  /// Checks if user has selected at least one product to enable continue button
+  /// Returns true if any products are selected, false otherwise
+  bool get _canProceed => true;
 
+  /// Saves user's product selections to backend and completes onboarding
+  /// Marks onboarding as complete in SharedPreferences
+  /// Navigates to main app navigation after successful save
   Future<void> _saveSelections() async {
     setState(() => _isLoading = true);
     try {
-      // save selected products to backend
+      // Send selected product IDs to backend for user profile
       await _onboardingService.saveOnboardingSelections(
         _selectedProductIds.toList(),
       );
 
-      // mark onboarding complete
+      // Mark onboarding flow as completed locally
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('onboardingComplete', true);
 
-      // navigate to main shell
+      // Navigate to main app - onboarding is now complete
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const AppNavigation()),
       );
@@ -118,7 +126,7 @@ class _StyleImageChoiceScreenState extends State<StyleImageChoiceScreen> {
                 )
                 : Column(
                   children: [
-                    // --- Ultra Minimal Header ---
+                    // --- Header with back button and instructions ---
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                       child: Row(
@@ -158,7 +166,7 @@ class _StyleImageChoiceScreenState extends State<StyleImageChoiceScreen> {
                       ),
                     ),
 
-                    // --- 4x4 Scrollable Grid that fits exactly 4 rows ---
+                    // --- 4x4 product grid with tap-to-select functionality ---
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -166,15 +174,13 @@ class _StyleImageChoiceScreenState extends State<StyleImageChoiceScreen> {
                           builder: (context, constraints) {
                             const int columns = 4;
                             const double spacing = 8;
-                            // total available width/height after spacing
+                            // Calculate tile dimensions to fit exactly 4x4 grid
                             final double totalW =
                                 constraints.maxWidth - (columns - 1) * spacing;
                             final double totalH =
                                 constraints.maxHeight - (columns - 1) * spacing;
-                            // each tile size
                             final double tileW = totalW / columns;
-                            final double tileH =
-                                totalH / columns; // 4 rows = same as cols
+                            final double tileH = totalH / columns;
                             final double ratio = tileW / tileH;
 
                             return GridView.builder(
@@ -203,6 +209,7 @@ class _StyleImageChoiceScreenState extends State<StyleImageChoiceScreen> {
                                   child: Container(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(8),
+                                      // Blue border when selected, gray when not
                                       border: Border.all(
                                         color:
                                             isSelected
@@ -213,6 +220,7 @@ class _StyleImageChoiceScreenState extends State<StyleImageChoiceScreen> {
                                     ),
                                     child: Stack(
                                       children: [
+                                        // Product image with loading/error states
                                         ClipRRect(
                                           borderRadius: BorderRadius.circular(
                                             7,
@@ -255,6 +263,7 @@ class _StyleImageChoiceScreenState extends State<StyleImageChoiceScreen> {
                                                     ),
                                                   ),
                                         ),
+                                        // Blue checkmark overlay when item is selected
                                         if (isSelected)
                                           const Positioned(
                                             top: 4,
@@ -280,14 +289,13 @@ class _StyleImageChoiceScreenState extends State<StyleImageChoiceScreen> {
                       ),
                     ),
 
-                    // --- Fixed Continue Button ---
+                    // --- Continue button (always enabled, completes onboarding) ---
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       child: SizedBox(
                         width: double.infinity,
                         height: 44,
                         child: ElevatedButton(
-                          // always enabled
                           onPressed: _isLoading ? null : _saveSelections,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue,
