@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:fynds/services/product_item/onboarding/onboarding_service.dart';
+import 'package:fynds/services/onboarding/onboarding_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fynds/navigation/app_navigation.dart';
