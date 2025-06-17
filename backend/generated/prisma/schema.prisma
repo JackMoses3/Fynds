@@ -107,6 +107,7 @@ model User {
   updatedAt           DateTime            @updatedAt
   birthdate           DateTime?
   location            String?
+  previousSearches    String[]
   collections         Collection[]
   likes               Like[]
   purchaseHistory     PurchaseHistory[]
@@ -203,12 +204,19 @@ model CollectionItem {
 }
 
 model ViewingHistory {
-  id            Int         @id @default(autoincrement())
+  id            Int @id @default(autoincrement())
   userId        Int
   productItemId Int
-  viewedAt      DateTime    @default(now())
-  product       ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Signals/interactions
+  scrollLength Int?
+  scrollDepth  Float?
+
+  // Time tracking
+  viewedAt  DateTime    @default(now())
+  viewUntil DateTime?
+  product   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model PurchaseHistory {

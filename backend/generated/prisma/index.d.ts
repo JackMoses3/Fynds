@@ -10016,6 +10016,7 @@ export namespace Prisma {
     updatedAt: number
     birthdate: number
     location: number
+    previousSearches: number
     _all: number
   }
 
@@ -10079,6 +10080,7 @@ export namespace Prisma {
     updatedAt?: true
     birthdate?: true
     location?: true
+    previousSearches?: true
     _all?: true
   }
 
@@ -10183,6 +10185,7 @@ export namespace Prisma {
     updatedAt: Date
     birthdate: Date | null
     location: string | null
+    previousSearches: string[]
     _count: UserCountAggregateOutputType | null
     _avg: UserAvgAggregateOutputType | null
     _sum: UserSumAggregateOutputType | null
@@ -10219,6 +10222,7 @@ export namespace Prisma {
     updatedAt?: boolean
     birthdate?: boolean
     location?: boolean
+    previousSearches?: boolean
     collections?: boolean | User$collectionsArgs<ExtArgs>
     likes?: boolean | User$likesArgs<ExtArgs>
     purchaseHistory?: boolean | User$purchaseHistoryArgs<ExtArgs>
@@ -10244,6 +10248,7 @@ export namespace Prisma {
     updatedAt?: boolean
     birthdate?: boolean
     location?: boolean
+    previousSearches?: boolean
   }, ExtArgs["result"]["user"]>
 
   export type UserSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -10261,6 +10266,7 @@ export namespace Prisma {
     updatedAt?: boolean
     birthdate?: boolean
     location?: boolean
+    previousSearches?: boolean
   }, ExtArgs["result"]["user"]>
 
   export type UserSelectScalar = {
@@ -10278,9 +10284,10 @@ export namespace Prisma {
     updatedAt?: boolean
     birthdate?: boolean
     location?: boolean
+    previousSearches?: boolean
   }
 
-  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "firstName" | "lastName" | "clothingPreferences" | "verifyCode" | "isVerified" | "email" | "passwordHash" | "provider" | "providerId" | "createdAt" | "updatedAt" | "birthdate" | "location", ExtArgs["result"]["user"]>
+  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "firstName" | "lastName" | "clothingPreferences" | "verifyCode" | "isVerified" | "email" | "passwordHash" | "provider" | "providerId" | "createdAt" | "updatedAt" | "birthdate" | "location" | "previousSearches", ExtArgs["result"]["user"]>
   export type UserInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     collections?: boolean | User$collectionsArgs<ExtArgs>
     likes?: boolean | User$likesArgs<ExtArgs>
@@ -10320,6 +10327,7 @@ export namespace Prisma {
       updatedAt: Date
       birthdate: Date | null
       location: string | null
+      previousSearches: string[]
     }, ExtArgs["result"]["user"]>
     composites: {}
   }
@@ -10764,6 +10772,7 @@ export namespace Prisma {
     readonly updatedAt: FieldRef<"User", 'DateTime'>
     readonly birthdate: FieldRef<"User", 'DateTime'>
     readonly location: FieldRef<"User", 'String'>
+    readonly previousSearches: FieldRef<"User", 'String[]'>
   }
     
 
@@ -20234,33 +20243,46 @@ export namespace Prisma {
     id: number | null
     userId: number | null
     productItemId: number | null
+    scrollLength: number | null
+    scrollDepth: number | null
   }
 
   export type ViewingHistorySumAggregateOutputType = {
     id: number | null
     userId: number | null
     productItemId: number | null
+    scrollLength: number | null
+    scrollDepth: number | null
   }
 
   export type ViewingHistoryMinAggregateOutputType = {
     id: number | null
     userId: number | null
     productItemId: number | null
+    scrollLength: number | null
+    scrollDepth: number | null
     viewedAt: Date | null
+    viewUntil: Date | null
   }
 
   export type ViewingHistoryMaxAggregateOutputType = {
     id: number | null
     userId: number | null
     productItemId: number | null
+    scrollLength: number | null
+    scrollDepth: number | null
     viewedAt: Date | null
+    viewUntil: Date | null
   }
 
   export type ViewingHistoryCountAggregateOutputType = {
     id: number
     userId: number
     productItemId: number
+    scrollLength: number
+    scrollDepth: number
     viewedAt: number
+    viewUntil: number
     _all: number
   }
 
@@ -20269,33 +20291,46 @@ export namespace Prisma {
     id?: true
     userId?: true
     productItemId?: true
+    scrollLength?: true
+    scrollDepth?: true
   }
 
   export type ViewingHistorySumAggregateInputType = {
     id?: true
     userId?: true
     productItemId?: true
+    scrollLength?: true
+    scrollDepth?: true
   }
 
   export type ViewingHistoryMinAggregateInputType = {
     id?: true
     userId?: true
     productItemId?: true
+    scrollLength?: true
+    scrollDepth?: true
     viewedAt?: true
+    viewUntil?: true
   }
 
   export type ViewingHistoryMaxAggregateInputType = {
     id?: true
     userId?: true
     productItemId?: true
+    scrollLength?: true
+    scrollDepth?: true
     viewedAt?: true
+    viewUntil?: true
   }
 
   export type ViewingHistoryCountAggregateInputType = {
     id?: true
     userId?: true
     productItemId?: true
+    scrollLength?: true
+    scrollDepth?: true
     viewedAt?: true
+    viewUntil?: true
     _all?: true
   }
 
@@ -20389,7 +20424,10 @@ export namespace Prisma {
     id: number
     userId: number
     productItemId: number
+    scrollLength: number | null
+    scrollDepth: number | null
     viewedAt: Date
+    viewUntil: Date | null
     _count: ViewingHistoryCountAggregateOutputType | null
     _avg: ViewingHistoryAvgAggregateOutputType | null
     _sum: ViewingHistorySumAggregateOutputType | null
@@ -20415,7 +20453,10 @@ export namespace Prisma {
     id?: boolean
     userId?: boolean
     productItemId?: boolean
+    scrollLength?: boolean
+    scrollDepth?: boolean
     viewedAt?: boolean
+    viewUntil?: boolean
     product?: boolean | ProductItemDefaultArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["viewingHistory"]>
@@ -20424,7 +20465,10 @@ export namespace Prisma {
     id?: boolean
     userId?: boolean
     productItemId?: boolean
+    scrollLength?: boolean
+    scrollDepth?: boolean
     viewedAt?: boolean
+    viewUntil?: boolean
     product?: boolean | ProductItemDefaultArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["viewingHistory"]>
@@ -20433,7 +20477,10 @@ export namespace Prisma {
     id?: boolean
     userId?: boolean
     productItemId?: boolean
+    scrollLength?: boolean
+    scrollDepth?: boolean
     viewedAt?: boolean
+    viewUntil?: boolean
     product?: boolean | ProductItemDefaultArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["viewingHistory"]>
@@ -20442,10 +20489,13 @@ export namespace Prisma {
     id?: boolean
     userId?: boolean
     productItemId?: boolean
+    scrollLength?: boolean
+    scrollDepth?: boolean
     viewedAt?: boolean
+    viewUntil?: boolean
   }
 
-  export type ViewingHistoryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "productItemId" | "viewedAt", ExtArgs["result"]["viewingHistory"]>
+  export type ViewingHistoryOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "productItemId" | "scrollLength" | "scrollDepth" | "viewedAt" | "viewUntil", ExtArgs["result"]["viewingHistory"]>
   export type ViewingHistoryInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     product?: boolean | ProductItemDefaultArgs<ExtArgs>
     user?: boolean | UserDefaultArgs<ExtArgs>
@@ -20469,7 +20519,10 @@ export namespace Prisma {
       id: number
       userId: number
       productItemId: number
+      scrollLength: number | null
+      scrollDepth: number | null
       viewedAt: Date
+      viewUntil: Date | null
     }, ExtArgs["result"]["viewingHistory"]>
     composites: {}
   }
@@ -20898,7 +20951,10 @@ export namespace Prisma {
     readonly id: FieldRef<"ViewingHistory", 'Int'>
     readonly userId: FieldRef<"ViewingHistory", 'Int'>
     readonly productItemId: FieldRef<"ViewingHistory", 'Int'>
+    readonly scrollLength: FieldRef<"ViewingHistory", 'Int'>
+    readonly scrollDepth: FieldRef<"ViewingHistory", 'Float'>
     readonly viewedAt: FieldRef<"ViewingHistory", 'DateTime'>
+    readonly viewUntil: FieldRef<"ViewingHistory", 'DateTime'>
   }
     
 
@@ -23641,7 +23697,8 @@ export namespace Prisma {
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
     birthdate: 'birthdate',
-    location: 'location'
+    location: 'location',
+    previousSearches: 'previousSearches'
   };
 
   export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
@@ -23735,7 +23792,10 @@ export namespace Prisma {
     id: 'id',
     userId: 'userId',
     productItemId: 'productItemId',
-    viewedAt: 'viewedAt'
+    scrollLength: 'scrollLength',
+    scrollDepth: 'scrollDepth',
+    viewedAt: 'viewedAt',
+    viewUntil: 'viewUntil'
   };
 
   export type ViewingHistoryScalarFieldEnum = (typeof ViewingHistoryScalarFieldEnum)[keyof typeof ViewingHistoryScalarFieldEnum]
@@ -24342,6 +24402,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"User"> | Date | string
     birthdate?: DateTimeNullableFilter<"User"> | Date | string | null
     location?: StringNullableFilter<"User"> | string | null
+    previousSearches?: StringNullableListFilter<"User">
     collections?: CollectionListRelationFilter
     likes?: LikeListRelationFilter
     purchaseHistory?: PurchaseHistoryListRelationFilter
@@ -24366,6 +24427,7 @@ export namespace Prisma {
     updatedAt?: SortOrder
     birthdate?: SortOrderInput | SortOrder
     location?: SortOrderInput | SortOrder
+    previousSearches?: SortOrder
     collections?: CollectionOrderByRelationAggregateInput
     likes?: LikeOrderByRelationAggregateInput
     purchaseHistory?: PurchaseHistoryOrderByRelationAggregateInput
@@ -24394,6 +24456,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"User"> | Date | string
     birthdate?: DateTimeNullableFilter<"User"> | Date | string | null
     location?: StringNullableFilter<"User"> | string | null
+    previousSearches?: StringNullableListFilter<"User">
     collections?: CollectionListRelationFilter
     likes?: LikeListRelationFilter
     purchaseHistory?: PurchaseHistoryListRelationFilter
@@ -24418,6 +24481,7 @@ export namespace Prisma {
     updatedAt?: SortOrder
     birthdate?: SortOrderInput | SortOrder
     location?: SortOrderInput | SortOrder
+    previousSearches?: SortOrder
     _count?: UserCountOrderByAggregateInput
     _avg?: UserAvgOrderByAggregateInput
     _max?: UserMaxOrderByAggregateInput
@@ -24443,6 +24507,7 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
     birthdate?: DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
     location?: StringNullableWithAggregatesFilter<"User"> | string | null
+    previousSearches?: StringNullableListFilter<"User">
   }
 
   export type StyleWhereInput = {
@@ -24916,7 +24981,10 @@ export namespace Prisma {
     id?: IntFilter<"ViewingHistory"> | number
     userId?: IntFilter<"ViewingHistory"> | number
     productItemId?: IntFilter<"ViewingHistory"> | number
+    scrollLength?: IntNullableFilter<"ViewingHistory"> | number | null
+    scrollDepth?: FloatNullableFilter<"ViewingHistory"> | number | null
     viewedAt?: DateTimeFilter<"ViewingHistory"> | Date | string
+    viewUntil?: DateTimeNullableFilter<"ViewingHistory"> | Date | string | null
     product?: XOR<ProductItemScalarRelationFilter, ProductItemWhereInput>
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
   }
@@ -24925,7 +24993,10 @@ export namespace Prisma {
     id?: SortOrder
     userId?: SortOrder
     productItemId?: SortOrder
+    scrollLength?: SortOrderInput | SortOrder
+    scrollDepth?: SortOrderInput | SortOrder
     viewedAt?: SortOrder
+    viewUntil?: SortOrderInput | SortOrder
     product?: ProductItemOrderByWithRelationInput
     user?: UserOrderByWithRelationInput
   }
@@ -24937,7 +25008,10 @@ export namespace Prisma {
     NOT?: ViewingHistoryWhereInput | ViewingHistoryWhereInput[]
     userId?: IntFilter<"ViewingHistory"> | number
     productItemId?: IntFilter<"ViewingHistory"> | number
+    scrollLength?: IntNullableFilter<"ViewingHistory"> | number | null
+    scrollDepth?: FloatNullableFilter<"ViewingHistory"> | number | null
     viewedAt?: DateTimeFilter<"ViewingHistory"> | Date | string
+    viewUntil?: DateTimeNullableFilter<"ViewingHistory"> | Date | string | null
     product?: XOR<ProductItemScalarRelationFilter, ProductItemWhereInput>
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
   }, "id">
@@ -24946,7 +25020,10 @@ export namespace Prisma {
     id?: SortOrder
     userId?: SortOrder
     productItemId?: SortOrder
+    scrollLength?: SortOrderInput | SortOrder
+    scrollDepth?: SortOrderInput | SortOrder
     viewedAt?: SortOrder
+    viewUntil?: SortOrderInput | SortOrder
     _count?: ViewingHistoryCountOrderByAggregateInput
     _avg?: ViewingHistoryAvgOrderByAggregateInput
     _max?: ViewingHistoryMaxOrderByAggregateInput
@@ -24961,7 +25038,10 @@ export namespace Prisma {
     id?: IntWithAggregatesFilter<"ViewingHistory"> | number
     userId?: IntWithAggregatesFilter<"ViewingHistory"> | number
     productItemId?: IntWithAggregatesFilter<"ViewingHistory"> | number
+    scrollLength?: IntNullableWithAggregatesFilter<"ViewingHistory"> | number | null
+    scrollDepth?: FloatNullableWithAggregatesFilter<"ViewingHistory"> | number | null
     viewedAt?: DateTimeWithAggregatesFilter<"ViewingHistory"> | Date | string
+    viewUntil?: DateTimeNullableWithAggregatesFilter<"ViewingHistory"> | Date | string | null
   }
 
   export type PurchaseHistoryWhereInput = {
@@ -25561,6 +25641,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionCreateNestedManyWithoutUserInput
     likes?: LikeCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryCreateNestedManyWithoutUserInput
@@ -25585,6 +25666,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedCreateNestedManyWithoutUserInput
     likes?: LikeUncheckedCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryUncheckedCreateNestedManyWithoutUserInput
@@ -25608,6 +25690,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUpdateManyWithoutUserNestedInput
     likes?: LikeUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUpdateManyWithoutUserNestedInput
@@ -25632,6 +25715,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedUpdateManyWithoutUserNestedInput
     likes?: LikeUncheckedUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUncheckedUpdateManyWithoutUserNestedInput
@@ -25656,6 +25740,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
   }
 
   export type UserUpdateManyMutationInput = {
@@ -25672,6 +25757,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
   }
 
   export type UserUncheckedUpdateManyInput = {
@@ -25689,6 +25775,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
   }
 
   export type StyleCreateInput = {
@@ -26093,7 +26180,10 @@ export namespace Prisma {
   }
 
   export type ViewingHistoryCreateInput = {
+    scrollLength?: number | null
+    scrollDepth?: number | null
     viewedAt?: Date | string
+    viewUntil?: Date | string | null
     product: ProductItemCreateNestedOneWithoutViewingHistoryInput
     user: UserCreateNestedOneWithoutViewingHistoryInput
   }
@@ -26102,11 +26192,17 @@ export namespace Prisma {
     id?: number
     userId: number
     productItemId: number
+    scrollLength?: number | null
+    scrollDepth?: number | null
     viewedAt?: Date | string
+    viewUntil?: Date | string | null
   }
 
   export type ViewingHistoryUpdateInput = {
+    scrollLength?: NullableIntFieldUpdateOperationsInput | number | null
+    scrollDepth?: NullableFloatFieldUpdateOperationsInput | number | null
     viewedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    viewUntil?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     product?: ProductItemUpdateOneRequiredWithoutViewingHistoryNestedInput
     user?: UserUpdateOneRequiredWithoutViewingHistoryNestedInput
   }
@@ -26115,25 +26211,37 @@ export namespace Prisma {
     id?: IntFieldUpdateOperationsInput | number
     userId?: IntFieldUpdateOperationsInput | number
     productItemId?: IntFieldUpdateOperationsInput | number
+    scrollLength?: NullableIntFieldUpdateOperationsInput | number | null
+    scrollDepth?: NullableFloatFieldUpdateOperationsInput | number | null
     viewedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    viewUntil?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type ViewingHistoryCreateManyInput = {
     id?: number
     userId: number
     productItemId: number
+    scrollLength?: number | null
+    scrollDepth?: number | null
     viewedAt?: Date | string
+    viewUntil?: Date | string | null
   }
 
   export type ViewingHistoryUpdateManyMutationInput = {
+    scrollLength?: NullableIntFieldUpdateOperationsInput | number | null
+    scrollDepth?: NullableFloatFieldUpdateOperationsInput | number | null
     viewedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    viewUntil?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type ViewingHistoryUncheckedUpdateManyInput = {
     id?: IntFieldUpdateOperationsInput | number
     userId?: IntFieldUpdateOperationsInput | number
     productItemId?: IntFieldUpdateOperationsInput | number
+    scrollLength?: NullableIntFieldUpdateOperationsInput | number | null
+    scrollDepth?: NullableFloatFieldUpdateOperationsInput | number | null
     viewedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    viewUntil?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type PurchaseHistoryCreateInput = {
@@ -26931,6 +27039,7 @@ export namespace Prisma {
     updatedAt?: SortOrder
     birthdate?: SortOrder
     location?: SortOrder
+    previousSearches?: SortOrder
   }
 
   export type UserAvgOrderByAggregateInput = {
@@ -27328,33 +27437,46 @@ export namespace Prisma {
     id?: SortOrder
     userId?: SortOrder
     productItemId?: SortOrder
+    scrollLength?: SortOrder
+    scrollDepth?: SortOrder
     viewedAt?: SortOrder
+    viewUntil?: SortOrder
   }
 
   export type ViewingHistoryAvgOrderByAggregateInput = {
     id?: SortOrder
     userId?: SortOrder
     productItemId?: SortOrder
+    scrollLength?: SortOrder
+    scrollDepth?: SortOrder
   }
 
   export type ViewingHistoryMaxOrderByAggregateInput = {
     id?: SortOrder
     userId?: SortOrder
     productItemId?: SortOrder
+    scrollLength?: SortOrder
+    scrollDepth?: SortOrder
     viewedAt?: SortOrder
+    viewUntil?: SortOrder
   }
 
   export type ViewingHistoryMinOrderByAggregateInput = {
     id?: SortOrder
     userId?: SortOrder
     productItemId?: SortOrder
+    scrollLength?: SortOrder
+    scrollDepth?: SortOrder
     viewedAt?: SortOrder
+    viewUntil?: SortOrder
   }
 
   export type ViewingHistorySumOrderByAggregateInput = {
     id?: SortOrder
     userId?: SortOrder
     productItemId?: SortOrder
+    scrollLength?: SortOrder
+    scrollDepth?: SortOrder
   }
 
   export type PurchaseHistoryCountOrderByAggregateInput = {
@@ -28131,6 +28253,10 @@ export namespace Prisma {
     update?: XOR<XOR<ProductItemUpdateToOneWithWhereWithoutItemVideosInput, ProductItemUpdateWithoutItemVideosInput>, ProductItemUncheckedUpdateWithoutItemVideosInput>
   }
 
+  export type UserCreatepreviousSearchesInput = {
+    set: string[]
+  }
+
   export type CollectionCreateNestedManyWithoutUserInput = {
     create?: XOR<CollectionCreateWithoutUserInput, CollectionUncheckedCreateWithoutUserInput> | CollectionCreateWithoutUserInput[] | CollectionUncheckedCreateWithoutUserInput[]
     connectOrCreate?: CollectionCreateOrConnectWithoutUserInput | CollectionCreateOrConnectWithoutUserInput[]
@@ -28231,6 +28357,11 @@ export namespace Prisma {
 
   export type BoolFieldUpdateOperationsInput = {
     set?: boolean
+  }
+
+  export type UserUpdatepreviousSearchesInput = {
+    set?: string[]
+    push?: string | string[]
   }
 
   export type CollectionUpdateManyWithoutUserNestedInput = {
@@ -29335,14 +29466,20 @@ export namespace Prisma {
   }
 
   export type ViewingHistoryCreateWithoutProductInput = {
+    scrollLength?: number | null
+    scrollDepth?: number | null
     viewedAt?: Date | string
+    viewUntil?: Date | string | null
     user: UserCreateNestedOneWithoutViewingHistoryInput
   }
 
   export type ViewingHistoryUncheckedCreateWithoutProductInput = {
     id?: number
     userId: number
+    scrollLength?: number | null
+    scrollDepth?: number | null
     viewedAt?: Date | string
+    viewUntil?: Date | string | null
   }
 
   export type ViewingHistoryCreateOrConnectWithoutProductInput = {
@@ -29646,7 +29783,10 @@ export namespace Prisma {
     id?: IntFilter<"ViewingHistory"> | number
     userId?: IntFilter<"ViewingHistory"> | number
     productItemId?: IntFilter<"ViewingHistory"> | number
+    scrollLength?: IntNullableFilter<"ViewingHistory"> | number | null
+    scrollDepth?: FloatNullableFilter<"ViewingHistory"> | number | null
     viewedAt?: DateTimeFilter<"ViewingHistory"> | Date | string
+    viewUntil?: DateTimeNullableFilter<"ViewingHistory"> | Date | string | null
   }
 
   export type OnboardingProductUpsertWithWhereUniqueWithoutProductItemInput = {
@@ -30468,14 +30608,20 @@ export namespace Prisma {
   }
 
   export type ViewingHistoryCreateWithoutUserInput = {
+    scrollLength?: number | null
+    scrollDepth?: number | null
     viewedAt?: Date | string
+    viewUntil?: Date | string | null
     product: ProductItemCreateNestedOneWithoutViewingHistoryInput
   }
 
   export type ViewingHistoryUncheckedCreateWithoutUserInput = {
     id?: number
     productItemId: number
+    scrollLength?: number | null
+    scrollDepth?: number | null
     viewedAt?: Date | string
+    viewUntil?: Date | string | null
   }
 
   export type ViewingHistoryCreateOrConnectWithoutUserInput = {
@@ -30951,6 +31097,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionCreateNestedManyWithoutUserInput
     likes?: LikeCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryCreateNestedManyWithoutUserInput
@@ -30974,6 +31121,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedCreateNestedManyWithoutUserInput
     likes?: LikeUncheckedCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryUncheckedCreateNestedManyWithoutUserInput
@@ -31042,6 +31190,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUpdateManyWithoutUserNestedInput
     likes?: LikeUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUpdateManyWithoutUserNestedInput
@@ -31065,6 +31214,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedUpdateManyWithoutUserNestedInput
     likes?: LikeUncheckedUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUncheckedUpdateManyWithoutUserNestedInput
@@ -31087,6 +31237,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionCreateNestedManyWithoutUserInput
     likes?: LikeCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryCreateNestedManyWithoutUserInput
@@ -31110,6 +31261,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedCreateNestedManyWithoutUserInput
     likes?: LikeUncheckedCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryUncheckedCreateNestedManyWithoutUserInput
@@ -31169,6 +31321,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUpdateManyWithoutUserNestedInput
     likes?: LikeUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUpdateManyWithoutUserNestedInput
@@ -31192,6 +31345,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedUpdateManyWithoutUserNestedInput
     likes?: LikeUncheckedUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUncheckedUpdateManyWithoutUserNestedInput
@@ -31458,6 +31612,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryCreateNestedManyWithoutUserInput
     shoppingTrolleys?: ShoppingTrolleyCreateNestedManyWithoutUserInput
@@ -31481,6 +31636,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryUncheckedCreateNestedManyWithoutUserInput
     shoppingTrolleys?: ShoppingTrolleyUncheckedCreateNestedManyWithoutUserInput
@@ -31585,6 +31741,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUpdateManyWithoutUserNestedInput
     shoppingTrolleys?: ShoppingTrolleyUpdateManyWithoutUserNestedInput
@@ -31608,6 +31765,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUncheckedUpdateManyWithoutUserNestedInput
     shoppingTrolleys?: ShoppingTrolleyUncheckedUpdateManyWithoutUserNestedInput
@@ -31630,6 +31788,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     likes?: LikeCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryCreateNestedManyWithoutUserInput
     shoppingTrolleys?: ShoppingTrolleyCreateNestedManyWithoutUserInput
@@ -31653,6 +31812,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     likes?: LikeUncheckedCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryUncheckedCreateNestedManyWithoutUserInput
     shoppingTrolleys?: ShoppingTrolleyUncheckedCreateNestedManyWithoutUserInput
@@ -31710,6 +31870,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     likes?: LikeUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUpdateManyWithoutUserNestedInput
     shoppingTrolleys?: ShoppingTrolleyUpdateManyWithoutUserNestedInput
@@ -31733,6 +31894,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     likes?: LikeUncheckedUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUncheckedUpdateManyWithoutUserNestedInput
     shoppingTrolleys?: ShoppingTrolleyUncheckedUpdateManyWithoutUserNestedInput
@@ -32003,6 +32165,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionCreateNestedManyWithoutUserInput
     likes?: LikeCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryCreateNestedManyWithoutUserInput
@@ -32026,6 +32189,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedCreateNestedManyWithoutUserInput
     likes?: LikeUncheckedCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryUncheckedCreateNestedManyWithoutUserInput
@@ -32130,6 +32294,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUpdateManyWithoutUserNestedInput
     likes?: LikeUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUpdateManyWithoutUserNestedInput
@@ -32153,6 +32318,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedUpdateManyWithoutUserNestedInput
     likes?: LikeUncheckedUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUncheckedUpdateManyWithoutUserNestedInput
@@ -32235,6 +32401,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionCreateNestedManyWithoutUserInput
     likes?: LikeCreateNestedManyWithoutUserInput
     shoppingTrolleys?: ShoppingTrolleyCreateNestedManyWithoutUserInput
@@ -32258,6 +32425,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedCreateNestedManyWithoutUserInput
     likes?: LikeUncheckedCreateNestedManyWithoutUserInput
     shoppingTrolleys?: ShoppingTrolleyUncheckedCreateNestedManyWithoutUserInput
@@ -32362,6 +32530,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUpdateManyWithoutUserNestedInput
     likes?: LikeUpdateManyWithoutUserNestedInput
     shoppingTrolleys?: ShoppingTrolleyUpdateManyWithoutUserNestedInput
@@ -32385,6 +32554,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedUpdateManyWithoutUserNestedInput
     likes?: LikeUncheckedUpdateManyWithoutUserNestedInput
     shoppingTrolleys?: ShoppingTrolleyUncheckedUpdateManyWithoutUserNestedInput
@@ -32467,6 +32637,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionCreateNestedManyWithoutUserInput
     likes?: LikeCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryCreateNestedManyWithoutUserInput
@@ -32490,6 +32661,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     birthdate?: Date | string | null
     location?: string | null
+    previousSearches?: UserCreatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedCreateNestedManyWithoutUserInput
     likes?: LikeUncheckedCreateNestedManyWithoutUserInput
     purchaseHistory?: PurchaseHistoryUncheckedCreateNestedManyWithoutUserInput
@@ -32594,6 +32766,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUpdateManyWithoutUserNestedInput
     likes?: LikeUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUpdateManyWithoutUserNestedInput
@@ -32617,6 +32790,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     birthdate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    previousSearches?: UserUpdatepreviousSearchesInput | string[]
     collections?: CollectionUncheckedUpdateManyWithoutUserNestedInput
     likes?: LikeUncheckedUpdateManyWithoutUserNestedInput
     purchaseHistory?: PurchaseHistoryUncheckedUpdateManyWithoutUserNestedInput
@@ -32681,7 +32855,10 @@ export namespace Prisma {
   export type ViewingHistoryCreateManyProductInput = {
     id?: number
     userId: number
+    scrollLength?: number | null
+    scrollDepth?: number | null
     viewedAt?: Date | string
+    viewUntil?: Date | string | null
   }
 
   export type OnboardingProductCreateManyProductItemInput = {
@@ -32843,20 +33020,29 @@ export namespace Prisma {
   }
 
   export type ViewingHistoryUpdateWithoutProductInput = {
+    scrollLength?: NullableIntFieldUpdateOperationsInput | number | null
+    scrollDepth?: NullableFloatFieldUpdateOperationsInput | number | null
     viewedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    viewUntil?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     user?: UserUpdateOneRequiredWithoutViewingHistoryNestedInput
   }
 
   export type ViewingHistoryUncheckedUpdateWithoutProductInput = {
     id?: IntFieldUpdateOperationsInput | number
     userId?: IntFieldUpdateOperationsInput | number
+    scrollLength?: NullableIntFieldUpdateOperationsInput | number | null
+    scrollDepth?: NullableFloatFieldUpdateOperationsInput | number | null
     viewedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    viewUntil?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type ViewingHistoryUncheckedUpdateManyWithoutProductInput = {
     id?: IntFieldUpdateOperationsInput | number
     userId?: IntFieldUpdateOperationsInput | number
+    scrollLength?: NullableIntFieldUpdateOperationsInput | number | null
+    scrollDepth?: NullableFloatFieldUpdateOperationsInput | number | null
     viewedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    viewUntil?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type OnboardingProductUpdateWithoutProductItemInput = {
@@ -33062,7 +33248,10 @@ export namespace Prisma {
   export type ViewingHistoryCreateManyUserInput = {
     id?: number
     productItemId: number
+    scrollLength?: number | null
+    scrollDepth?: number | null
     viewedAt?: Date | string
+    viewUntil?: Date | string | null
   }
 
   export type OnboardingProductCreateManyUserInput = {
@@ -33171,20 +33360,29 @@ export namespace Prisma {
   }
 
   export type ViewingHistoryUpdateWithoutUserInput = {
+    scrollLength?: NullableIntFieldUpdateOperationsInput | number | null
+    scrollDepth?: NullableFloatFieldUpdateOperationsInput | number | null
     viewedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    viewUntil?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     product?: ProductItemUpdateOneRequiredWithoutViewingHistoryNestedInput
   }
 
   export type ViewingHistoryUncheckedUpdateWithoutUserInput = {
     id?: IntFieldUpdateOperationsInput | number
     productItemId?: IntFieldUpdateOperationsInput | number
+    scrollLength?: NullableIntFieldUpdateOperationsInput | number | null
+    scrollDepth?: NullableFloatFieldUpdateOperationsInput | number | null
     viewedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    viewUntil?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type ViewingHistoryUncheckedUpdateManyWithoutUserInput = {
     id?: IntFieldUpdateOperationsInput | number
     productItemId?: IntFieldUpdateOperationsInput | number
+    scrollLength?: NullableIntFieldUpdateOperationsInput | number | null
+    scrollDepth?: NullableFloatFieldUpdateOperationsInput | number | null
     viewedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    viewUntil?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type OnboardingProductUpdateWithoutUserInput = {

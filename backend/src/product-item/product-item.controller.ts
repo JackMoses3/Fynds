@@ -1,7 +1,6 @@
 import { Body, Controller, Get, Post, NotFoundException } from '@nestjs/common';
 import { ProductItemService } from './product-item.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
-import { FilterProductItemDto } from './dto/filter-product-item.dto';
 
 class BatchRequestDto {
   ids!: number[];
@@ -41,13 +40,13 @@ export class ProductItemController {
     return this.productItemService.getRandomProducts();
   }
 
-  /** POST /product-item/filtered */
-  @Post('filtered')
-  getFilteredProducts(
-    @Body() filters: FilterProductItemDto,
-  ): Promise<ProductItemTransferDto[] | null> {
-    return this.productItemService.getFilteredProductItems(filters);
-  }
+  // /** POST /product-item/filtered */
+  // @Post('filtered')
+  // getFilteredProducts(
+  //   @Body() filters: FilterProductItemDto,
+  // ): Promise<ProductItemTransferDto[] | null> {
+  //   return this.productItemService.getFilteredProductItems(filters);
+  // }
 
   /** POST /product-item/batch */
   @Post('batch')

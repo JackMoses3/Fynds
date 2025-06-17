@@ -3,7 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ProductImage, ProductItem } from '../../generated/prisma';
 import { DatabaseService } from '../database/database.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
-import { FilterProductItemDto } from './dto/filter-product-item.dto';
+import { FilterDto } from './dto/filter.dto';
 
 @Injectable()
 export class ProductItemService {
@@ -37,7 +37,7 @@ export class ProductItemService {
     const rows = await this.db.productItem.findMany({
       where,
       distinct: ['retailer'],
-      select: { retailer: true },
+      qlect: { retailer: true },
     });
     return rows.map((r) => r.retailer!).filter(Boolean);
   }

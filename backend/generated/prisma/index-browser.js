@@ -196,7 +196,8 @@ exports.Prisma.UserScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   birthdate: 'birthdate',
-  location: 'location'
+  location: 'location',
+  previousSearches: 'previousSearches'
 };
 
 exports.Prisma.StyleScalarFieldEnum = {
@@ -263,7 +264,10 @@ exports.Prisma.ViewingHistoryScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   productItemId: 'productItemId',
-  viewedAt: 'viewedAt'
+  scrollLength: 'scrollLength',
+  scrollDepth: 'scrollDepth',
+  viewedAt: 'viewedAt',
+  viewUntil: 'viewUntil'
 };
 
 exports.Prisma.PurchaseHistoryScalarFieldEnum = {
