@@ -15,11 +15,8 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final done = prefs.getBool('onboardingComplete') ?? false;
   // check if the user is authenticated
-  //final authService = AuthService();
-  //final bool isAuthenticated = await authService.checkLoginStatus();
-
-  final bool onboardingDone = false;
-  final bool isAuthenticated = false;
+  final authService = AuthService();
+  final bool isAuthenticated = await authService.checkLoginStatus();
 
   runApp(MyApp(onboardingDone: done, isAuthenticated: isAuthenticated));
 }
