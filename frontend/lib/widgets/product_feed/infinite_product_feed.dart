@@ -48,6 +48,16 @@ class _InfiniteProductFeedState extends State<InfiniteProductFeed> {
     }
   }
 
+  @override
+  void didUpdateWidget(InfiniteProductFeed oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // If filters changed, reset and reload
+    if (oldWidget.initialFilters != widget.initialFilters) {
+      _resetAndReload();
+    }
+  }
+
   Future<void> _loadMore() async {
     if (_isLoading || !_hasMore) return;
     setState(() => _isLoading = true);
@@ -81,6 +91,17 @@ class _InfiniteProductFeedState extends State<InfiniteProductFeed> {
       _items.addAll(batch);
     }
     setState(() => _isLoading = false);
+  }
+
+  void _resetAndReload() {
+    setState(() {
+      _items.clear();
+      _hasMore = true;
+      _isLoading = false;
+    });
+
+    // Trigger a new load with the updated filters
+    _loadMore();
   }
 
   @override
