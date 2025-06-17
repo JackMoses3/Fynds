@@ -1,16 +1,13 @@
 // backend/src/embedding/embedding.controller.ts
 
 import {
-  TextSearchDto,
-  SearchDto,
   SimilarProductDto,
-  ProcessProductDto,
   ProcessProductResponseDto,
   BatchEmbedRetailerDto,
   EmbeddingQdrantBatchResult,
 } from './dto/embedding-qdrant.dto';
 import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
-import { Public } from '../types';
+import { Public, RequestUser } from '../types';
 import {
   Controller,
   Post,
@@ -20,6 +17,7 @@ import {
   UploadedFile,
   HttpException,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -30,6 +28,8 @@ import {
   MultimodalStyleClassificationResponse,
 } from './dto/embedding-style.dto';
 import { StyleAnalysisConfig } from './dto/multimodal-style-classification.dto';
+import { FilterDto } from 'src/product-item/dto/filter.dto';
+import { TextSearchDto } from './dto/controller.dto';
 
 @Controller('embedding-qdrant')
 export class EmbeddingQdrantController {
@@ -47,10 +47,14 @@ export class EmbeddingQdrantController {
   @Public()
   @Post('search-text')
   async searchText(
+    @Req() req: RequestUser,
     @Body() request: TextSearchDto,
   ): Promise<ProductItemTransferDto[]> {
-    const { text, ...filters } = request;
-    return this.embeddingQdrantService.searchByText(text, filters);
+    return this.embeddingQdrantService.searchByText(
+      req.user.sub,
+      request.query,
+      request.filters,
+    );
   }
 
   /**
@@ -67,9 +71,14 @@ export class EmbeddingQdrantController {
   )
   async searchImage(
     @UploadedFile() image: Express.Multer.File,
-    @Body() filters: SearchDto,
+    @Req() req: RequestUser,
+    @Body() filters: FilterDto,
   ): Promise<ProductItemTransferDto[]> {
-    return this.embeddingQdrantService.searchByImage(image, filters);
+    return this.embeddingQdrantService.searchByImage(
+      req.user.sub,
+      image,
+      filters,
+    );
   }
 
   /**
@@ -98,6 +107,7 @@ export class EmbeddingQdrantController {
   @Public()
   @Post('similar-product')
   async similarProduct(
+    @Req() req: RequestUser,
     @Body() request: SimilarProductDto,
   ): Promise<{ id: number; distance: number }[]> {
     const { productId, ...filters } = request;

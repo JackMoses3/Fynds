@@ -9,6 +9,7 @@ import { DatabaseService } from '../database/database.service';
 import { CollectionType, Gender } from '../qdrant/dto/qdrant.dto';
 import { MultimodalStyleClassificationResponse } from './dto/embedding-style.dto';
 import {
+  QdrantFilter,
   QdrantInsertResponse,
   QdrantSearchResponse,
 } from '../qdrant/models/qdrant.model';
@@ -26,6 +27,8 @@ import {
   WeightedStyleScore,
   StyleAnalysisResult,
 } from './dto/multimodal-style-classification.dto';
+import { FilterDto } from '../product-item/dto/filter.dto';
+import { QdrantFilterModel } from 'src/qdrant/models/filter.model';
 
 @Injectable()
 export class EmbeddingQdrantService {
@@ -40,9 +43,23 @@ export class EmbeddingQdrantService {
   /* ───────────────────────────── search helpers ───────────────────────────── */
 
   async searchByText(
+    userId: number | null,
     query: string,
-    filters: SearchDto,
+    filters: FilterDto,
   ): Promise<ProductItemTransferDto[]> {
+    // Finish the filters for a personalized search
+    let updatedFilters: QdrantFilterModel;
+
+    if (userId) {
+      const userFilters = await this.getUserFilters(userId);
+      updatedFilters = {
+        gender: userFilters.gender,
+        style: userFilters.style,
+        filter: filters,
+      };
+    } else {
+      updatedFilters = { filter: filters };
+    }
     const queryEmbedding =
       await this.embeddingService.generateTextEmbedding(query);
 
@@ -90,8 +107,9 @@ export class EmbeddingQdrantService {
   }
 
   async searchByImage(
+    userId: number | null,
     file: Express.Multer.File,
-    filters: SearchDto,
+    filters: FilterDto,
   ): Promise<ProductItemTransferDto[]> {
     if (!file)
       throw new HttpException('No image supplied', HttpStatus.BAD_REQUEST);
@@ -102,6 +120,19 @@ export class EmbeddingQdrantService {
       label === 'front'
         ? CollectionType.IMAGE_FRONT_EMBEDDINGS
         : CollectionType.IMAGE_BACK_EMBEDDINGS;
+
+    let updatedFilters: QdrantFilterModel;
+
+    if (userId) {
+      const userFilters = await this.getUserFilters(userId);
+      updatedFilters = {
+        gender: userFilters.gender,
+        style: userFilters.style,
+        filter: filters,
+      };
+    } else {
+      updatedFilters = { filter: filters };
+    }
 
     const searchRes = await this.qdrantService.search({
       collection,
@@ -459,7 +490,7 @@ export class EmbeddingQdrantService {
     if (frontEmbedding) {
       this.qdrantService.insertVector({
         collection: CollectionType.IMAGE_FRONT_EMBEDDINGS,
-        productId,
+        product_id: productId,
         vector: frontEmbedding,
         ...metadata,
       });
@@ -467,7 +498,7 @@ export class EmbeddingQdrantService {
     if (backEmbedding) {
       this.qdrantService.insertVector({
         collection: CollectionType.IMAGE_BACK_EMBEDDINGS,
-        productId,
+        product_id: productId,
         vector: backEmbedding,
         ...metadata,
       });
@@ -475,7 +506,7 @@ export class EmbeddingQdrantService {
     if (textEmbedding) {
       this.qdrantService.insertVector({
         collection: CollectionType.TEXT_EMBEDDINGS,
-        productId,
+        product_id: productId,
         vector: textEmbedding,
         ...metadata,
       });
@@ -1102,5 +1133,26 @@ export class EmbeddingQdrantService {
       dryRun,
       batchSize: 100, // Larger batches since these are likely easier to process
     });
+  }
+
+  async getUserFilters(
+    userId: number,
+  ): Promise<{ gender: Gender[]; style: string[] }> {
+    const user = await this.db.user.findUnique({
+      where: { id: userId },
+      select: {
+        clothingPreferences: true,
+        userStyles: { select: { style: { select: { name: true } } } },
+      },
+    });
+
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    return {
+      gender: [user.clothingPreferences as Gender],
+      style: user.userStyles.map((s) => s.style.name),
+    };
   }
 }

@@ -3,7 +3,7 @@ import { ProductItemService } from './product-item.service';
 
 @Controller('product-item/options')
 export class ProductItemOptionsController {
-  constructor(private readonly svc: ProductItemService) {}
+  constructor(private readonly productItemService: ProductItemService) {}
 
   private normalizeArrayParam(param?: string | string[]): string[] | undefined {
     if (!param) return undefined;
@@ -18,7 +18,7 @@ export class ProductItemOptionsController {
   ) {
     const retailer = this.normalizeArrayParam(rawRetailer);
     const category = this.normalizeArrayParam(rawCategory);
-    return this.svc.getUniqueBrands({
+    return this.productItemService.getUniqueBrands({
       retailer,
       category,
     });
@@ -31,22 +31,9 @@ export class ProductItemOptionsController {
   ) {
     const brand = this.normalizeArrayParam(rawBrand);
     const category = this.normalizeArrayParam(rawCategory);
-    return this.svc.getUniqueRetailers({
+    return this.productItemService.getUniqueRetailers({
       brand,
       category,
-    });
-  }
-
-  @Get('categories')
-  getCategories(
-    @Query('brand') rawBrand?: string | string[],
-    @Query('retailer') rawRetailer?: string | string[],
-  ) {
-    const brand = this.normalizeArrayParam(rawBrand);
-    const retailer = this.normalizeArrayParam(rawRetailer);
-    return this.svc.getUniqueCategories({
-      brand,
-      retailer,
     });
   }
 }
