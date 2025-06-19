@@ -5,6 +5,7 @@ import 'package:fynds/services/basket/basket_service.dart';
 import 'package:fynds/services/like/like_service.dart' as like_service;
 import 'package:fynds/services/collection/collection_service.dart';
 import 'package:fynds/models/collection.dart';
+import 'package:fynds/services/viewing/viewing_service.dart'; // Import the new service
 
 class ProductItemWidget extends StatefulWidget {
   final ProductItem product;
@@ -24,8 +25,14 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
 
   final _likeService = like_service.LikeService();
   final _collectionService = CollectionService();
+  final _viewingService = ViewingService(); // Add viewing service
 
-  // For demo: use the first collection as the "saved" collection
+  // Viewing analytics tracking
+  DateTime? _viewStartTime;
+  int _horizontalSwipes = 0;
+  bool _analyticsSubmitted = false;
+
+  // Variable to store the collection ID
   int? _myCollectionId;
 
   @override
@@ -45,6 +52,9 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
     )..addStatusListener((s) {
       if (s == AnimationStatus.completed) _basketController.reverse();
     });
+
+    // Start tracking view time when widget initializes
+    _viewStartTime = DateTime.now();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _fetchStates();
@@ -83,8 +93,29 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
     }
   }
 
+  // Submit viewing analytics
+  Future<void> _submitViewingAnalytics() async {
+    if (_analyticsSubmitted || _viewStartTime == null) return;
+
+    final now = DateTime.now();
+    final viewDurationSeconds = now.difference(_viewStartTime!).inSeconds;
+
+    // Only submit if they viewed for at least 1 second
+    if (viewDurationSeconds >= 1) {
+      await _viewingService.recordViewing(
+        productId: widget.product.id,
+        scrollLengthSeconds: viewDurationSeconds,
+        scrollDepth: _horizontalSwipes,
+      );
+
+      _analyticsSubmitted = true;
+    }
+  }
+
   @override
   void dispose() {
+    // Submit analytics when widget disposes
+    _submitViewingAnalytics();
     _pageController.dispose();
     _basketController.dispose();
     super.dispose();
@@ -251,7 +282,14 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
             scrollDirection: Axis.horizontal,
             itemCount: p.images.length,
             onPageChanged: (i) {
-              setState(() => _currentImage = i);
+              setState(() {
+                _currentImage = i;
+                // Increment horizontal swipes counter for analytics
+                if (i != 0) {
+                  _horizontalSwipes++;
+                }
+              });
+
               for (int off = 1; off <= 2; off++) {
                 if (i + off < p.images.length) {
                   precacheImage(
