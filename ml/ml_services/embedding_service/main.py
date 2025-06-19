@@ -6,15 +6,9 @@ Optimisations added:
   • torch.cuda.empty_cache() after every request – prevents fragmentation
 """
 
-
-
-
 import os, re, asyncio, logging, atexit, time
 from io import BytesIO
 from typing import List, Optional
-
-
-
 
 import aiohttp, numpy as np, torch, torch.nn.functional as F
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File
@@ -26,22 +20,13 @@ from torchvision import transforms
 import torch.nn as nn
 from dotenv import load_dotenv
 
-
-
-
 # ─────────── env / logging ───────────
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger("embedding_service")
 
-
-
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DIM    = 512
-
-
-
 
 # ─────────── simple stop-word cleaner ───────────
 _STOPWORDS = {"a","an","the","and","or","but","if","else","on","in","with","of","for","to","from"}
@@ -49,25 +34,13 @@ def clean_meta_data(raw: str) -> str:
     txt = re.sub(r"[^a-z0-9\s]", " ", raw.lower().strip())
     tokens = [t for t in re.sub(r"\s+", " ", txt).split() if t not in _STOPWORDS]
     text = " ".join(tokens)
-   
-    # Use the CLIP processor to properly tokenize and truncate
-    inputs = clip_proc(text=[text], return_tensors="pt", padding=True, truncation=True, max_length=77)
-    # Decode back to get the truncated text
-    truncated_text = clip_proc.tokenizer.decode(inputs["input_ids"][0], skip_special_tokens=True)
-   
-    return truncated_text
-
-
-
+    return text
 
 # ─────────── front/back classifier ───────────
 classifier_tf = transforms.Compose([
     transforms.Resize((224,224)), transforms.ToTensor(),
     transforms.Normalize([0.485,0.456,0.406], [0.229,0.224,0.225])
 ])
-
-
-
 
 def load_front_back_model():
     path = os.path.join(os.path.dirname(__file__), "model_files", "best_front_back_model_convnext_82.3_88.19.pth")
@@ -79,13 +52,7 @@ def load_front_back_model():
         logger.warning("⚠️ front/back .pth not found – using random weights")
     return mdl.to(device).eval()
 
-
-
-
 front_back_model = load_front_back_model()
-
-
-
 
 def classify_image(pil: Image.Image) -> tuple[bool, float]:
     x = classifier_tf(pil).unsqueeze(0).to(device)
@@ -94,15 +61,9 @@ def classify_image(pil: Image.Image) -> tuple[bool, float]:
     label = probs[0] > probs[1]
     return bool(label), float(probs[1])  # back-prob
 
-
-
-
 # ─────────── Fashion-CLIP ───────────
 clip_model = AutoModel.from_pretrained("Marqo/marqo-fashionCLIP", trust_remote_code=True)
 clip_proc  = AutoProcessor.from_pretrained("Marqo/marqo-fashionCLIP", trust_remote_code=True)
-
-
-
 
 # ─────────── global aiohttp session ───────────
 _session: aiohttp.ClientSession | None = None
@@ -116,64 +77,34 @@ def _close_session():
     if _session and not _session.closed:
         asyncio.get_event_loop().run_until_complete(_session.close())
 
-
-
-
 async def fetch_image(url: str) -> Optional[Image.Image]:
-    # Optimize URL before fetching
-    optimized_url = optimize_shopify_url(url)
-   
-    # Reduce timeout since optimized images should load faster
-    timeout = aiohttp.ClientTimeout(total=15)  # Back to 15 seconds
-   
-    if optimized_url.startswith("//"):
-        optimized_url = "https:" + optimized_url
-
-
-
+    # Shopify CDN resize for PNGs
+    if url.startswith("//"):
+        url = "https:" + url
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-        "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",  # Prefer WebP if available
-        "Accept-Encoding": "gzip, deflate, br"  # Enable compression
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
     }
 
-
-
-
     try:
-        async with get_session().get(optimized_url, timeout=timeout, headers=headers) as resp:
+        async with get_session().get(url, timeout=15, headers=headers) as resp:
             if resp.status != 200:
-                logger.warning(f"❌ Failed to fetch {optimized_url}: HTTP {resp.status}")
+                logger.warning(f"❌ Failed to fetch {url}: HTTP {resp.status}")
                 return None
             if not resp.headers.get("Content-Type", "").startswith("image"):
-                logger.warning(f"❌ Not an image {optimized_url}: {resp.headers.get('Content-Type')}")
+                logger.warning(f"❌ Not an image {url}: {resp.headers.get('Content-Type')}")
                 return None
-           
-            # Stream the response for better memory usage
-            data = bytearray()
-            async for chunk in resp.content.iter_chunked(8192):
-                data.extend(chunk)
-       
-        img = Image.open(BytesIO(data)).convert("RGB")
-        logger.debug(f"✅ Successfully fetched optimized image: {optimized_url}")
-        return img
-       
-    except asyncio.TimeoutError:
-        logger.warning(f"⏰ Timeout fetching {optimized_url}")
-        return None
+            data = await resp.read()
+        return Image.open(BytesIO(data)).convert("RGB")
     except Exception as e:
-        logger.warning(f"❌ Exception fetching {optimized_url}: {type(e).__name__}: {str(e)}")
+        logger.warning(f"❌ Exception fetching {url}: {type(e).__name__}: {str(e)}")
         return None
-
-
-
 
 def embed_images_and_text(image: Image.Image, text: str, have_text: bool):
     if not image:
         return np.zeros((0,DIM), np.float32), np.zeros((0,DIM), np.float32)
-   
-    if not have_text and len(text) > 0:
+    
+    if not have_text and len(text) > 0: 
         inputs = clip_proc(images=image,
                         text=text,
                         return_tensors="pt",
@@ -186,28 +117,16 @@ def embed_images_and_text(image: Image.Image, text: str, have_text: bool):
     else:
         inputs = clip_proc(images=image, return_tensors="pt", padding='max_length')
 
-
-
-
         with torch.no_grad():
             img_emb = clip_model.get_image_features(inputs["pixel_values"], normalize=True)
 
-
-
-
         return img_emb, None
-
-
-
 
 # ─────────── Pydantic IO models ───────────
 class EmbedRequest(BaseModel):
     id: int
     metaData: str
     imageUrls: List[str]
-
-
-
 
 class EmbedResponse(BaseModel):
     productId: int
@@ -216,134 +135,83 @@ class EmbedResponse(BaseModel):
     textEmbedding : Optional[List[float]] = None
     frontFacingImages: Optional[List[bool]] = None
 
-
-
-
 class BatchEmbedRequest(BaseModel):
     products: List[EmbedRequest]
 class BatchEmbedResponse(BaseModel):
     results: List[EmbedResponse]
-
-
-
 
 class TextEmbedRequest(BaseModel):
     text: str
 class TextEmbedResponse(BaseModel):
     embedding: List[float]
 
-
-
-
 class ImageEmbedResponse(BaseModel):
     label: str
     embedding: List[float]
-
-
-
 
 # ─────────── FastAPI routes ───────────
 app = FastAPI()
 router = APIRouter()
 
-
-
-
 @router.post("/product-embed", response_model=EmbedResponse)
 async def product_embed(req: EmbedRequest):
     logger.info(f"🔍 Processing product {req.id} with {len(req.imageUrls)} images")
-   
+    
     cleaned_meta = clean_meta_data(req.metaData)
-
-
-
 
     front_flags: List[bool] = []
     front_cand, back_cand = [], []
 
-
-
-
     # Parallel image fetching
     image_tasks = [fetch_image(url) for url in req.imageUrls]
     images = await asyncio.gather(*image_tasks, return_exceptions=True)
-
-
-
 
     for img in images:
         if isinstance(img, Exception) or img is None:
             front_flags.append(False)
             continue
 
-
-
-
         is_front, p_back = classify_image(img)
         front_flags.append(is_front)
-
-
-
 
         if is_front:
             front_cand.append((img, p_back))
         else:
             back_cand.append((img, p_back))
 
-
-
-
     # 3. Pick best front/back candidates
     best_front = min(front_cand, key=lambda x: x[1])[0] if front_cand else None
     best_back  = max(back_cand , key=lambda x: x[1])[0] if back_cand  else None
-
-
-
 
     # 5. Run through CLIP
     front_vec = back_vec = text_vec = None
     if best_front and not best_back:
         front_vec, text_vec = embed_images_and_text(best_front, cleaned_meta, have_text=False)
 
-
-
-
     elif best_front and best_back:
-        front_vec, text_vec = embed_images_and_text(best_front, cleaned_meta, have_text=False)
+        front_vec, text_vec = embed_images_and_text(best_front, cleaned_meta, have_text=False) 
         back_vec, _ = embed_images_and_text(best_back, cleaned_meta, have_text=True)
-
-
-
 
     elif best_back and not best_front:
         back_vec, text_vec = embed_images_and_text(best_back, cleaned_meta, have_text=False)
-
-
-
 
     # ✅ CONVERT TENSORS TO LISTS
     front_vec = front_vec.cpu().flatten().tolist() if front_vec is not None else None
     back_vec = back_vec.cpu().flatten().tolist() if back_vec is not None else None
     text_vec = text_vec.cpu().flatten().tolist() if text_vec is not None else None
 
-
-
-
     # 6. Clear GPU memory
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
-
-
-
     # 7. Return
     embeddings_generated = []
     if front_vec: embeddings_generated.append("front")
-    if back_vec: embeddings_generated.append("back")
+    if back_vec: embeddings_generated.append("back") 
     if text_vec: embeddings_generated.append("text")
-   
+    
     logger.info(f"✅ Product {req.id} generated: {', '.join(embeddings_generated) if embeddings_generated else 'NONE'}")
-   
+    
     return EmbedResponse(
         productId=req.id,
         frontEmbedding=front_vec,
@@ -351,12 +219,6 @@ async def product_embed(req: EmbedRequest):
         textEmbedding=text_vec,
         frontFacingImages=front_flags,
     )
-
-
-
-
-
-
 
 
 @router.post("/products-embed-batch", response_model=BatchEmbedResponse)
@@ -376,34 +238,22 @@ async def products_embed_batch(req: BatchEmbedRequest):
     logger.info(f"⏱️ Batch of {len(req.products)} products embedded in {batch_end - batch_start:.2f}s")
     return BatchEmbedResponse(results=results)
 
-
-
-
 @router.post("/text-embed", response_model=TextEmbedResponse)
 async def text_embed(req: TextEmbedRequest):
     cleaned = clean_meta_data(req.text)
-    if not cleaned:
+    if not cleaned: 
         raise HTTPException(status_code=400, detail="text must be non-empty")
-   
-    inputs = clip_proc(
-        text=[cleaned],
-        return_tensors="pt",
-        padding='max_length',  # Explicitly set padding to 'max_length'
-        truncation=True,
-        max_length=77
-    ).to(device)
-   
+    
+    processed_text = clip_proc(text=cleaned, return_tensors="pt", padding='max_length')
+
     with torch.no_grad():
-        text_features = clip_model.get_text_features(inputs["input_ids"], normalize=True)
+        text_features = clip_model.get_text_features(processed_text['input_ids'], normalize=True)
         vec = text_features[0]
-   
-    if torch.cuda.is_available():
+    
+    if torch.cuda.is_available(): 
         torch.cuda.empty_cache()
-   
+    
     return TextEmbedResponse(embedding=(vec/vec.norm()).cpu().tolist())
-
-
-
 
 @router.post("/image-embed", response_model=ImageEmbedResponse)
 async def image_embed(file: UploadFile = File(...)):
@@ -413,18 +263,4 @@ async def image_embed(file: UploadFile = File(...)):
     if torch.cuda.is_available(): torch.cuda.empty_cache()
     return ImageEmbedResponse(label="front" if label else "back", embedding=vec[0].tolist())
 
-
-
-
-def optimize_shopify_url(url: str) -> str:
-    """Optimize Shopify CDN URLs by adding size parameters"""
-    if "cdn.shopify.com" in url and (".png" in url):
-        # Add width parameter to resize image on CDN side
-        separator = "&" if "?" in url else "?"
-        return f"{url}{separator}width=600&format=webp&quality=80"
-    return url
-
-
-
-
-
+app.include_router(router, prefix="/api/v1/embedding")
