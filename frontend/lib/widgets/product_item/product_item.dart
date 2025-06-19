@@ -4,6 +4,7 @@ import '../../models/product_item/product_item.dart';
 import 'package:fynds/services/basket/basket_service.dart';
 import 'package:fynds/services/like/like_service.dart' as like_service;
 import 'package:fynds/services/collection/collection_service.dart';
+import 'package:fynds/models/collection.dart';
 
 class ProductItemWidget extends StatefulWidget {
   final ProductItem product;
@@ -120,6 +121,118 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
       IconButton(icon: Icon(icon), color: color, onPressed: onTap),
     ],
   );
+
+  // --- Instagram-style Add to Collection Modal ---
+  Future<void> _showAddToCollectionSheet(BuildContext context) async {
+    final collections = await _collectionService.getCollections();
+    int? selectedCollectionId;
+    List<CollectionList> localCollections = List.from(collections ?? []);
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: MediaQuery.of(context).viewInsets,
+          child: StatefulBuilder(
+            builder: (context, setModalState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Add to Collection',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  ...localCollections.map(
+                    (c) => ListTile(
+                      title: Text(c.name),
+                      trailing:
+                          selectedCollectionId == c.id
+                              ? const Icon(Icons.check, color: Colors.blue)
+                              : null,
+                      onTap: () {
+                        setModalState(() => selectedCollectionId = c.id);
+                      },
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.add),
+                    title: const Text('Create New Collection'),
+                    onTap: () async {
+                      final controller = TextEditingController();
+                      final created = await showDialog(
+                        context: context,
+                        builder:
+                            (context) => AlertDialog(
+                              title: const Text('New Collection'),
+                              content: TextField(
+                                controller: controller,
+                                autofocus: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Collection Name',
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, null),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed:
+                                      () => Navigator.pop(
+                                        context,
+                                        controller.text.trim(),
+                                      ),
+                                  child: const Text('Create'),
+                                ),
+                              ],
+                            ),
+                      );
+                      if (created != null && created.isNotEmpty) {
+                        final newCol = await _collectionService
+                            .createNewCollection(created);
+                        if (newCol != null) {
+                          setModalState(() {
+                            localCollections.add(newCol);
+                            selectedCollectionId = newCol.id;
+                          });
+                        }
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed:
+                        selectedCollectionId == null
+                            ? null
+                            : () async {
+                              await _collectionService.addProductToCollection(
+                                selectedCollectionId!,
+                                widget.product.id,
+                              );
+                              Navigator.pop(context);
+                              setState(() => _isSaved = true);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Added to collection!'),
+                                ),
+                              );
+                            },
+                    child: const Text('Add'),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -239,19 +352,7 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
                 }, color: _isLiked ? Colors.red : Colors.white),
                 const SizedBox(height: 24),
                 _actionIcon(Icons.bookmark, () async {
-                  if (_myCollectionId == null) return;
-                  if (_isSaved) {
-                    await _collectionService.removeProductFromCollection(
-                      _myCollectionId!,
-                      p.id,
-                    );
-                  } else {
-                    await _collectionService.addProductToCollection(
-                      _myCollectionId!,
-                      p.id,
-                    );
-                  }
-                  setState(() => _isSaved = !_isSaved);
+                  await _showAddToCollectionSheet(context);
                 }, color: _isSaved ? Colors.red : Colors.white),
                 const SizedBox(height: 24),
                 ScaleTransition(
