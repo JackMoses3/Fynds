@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fynds/core/dio_client.dart';
@@ -84,6 +85,61 @@ class SearchService {
       print(
         '❌ [SearchService] ==================== SEARCH ERROR END ====================',
       );
+      rethrow;
+    }
+  }
+
+  /// Search products by image using the embedding-qdrant/search-image endpoint
+  Future<List<ProductItem>> searchProductsByImage(
+    File imageFile, {
+    FilterDto? filters,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'image': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: imageFile.path.split('/').last,
+        ),
+      });
+
+      if (filters != null) {
+        final filterJson = filters.toJson();
+        filterJson.forEach((key, value) {
+          if (value != null) {
+            if (value is List) {
+              for (int i = 0; i < value.length; i++) {
+                formData.fields.add(
+                  MapEntry('${key}[$i]', value[i].toString()),
+                );
+              }
+            } else {
+              formData.fields.add(MapEntry(key, value.toString()));
+            }
+          }
+        });
+      }
+
+      final response = await _dio.post(
+        '/embedding-qdrant/search-image',
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final List<dynamic> data = response.data as List<dynamic>;
+        final products =
+            data.map((json) => ProductItem.fromJson(json)).toList();
+        return products;
+      } else {
+        throw Exception(
+          'Image search failed [${response.statusCode}]: ${response.data}',
+        );
+      }
+    } catch (e) {
       rethrow;
     }
   }

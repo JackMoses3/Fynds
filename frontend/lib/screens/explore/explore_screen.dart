@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:fynds/services/product_item/search/search_service.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:fynds/services/product_item/search/image_search_service.dart';
 import 'package:fynds/models/product_item/product_item.dart';
 import 'package:fynds/widgets/product_item/product_item.dart'; // Updated import
 import 'dart:io';
@@ -120,29 +119,52 @@ class _ExploreScreenState extends State<ExploreScreen> {
     if (xfile == null) return;
 
     final file = File(xfile.path);
-    await _doImageEmbedding(file);
+    await _doImageSearch(file);
   }
 
-  Future<void> _doImageEmbedding(File image) async {
+  Future<void> _doImageSearch(File image) async {
     setState(() => _isLoading = true);
 
     try {
-      final resp = await ImageEmbeddingService().embedImage(image);
-      if (resp == null) throw 'No response';
+      print('📷 [ExploreScreen] Starting image search...');
+      print('📷 [ExploreScreen] File path: ${image.path}');
+      print('📷 [ExploreScreen] File exists: ${await image.exists()}');
+      print('📷 [ExploreScreen] File size: ${await image.length()} bytes');
 
-      // At this point you *only* wanted to create the embedding.
-      // We'll just toast the result & show it in console.
-      debugPrint(
-        'Image embedding (${resp.label}) – first 3 dims: ['
-        '${resp.embedding.take(3).join(', ')} …]',
+      final products = await _searchService.searchProductsByImage(image);
+
+      print(
+        '✅ [ExploreScreen] Image search completed, found ${products.length} products',
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('✅ Got ${resp.label} embedding (512 dims)')),
-      );
+
+      setState(() {
+        _products = products;
+        _hasSearched = true;
+      });
+
+      if (products.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Found ${products.length} similar products!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No similar products found.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Image embedding failed: $e')));
+      print('❌ [ExploreScreen] Image search error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Image search failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       setState(() => _isLoading = false);
     }
