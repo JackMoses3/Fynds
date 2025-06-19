@@ -259,25 +259,8 @@ async def text_embed(req: TextEmbedRequest):
 async def image_embed(file: UploadFile = File(...)):
     pil = Image.open(BytesIO(await file.read())).convert("RGB")
     label, _ = classify_image(pil)
-<<<<<<< HEAD
     vec, _ = embed_images_and_text([pil], [])
     if torch.cuda.is_available(): torch.cuda.empty_cache()
     return ImageEmbedResponse(label="front" if label else "back", embedding=vec[0].tolist())
-=======
-    
-    # Fix: Use correct embedding function
-    inputs = clip_proc(images=pil, return_tensors="pt", padding='max_length').to(device)
-    with torch.no_grad():
-        img_features = clip_model.get_image_features(inputs["pixel_values"], normalize=True)
-        vec = (img_features[0] / img_features[0].norm()).cpu().tolist()
-    
-    if torch.cuda.is_available(): 
-        torch.cuda.empty_cache()
-        
-    return ImageEmbedResponse(
-        label="front" if label else "back", 
-        embedding=vec
-    )
->>>>>>> ad6aa61 (created logic to allow users to do photo to product similarity from explore screen)
 
-app.include_router(router, prefix="/api/v1/embedding")
+app.include_router(router, prefix="/api/v1/embedding") 
