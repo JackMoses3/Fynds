@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/product_item/filter.dart';
+import '../../models/product_item/product_item.dart';
 import '../preferences_screen.dart';
-import '../../services/explore/search_service.dart';
+import '../../services/product_item/search/search_service.dart';
+import '../../widgets/product_item/product_item.dart'; // Updated import
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({Key? key}) : super(key: key);
@@ -18,7 +20,9 @@ class _SearchScreenState extends State<SearchScreen> {
 
   FilterDto? _currentFilters;
   List<String> _recentSearches = [];
+  List<ProductItem> _searchResults = [];
   bool _isLoading = false;
+  bool _hasSearched = false;
 
   @override
   void initState() {
@@ -86,6 +90,9 @@ class _SearchScreenState extends State<SearchScreen> {
     // Handle image search logic here
     // You can navigate to search results or process the image
     print('Image selected: ${image.path}');
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Image search coming soon!')));
   }
 
   Future<void> _showFilters() async {
@@ -104,13 +111,42 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  void _performSearch() {
+  Future<void> _performSearch() async {
     final searchTerm = _searchController.text.trim();
-    if (searchTerm.isNotEmpty) {
-      _saveSearchTerm(searchTerm);
-      // Navigate to search results page or perform search
-      // You can pass both searchTerm and _currentFilters to results page
-      print('Searching for: $searchTerm with filters: $_currentFilters');
+    if (searchTerm.isEmpty) return;
+
+    setState(() {
+      _isLoading = true;
+      _hasSearched = true;
+      _searchResults.clear();
+    });
+
+    try {
+      print('🔍 [SearchScreen] Starting search for: "$searchTerm"');
+
+      final products = await _searchService.searchProductsByText(
+        searchTerm,
+        filters: _currentFilters,
+      );
+
+      print(
+        '✅ [SearchScreen] Search completed, found ${products.length} products',
+      );
+
+      setState(() {
+        _searchResults = products;
+      });
+
+      await _saveSearchTerm(searchTerm);
+    } catch (e) {
+      print('❌ [SearchScreen] Search error: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Search failed: $e')));
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -134,23 +170,10 @@ class _SearchScreenState extends State<SearchScreen> {
             // Search Header
             _buildSearchHeader(),
 
-            // Search Content
+            // Search Content/Results
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Try Searching Section
-                    _buildTrySearchingSection(),
-
-                    const SizedBox(height: 32),
-
-                    // Recent Searches Section
-                    _buildRecentSearchesSection(),
-                  ],
-                ),
-              ),
+              child:
+                  _hasSearched ? _buildSearchResults() : _buildSearchContent(),
             ),
           ],
         ),
@@ -319,7 +342,19 @@ class _SearchScreenState extends State<SearchScreen> {
                     borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                child: const Text('Search'),
+                child:
+                    _isLoading
+                        ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                        : const Text('Search'),
               ),
             ],
           ),
@@ -328,8 +363,81 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
+  Widget _buildSearchContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Try Searching Section
+          _buildTrySearchingSection(),
+
+          const SizedBox(height: 32),
+
+          // Recent Searches Section
+          _buildRecentSearchesSection(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_searchResults.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No products found',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try adjusting your search or filters',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _hasSearched = false;
+                  _searchController.clear();
+                });
+              },
+              child: const Text('Try Again'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Use PageView for swiping through results (like TikTok/Instagram Reels)
+    return PageView.builder(
+      scrollDirection: Axis.vertical,
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        return ProductItemWidget(product: _searchResults[index]);
+      },
+    );
+  }
+
   Widget _buildTrySearchingSection() {
-    final sampleSearches = ['Red summer dress', 'Nike sneakers under \$100'];
+    final sampleSearches = [
+      'Red summer dress',
+      'Nike sneakers',
+      'Yellow tshirt',
+      'Blue jeans',
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

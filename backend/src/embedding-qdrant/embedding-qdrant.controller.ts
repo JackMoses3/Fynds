@@ -19,6 +19,7 @@ import {
   HttpException,
   HttpStatus,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -31,6 +32,7 @@ import {
 import { StyleAnalysisConfig } from './dto/multimodal-style-classification.dto';
 import { FilterProductItemDto } from '../product-item/dto/filter.dto';
 import { TextSearchDto } from './dto/controller.dto';
+import { JwtAuthGuard } from '../auth/strategies/jwt/jwt-auth.guard';
 
 @Controller('embedding-qdrant')
 export class EmbeddingQdrantController {
@@ -47,15 +49,43 @@ export class EmbeddingQdrantController {
    */
   @Public()
   @Post('search-text')
+  @UseGuards(JwtAuthGuard) // Make sure the JWT guard is applied
   async searchText(
-    @Req() req: RequestUser,
+    @Req() req: RequestUser, // Changed from RequestUser to any for debugging
     @Body() request: TextSearchDto,
   ): Promise<ProductItemTransferDto[]> {
-    return this.embeddingQdrantService.searchByText(
-      req.user.sub,
-      request.query,
-      request.filters,
+    console.log('🔍 [EmbeddingQdrantController] Search request received');
+    console.log(
+      '🔍 [EmbeddingQdrantController] Request body:',
+      JSON.stringify(request, null, 2),
     );
+    console.log('🔍 [EmbeddingQdrantController] Request user:', req.user);
+    console.log(
+      '🔍 [EmbeddingQdrantController] Full request keys:',
+      Object.keys(req),
+    );
+
+    try {
+      // Handle case where user might be undefined
+      const userId = req.user?.sub || null;
+      console.log('🔍 [EmbeddingQdrantController] Using userId:', userId);
+
+      const results = await this.embeddingQdrantService.searchByText(
+        userId,
+        request.query,
+        request.filters || {},
+      );
+
+      console.log(
+        '✅ [EmbeddingQdrantController] Search completed, found:',
+        results.length,
+        'products',
+      );
+      return results;
+    } catch (error) {
+      console.error('❌ [EmbeddingQdrantController] Search error:', error);
+      throw error;
+    }
   }
 
   /**
