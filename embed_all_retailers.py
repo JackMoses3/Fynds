@@ -1,4 +1,4 @@
-"""import requests
+import requests
 import psycopg2
 
 # --- CONFIG ---
@@ -16,7 +16,7 @@ CONCURRENCY = 8
 # Retailers to skip
 SKIP_RETAILERS = {"Mango", "H&M", "Urban Outfitters", "Adidas", "AJE", "Meski"}
 
-#Todo for retailers: go over beginning boutique skips
+#Todo for retailers: go over beginning boutique skips and Zanerobe
 
 # --- GET ALL RETAILERS ---
 def get_all_retailers():
@@ -64,4 +64,3 @@ def process_all_retailers():
 
 if __name__ == "__main__":
     process_all_retailers()
-"""

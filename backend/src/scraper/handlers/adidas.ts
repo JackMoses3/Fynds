@@ -3,7 +3,8 @@
 import axios from 'axios';
 import { URL } from 'url';
 import { parseStringPromise, processors } from 'xml2js';
-import { PrismaClient, SiteDataConfig } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import type { SiteDataConfig } from 'generated/prisma';
 import { BROWSER_HEADERS, inferSex, normalizeCategory } from '../utils/utils';
 
 const CUSTOM_HEADERS = {
@@ -148,8 +149,6 @@ export async function handleAdidas(
           retailer: 'Adidas',
           category,
           sex,
-          storeId: null,
-          subCategory: null,
           lastModified: null,
           siteDataConfigId: config.id,
           productImages: {
