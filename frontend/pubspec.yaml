@@ -19,7 +19,7 @@ dependencies:
   google_sign_in: ^6.1.4
   font_awesome_flutter: ^10.5.0
   geolocator: ^10.0.0
-  shared_preferences: ^2.0.15
+  shared_preferences: ^2.2.2
   convert: ^3.1.1
   image_picker: ^1.0.8
   path: ^1.8.3

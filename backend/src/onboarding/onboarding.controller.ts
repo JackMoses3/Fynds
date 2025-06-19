@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { OnboardingService } from './onboarding.service';
 import { Public } from '../types';
-import { ProductItemTransferDto } from 'src/product-item/dto/product-item.dto';
+import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
 import { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';

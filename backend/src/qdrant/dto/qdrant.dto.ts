@@ -9,6 +9,7 @@ import {
   ArrayMinSize,
   ArrayMaxSize,
 } from 'class-validator';
+import { QdrantFilterModel } from '../models/filter.model';
 
 export enum CollectionType {
   TEXT_EMBEDDINGS = 'TEXT_EMBEDDINGS',
@@ -28,7 +29,7 @@ export class InsertVectorDto {
   collection: CollectionType;
 
   @IsNumber()
-  productId: number;
+  product_id: number;
 
   @IsNumber()
   price: number;
@@ -65,6 +66,7 @@ export class InsertVectorDto {
   vector: number[];
 }
 
+// Once the vector is generated for embedding-qdrant
 export class SearchVectorDto {
   @IsEnum(CollectionType)
   collection: CollectionType;
@@ -82,37 +84,10 @@ export class SearchVectorDto {
   top_k?: number = 10;
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  style?: string[];
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  price_lte?: number;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  category?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsEnum(Gender, { each: true })
-  gender?: Gender[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  brand?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  retailer?: string[];
+  qdrantFilter?: QdrantFilterModel;
 }
 
-export class SearchProductDto {
+export class LikeProductDto {
   @IsEnum(CollectionType)
   collection: CollectionType;
 
@@ -131,29 +106,7 @@ export class SearchProductDto {
   style?: string[];
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  price_lte?: number;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  category?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsEnum(Gender, { each: true })
-  gender?: Gender[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  brand?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  retailer?: string[];
+  qdrantFilter?: QdrantFilterModel;
 }
 
 export class DeleteVectorDto {

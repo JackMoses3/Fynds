@@ -35,7 +35,8 @@ class SearchRequest(BaseModel):
     vector: List[float] = Field(..., min_items=512, max_items=512)
     top_k: int = 10
     style: Optional[List[str]] = None
-    price_lte: Optional[float] = None # Price less than or equal to
+    price_min: Optional[float] = None  # Minimum price
+    price_max: Optional[float] = None  # Maximum price
     category: Optional[List[str]] = None
     gender: Optional[List[str]] = None
     brand: Optional[List[str]] = None
@@ -46,7 +47,8 @@ class SearchProduct(BaseModel):
     product_id: int
     top_k: int
     style: Optional[List[str]] = None
-    price_lte: Optional[float] = None # Price less than or equal to
+    price_min: Optional[float] = None  # Minimum price
+    price_max: Optional[float] = None  # Maximum price
     category: Optional[List[str]] = None
     gender: Optional[List[str]] = None
     brand: Optional[List[str]] = None
@@ -64,7 +66,7 @@ class MultiModalStyleClassification(BaseModel):
 
 # -------------- Helper Functions --------------
 
-def build_filter(style: Optional[List[str]], price_lte: Optional[float], 
+def build_filter(style: Optional[List[str]], price_min: Optional[float], price_max: Optional[float], 
                 category: Optional[List[str]], gender: Optional[List[str]], 
                 brand: Optional[List[str]], retailer: Optional[List[str]]):
     """
@@ -74,28 +76,34 @@ def build_filter(style: Optional[List[str]], price_lte: Optional[float],
 
     if style:
         must_clauses.append(
-            FieldCondition(key="style", match=MatchAny(value=any))  # Use first value for now
+            FieldCondition(key="style", match=MatchAny(any=style))  
         )
-    if price_lte:
+    if price_min is not None or price_max is not None:
+        range_dict = {}
+        if price_min is not None:
+            range_dict["gte"] = price_min  # Greater than or equal to
+        if price_max is not None:
+            range_dict["lte"] = price_max  # Less than or equal to
+        
         must_clauses.append(
-            FieldCondition(key="price", range=Range(lte=price_lte))
+            FieldCondition(key="price", range=Range(**range_dict))
         )
     if category:
         must_clauses.append(
-            FieldCondition(key="category", match=MatchAny(value=category))
+            FieldCondition(key="category", match=MatchAny(any=category))
         )
     if gender:
         must_clauses.append(
-            FieldCondition(key="gender", match=MatchAny(value=gender))
+            FieldCondition(key="gender", match=MatchAny(any=gender))
         )
     if brand:
         must_clauses.append(
-            FieldCondition(key="brand", match=MatchAny(value=brand))
+            FieldCondition(key="brand", match=MatchAny(any=brand))
         )
 
     if retailer:
         must_clauses.append(
-            FieldCondition(key="retailer", match=MatchAny(value=retailer))
+            FieldCondition(key="retailer", match=MatchAny(any=retailer))
         )
     return Filter(must=must_clauses) if must_clauses else None
 
@@ -162,7 +170,7 @@ async def search(req: SearchRequest):
         raise HTTPException(status_code=404, detail=f"Collection '{req.collection}' not found. Available: {collection_names}")
 
     vect = np.array(req.vector, dtype="float32").tolist()
-    filter_obj = build_filter(req.style, req.price_lte, req.category, req.gender, req.brand, req.retailer)
+    filter_obj = build_filter(req.style, req.price_min, req.price_max, req.category, req.gender, req.brand, req.retailer)
     
     results = client.search(
         collection_name=req.collection,
@@ -206,7 +214,7 @@ async def search_product(req: SearchProduct):
         raise HTTPException(status_code=404, detail="Product not found")
     
     target_vector = target_points[0].vector
-    filter_obj = build_filter(req.style, req.price_lte, req.category, req.gender, req.brand, req.retailer)
+    filter_obj = build_filter(req.style, req.price_min, req.price_max, req.category, req.gender, req.brand, req.retailer)
     
     # Now search for similar products
     results = client.search(

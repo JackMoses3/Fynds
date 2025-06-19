@@ -1,0 +1,11 @@
+﻿export enum CollectionType {
+  TEXT_EMBEDDINGS = 'TEXT_EMBEDDINGS',
+  IMAGE_FRONT_EMBEDDINGS = 'IMAGE_FRONT_EMBEDDINGS',
+  IMAGE_BACK_EMBEDDINGS = 'IMAGE_BACK_EMBEDDINGS',
+  USER_EMBEDDINGS = 'USER_EMBEDDINGS',
+}
+export enum Gender {
+  MALE = 'male',
+  FEMALE = 'female',
+  UNISEX = 'unisex',
+}

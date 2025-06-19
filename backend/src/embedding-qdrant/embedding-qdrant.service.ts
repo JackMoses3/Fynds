@@ -9,6 +9,7 @@ import { DatabaseService } from '../database/database.service';
 import { CollectionType, Gender } from '../qdrant/dto/qdrant.dto';
 import { MultimodalStyleClassificationResponse } from './dto/embedding-style.dto';
 import {
+  QdrantFilter,
   QdrantInsertResponse,
   QdrantSearchResponse,
 } from '../qdrant/models/qdrant.model';
@@ -26,6 +27,8 @@ import {
   WeightedStyleScore,
   StyleAnalysisResult,
 } from './dto/multimodal-style-classification.dto';
+import { FilterProductItemDto } from '../product-item/dto/filter.dto';
+import { QdrantFilterModel } from '../qdrant/models/filter.model';
 
 @Injectable()
 export class EmbeddingQdrantService {
@@ -40,58 +43,224 @@ export class EmbeddingQdrantService {
   /* ───────────────────────────── search helpers ───────────────────────────── */
 
   async searchByText(
+    userId: number | null,
     query: string,
-    filters: SearchDto,
+    filters: FilterProductItemDto,
   ): Promise<ProductItemTransferDto[]> {
-    const queryEmbedding =
-      await this.embeddingService.generateTextEmbedding(query);
+    console.log('🔍 [EmbeddingQdrantService] Starting hybrid text search');
+    console.log('🔍 [EmbeddingQdrantService] Query:', query);
+    console.log(
+      '🔍 [EmbeddingQdrantService] Filters:',
+      JSON.stringify(filters, null, 2),
+    );
 
-    const searchRes: QdrantSearchResponse = await this.qdrantService.search({
-      collection: CollectionType.TEXT_EMBEDDINGS,
-      vector: queryEmbedding,
-      ...filters,
-    });
-    if (!searchRes.results.length) {
+    try {
+      const searchStart = Date.now();
+
+      // Generate text embedding for the query
+      const queryEmbedding =
+        await this.embeddingService.generateTextEmbedding(query);
+      console.log(
+        '✅ [EmbeddingQdrantService] Generated text embedding with',
+        queryEmbedding.length,
+        'dimensions',
+      );
+
+      const topK = 50; // Return top 50 results
+
+      // Build the search parameters for Qdrant
+      const searchParams = {
+        vector: queryEmbedding,
+        top_k: Math.ceil(topK * 0.6), // 60% from text (30 results)
+        ...filters,
+      };
+
+      const imageSearchParams = {
+        vector: queryEmbedding,
+        top_k: Math.ceil(topK * 0.4), // 40% from images (20 results)
+        ...filters,
+      };
+
+      // ✅ HYBRID SEARCH: Search both text and image collections
+      const [textResults, imageResults] = await Promise.all([
+        // Search text embeddings (product descriptions, metadata)
+        this.qdrantService
+          .search({
+            collection: CollectionType.TEXT_EMBEDDINGS,
+            ...searchParams,
+          })
+          .then((response) => ({
+            results: (response.results || []).map((r) => ({
+              id: r.id,
+              score: r.score || 0,
+            })),
+          }))
+          .catch((error) => {
+            console.warn(
+              '⚠️ [EmbeddingQdrantService] Text search failed:',
+              error.message,
+            );
+            return { results: [] };
+          }),
+
+        // Search image embeddings (visual similarity to text description)
+        this.qdrantService
+          .search({
+            collection: CollectionType.IMAGE_FRONT_EMBEDDINGS,
+            ...imageSearchParams,
+          })
+          .then((response) => ({
+            results: (response.results || []).map((r) => ({
+              id: r.id,
+              score: r.score || 0,
+            })),
+          }))
+          .catch((error) => {
+            console.warn(
+              '⚠️ [EmbeddingQdrantService] Image search failed:',
+              error.message,
+            );
+            return { results: [] };
+          }),
+      ]);
+
+      const searchEnd = Date.now();
+      console.log(
+        `⏱️ [EmbeddingQdrantService] Parallel search completed in ${searchEnd - searchStart}ms`,
+      );
+      console.log(
+        `📊 [EmbeddingQdrantService] Results: Text=${textResults.results.length}, Images=${imageResults.results.length}`,
+      );
+
+      // Combine and deduplicate results with weighted scoring
+      const allResults = [
+        ...textResults.results.map((r) => ({
+          ...r,
+          score: r.score * 1.0,
+          source: 'text',
+        })), // Text weight: 1.0
+        ...imageResults.results.map((r) => ({
+          ...r,
+          score: r.score * 1.0,
+          source: 'image',
+        })), // Image weight: 1.0
+      ];
+
+      const productScores = new Map<
+        number,
+        { id: number; score: number; sources: string[] }
+      >();
+
+      // Process results and handle duplicates by taking the best score
+      allResults.forEach((result) => {
+        const existing = productScores.get(result.id);
+        if (existing) {
+          // If product found in multiple collections, boost the score
+          existing.score =
+            Math.max(existing.score, result.score) + result.score * 0.1; // 10% boost for multimodal
+          existing.sources.push(result.source);
+        } else {
+          productScores.set(result.id, {
+            id: result.id,
+            score: result.score,
+            sources: [result.source],
+          });
+        }
+      });
+
+      const combinedResults = Array.from(productScores.values())
+        .sort((a, b) => b.score - a.score) // Sort by relevance score
+        .slice(0, topK); // Top 50 results
+
+      console.log('📊 [EmbeddingQdrantService] Top 10 hybrid results:');
+      combinedResults.slice(0, 10).forEach((result, index) => {
+        console.log(
+          `   ${index + 1}. ID=${result.id} | Score=${result.score.toFixed(4)} | Sources=[${result.sources.join(', ')}]`,
+        );
+      });
+
+      if (!combinedResults.length) {
+        console.log(
+          '⚠️ [EmbeddingQdrantService] No products found matching query',
+        );
+        throw new HttpException(
+          'No products matched your search',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Fetch product details from database
+      const dbStart = Date.now();
+      const products = await this.db.productItem.findMany({
+        where: { id: { in: combinedResults.map((r) => r.id) } },
+        select: {
+          id: true,
+          name: true,
+          brand: true,
+          category: true,
+          price: true,
+          retailer: true,
+          url: true,
+          productStyles: { select: { style: { select: { name: true } } } },
+          productImages: {
+            select: { id: true, imageUrl: true, frontFacing: true },
+            orderBy: { id: 'asc' },
+          },
+        },
+      });
+
+      const dbEnd = Date.now();
+      console.log(
+        `⏱️ [EmbeddingQdrantService] Database fetch completed in ${dbEnd - dbStart}ms`,
+      );
+
+      // Maintain search result order from similarity ranking
+      const productMap = new Map(products.map((p) => [p.id, p]));
+      const orderedProducts = combinedResults
+        .map((result) => productMap.get(result.id))
+        .filter((p): p is NonNullable<typeof p> => p !== undefined);
+
+      console.log(
+        `🎯 [EmbeddingQdrantService] Final results: ${orderedProducts.length} products ordered by hybrid relevance`,
+      );
+      console.log('📋 [EmbeddingQdrantService] Top 5 final products:');
+      orderedProducts.slice(0, 5).forEach((product, index) => {
+        console.log(
+          `   ${index + 1}. "${product.name}" (${product.brand}) - ${product.retailer}`,
+        );
+      });
+
+      // Return formatted results
+      return orderedProducts.map((p) => ({
+        id: p.id,
+        name: p.name,
+        brand: p.brand,
+        category: p.category,
+        price: p.price,
+        retailer: p.retailer,
+        url: p.url,
+        style: p.productStyles.map((s) => s.style.name),
+        images: p.productImages,
+      }));
+    } catch (error) {
+      console.error(
+        '❌ [EmbeddingQdrantService] Error in hybrid text search:',
+        error,
+      );
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
-        'No products matched your search',
-        HttpStatus.NOT_FOUND,
+        `Search failed: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-
-    const products = await this.db.productItem.findMany({
-      where: { id: { in: searchRes.results.map((r) => r.id) } },
-      select: {
-        id: true,
-        name: true,
-        brand: true,
-        category: true,
-        price: true,
-        retailer: true,
-        url: true,
-        productStyles: { select: { style: { select: { name: true } } } },
-        productImages: {
-          select: { id: true, imageUrl: true, frontFacing: true },
-          orderBy: { id: 'asc' },
-        },
-      },
-    });
-
-    return products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      brand: p.brand,
-      category: p.category,
-      price: p.price,
-      retailer: p.retailer,
-      url: p.url,
-      style: p.productStyles.map((s) => s.style.name),
-      images: p.productImages,
-    }));
   }
 
   async searchByImage(
+    userId: number | null,
     file: Express.Multer.File,
-    filters: SearchDto,
+    filters: FilterProductItemDto,
   ): Promise<ProductItemTransferDto[]> {
     if (!file)
       throw new HttpException('No image supplied', HttpStatus.BAD_REQUEST);
@@ -102,6 +271,19 @@ export class EmbeddingQdrantService {
       label === 'front'
         ? CollectionType.IMAGE_FRONT_EMBEDDINGS
         : CollectionType.IMAGE_BACK_EMBEDDINGS;
+
+    let updatedFilters: QdrantFilterModel;
+
+    if (userId) {
+      const userFilters = await this.getUserFilters(userId);
+      updatedFilters = {
+        gender: userFilters.gender,
+        style: userFilters.style,
+        filter: filters,
+      };
+    } else {
+      updatedFilters = { filter: filters };
+    }
 
     const searchRes = await this.qdrantService.search({
       collection,
@@ -459,7 +641,7 @@ export class EmbeddingQdrantService {
     if (frontEmbedding) {
       this.qdrantService.insertVector({
         collection: CollectionType.IMAGE_FRONT_EMBEDDINGS,
-        productId,
+        product_id: productId,
         vector: frontEmbedding,
         ...metadata,
       });
@@ -467,7 +649,7 @@ export class EmbeddingQdrantService {
     if (backEmbedding) {
       this.qdrantService.insertVector({
         collection: CollectionType.IMAGE_BACK_EMBEDDINGS,
-        productId,
+        product_id: productId,
         vector: backEmbedding,
         ...metadata,
       });
@@ -475,7 +657,7 @@ export class EmbeddingQdrantService {
     if (textEmbedding) {
       this.qdrantService.insertVector({
         collection: CollectionType.TEXT_EMBEDDINGS,
-        productId,
+        product_id: productId,
         vector: textEmbedding,
         ...metadata,
       });
@@ -1102,5 +1284,26 @@ export class EmbeddingQdrantService {
       dryRun,
       batchSize: 100, // Larger batches since these are likely easier to process
     });
+  }
+
+  async getUserFilters(
+    userId: number,
+  ): Promise<{ gender: Gender[]; style: string[] }> {
+    const user = await this.db.user.findUnique({
+      where: { id: userId },
+      select: {
+        clothingPreferences: true,
+        userStyles: { select: { style: { select: { name: true } } } },
+      },
+    });
+
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    return {
+      gender: [user.clothingPreferences as Gender],
+      style: user.userStyles.map((s) => s.style.name),
+    };
   }
 }

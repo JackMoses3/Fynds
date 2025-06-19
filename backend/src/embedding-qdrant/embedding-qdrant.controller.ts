@@ -1,16 +1,14 @@
 // backend/src/embedding/embedding.controller.ts
 
 import {
-  TextSearchDto,
-  SearchDto,
   SimilarProductDto,
-  ProcessProductDto,
   ProcessProductResponseDto,
   BatchEmbedRetailerDto,
   EmbeddingQdrantBatchResult,
+  ProcessProductDto,
 } from './dto/embedding-qdrant.dto';
 import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
-import { Public } from '../types';
+import { Public, RequestUser } from '../types';
 import {
   Controller,
   Post,
@@ -20,6 +18,8 @@ import {
   UploadedFile,
   HttpException,
   HttpStatus,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -30,6 +30,9 @@ import {
   MultimodalStyleClassificationResponse,
 } from './dto/embedding-style.dto';
 import { StyleAnalysisConfig } from './dto/multimodal-style-classification.dto';
+import { FilterProductItemDto } from '../product-item/dto/filter.dto';
+import { TextSearchDto } from './dto/controller.dto';
+import { JwtAuthGuard } from '../auth/strategies/jwt/jwt-auth.guard';
 
 @Controller('embedding-qdrant')
 export class EmbeddingQdrantController {
@@ -46,11 +49,43 @@ export class EmbeddingQdrantController {
    */
   @Public()
   @Post('search-text')
+  @UseGuards(JwtAuthGuard) // Make sure the JWT guard is applied
   async searchText(
+    @Req() req: RequestUser, // Changed from RequestUser to any for debugging
     @Body() request: TextSearchDto,
   ): Promise<ProductItemTransferDto[]> {
-    const { text, ...filters } = request;
-    return this.embeddingQdrantService.searchByText(text, filters);
+    console.log('🔍 [EmbeddingQdrantController] Search request received');
+    console.log(
+      '🔍 [EmbeddingQdrantController] Request body:',
+      JSON.stringify(request, null, 2),
+    );
+    console.log('🔍 [EmbeddingQdrantController] Request user:', req.user);
+    console.log(
+      '🔍 [EmbeddingQdrantController] Full request keys:',
+      Object.keys(req),
+    );
+
+    try {
+      // Handle case where user might be undefined
+      const userId = req.user?.sub || null;
+      console.log('🔍 [EmbeddingQdrantController] Using userId:', userId);
+
+      const results = await this.embeddingQdrantService.searchByText(
+        userId,
+        request.query,
+        request.filters || {},
+      );
+
+      console.log(
+        '✅ [EmbeddingQdrantController] Search completed, found:',
+        results.length,
+        'products',
+      );
+      return results;
+    } catch (error) {
+      console.error('❌ [EmbeddingQdrantController] Search error:', error);
+      throw error;
+    }
   }
 
   /**
@@ -67,9 +102,14 @@ export class EmbeddingQdrantController {
   )
   async searchImage(
     @UploadedFile() image: Express.Multer.File,
-    @Body() filters: SearchDto,
+    @Req() req: RequestUser,
+    @Body() filters: FilterProductItemDto,
   ): Promise<ProductItemTransferDto[]> {
-    return this.embeddingQdrantService.searchByImage(image, filters);
+    return this.embeddingQdrantService.searchByImage(
+      req.user.sub,
+      image,
+      filters,
+    );
   }
 
   /**
@@ -98,10 +138,12 @@ export class EmbeddingQdrantController {
   @Public()
   @Post('similar-product')
   async similarProduct(
+    @Req() req: RequestUser,
     @Body() request: SimilarProductDto,
   ): Promise<{ id: number; distance: number }[]> {
     const { productId, ...filters } = request;
-    return this.qdrantService.searchProduct({ productId, searchDto: filters });
+    const searchDto = filters.searchDto || { top_k: 10 };
+    return this.qdrantService.searchProduct({ productId, searchDto });
   }
 
   /**

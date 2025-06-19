@@ -1,6 +1,11 @@
 /* eslint-disable */
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
-import { CollectionType, Gender, SearchVectorDto } from './dto/qdrant.dto';
+import {
+  CollectionType,
+  Gender,
+  InsertVectorDto,
+  SearchVectorDto,
+} from './dto/qdrant.dto';
 import {
   QdrantSearchResponse,
   QdrantInsertResponse,
@@ -17,45 +22,12 @@ export class QdrantService {
   // The mlServiceUrl is used by other methods like insertVector; not used here.
   private readonly mlServiceUrl = process.env.ML_URL + '/api/v1/vector';
 
-  async insertVector(params: {
-    collection: CollectionType;
-    productId: number;
-    vector: number[];
-    style?: string[];
-    price: number;
-    category?: string[];
-    gender?: Gender[];
-    brand?: string[];
-    retailer?: string[];
-  }): Promise<QdrantInsertResponse> {
-    const {
-      collection,
-      productId,
-      vector,
-      style,
-      price,
-      category,
-      gender,
-      brand,
-      retailer,
-    } = params;
-
-    // Transform to match ML service expected format
-    const payload = {
-      collection: collection, // Collection names already match Qdrant collection names
-      product_id: productId, // ML service expects product_id, not productId
-      vector,
-      price,
-      style,
-      category,
-      gender,
-      brand,
-      retailer,
-    };
-
+  async insertVector(
+    InsertVectorDto: InsertVectorDto,
+  ): Promise<QdrantInsertResponse> {
     try {
       this.logger.log(
-        `🔄 Sending payload to ML service: ${JSON.stringify(payload)}`,
+        `🔄 Sending payload to ML service: ${JSON.stringify(InsertVectorDto)}`,
       );
 
       const response = await fetch(`${this.mlServiceUrl}/insert`, {
@@ -63,7 +35,7 @@ export class QdrantService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(InsertVectorDto),
       });
 
       if (!response.ok) {
@@ -78,10 +50,6 @@ export class QdrantService {
       }
 
       const result = await response.json();
-      this.logger.log(
-        `✅ Inserted vector for productId=${productId}: ${JSON.stringify(result)}`,
-      );
-
       // Transform ML service response to expected format
       return {
         status: result.status === 'upserted' ? 'success' : result.status,
@@ -90,9 +58,6 @@ export class QdrantService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(
-        `❌ Failed to insert vector for productId=${productId}: ${errorMessage}`,
-      );
 
       // Re-throw HTTP exceptions as-is
       if (error instanceof HttpException) {
@@ -106,36 +71,16 @@ export class QdrantService {
     }
   }
 
-  async search(params: {
-    collection: CollectionType;
-    vector: number[];
-    top_k?: number;
-    style?: string[];
-    price_lte?: number;
-    category?: string[];
-    gender?: Gender[];
-    brand?: string[];
-    retailer?: string[];
-  }): Promise<QdrantSearchResponse> {
-    const searchPayload: SearchVectorDto = {
-      collection: params.collection,
-      vector: params.vector,
-      top_k: params.top_k || 10,
-      style: params.style,
-      price_lte: params.price_lte,
-      category: params.category,
-      gender: params.gender,
-      brand: params.brand,
-      retailer: params.retailer,
-    };
-
+  async search(
+    searchVectorDto: SearchVectorDto,
+  ): Promise<QdrantSearchResponse> {
     try {
       const response = await fetch(`${this.mlServiceUrl}/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(searchPayload),
+        body: JSON.stringify(searchVectorDto),
       });
 
       if (!response.ok) {

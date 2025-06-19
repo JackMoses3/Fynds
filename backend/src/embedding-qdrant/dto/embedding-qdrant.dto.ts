@@ -1,137 +1,36 @@
-import {
-  IsString,
-  IsNumber,
-  IsOptional,
-  IsArray,
-  Min,
-  Max,
-  IsEnum,
-} from 'class-validator';
-import { Gender } from '../../qdrant/dto/qdrant.dto';
+import { IsString, IsNumber, IsOptional, Min, Max } from 'class-validator';
+import { QdrantFilterModel } from '../../qdrant/models/filter.model';
+
+/**
+ *
+ *
+ */
 
 export class SearchDto {
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(100)
-  top_k?: number = 10;
+  top_k?: number = 30;
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  style?: string[];
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  price_lte?: number;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  category?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsEnum(Gender, { each: true })
-  gender?: Gender[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  brand?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  retailer?: string[];
+  qdrantFilter?: QdrantFilterModel;
 }
 
-export class TextSearchDto {
-  @IsString()
-  text: string;
+// export class TextSearchDto {
+//   @IsString()
+//   text: string;
 
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(100)
-  top_k?: number = 10;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  style?: string[];
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  price_lte?: number;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  category?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsEnum(Gender, { each: true })
-  gender?: Gender[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  brand?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  retailer?: string[];
-}
+//   @IsOptional()
+//   searchDto?: SearchDto;
+// }
 
 export class SimilarProductDto {
   @IsNumber()
   productId: number;
 
   @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(100)
-  top_k?: number = 10;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  style?: string[];
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  price_lte?: number;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  category?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsEnum(Gender, { each: true })
-  gender?: Gender[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  brand?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  retailer?: string[];
-}
-
-export class ProcessProductDto {
-  @IsNumber()
-  productId: number;
+  searchDto?: SearchDto;
 }
 
 export class BatchEmbedRetailerDto {
@@ -162,6 +61,11 @@ export interface EmbeddingQdrantBatchResult {
     errors: Array<{ productId: number; error: string; type: string }>;
   };
   timeElapsed: number;
+}
+
+export class ProcessProductDto {
+  @IsNumber()
+  productId: number;
 }
 
 export class ProcessProductResponseDto {

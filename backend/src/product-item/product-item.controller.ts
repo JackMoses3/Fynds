@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, NotFoundException } from '@nestjs/common';
 import { ProductItemService } from './product-item.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
-import { FilterProductItemDto } from './dto/filter-product-item.dto';
+import { FilterProductItemDto } from './dto/filter.dto';
 
 class BatchRequestDto {
   ids!: number[];
