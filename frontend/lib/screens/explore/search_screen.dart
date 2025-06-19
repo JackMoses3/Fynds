@@ -1,5 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:io'; // Import for File
 import '../../models/product_item/filter.dart';
 import '../../models/product_item/product_item.dart';
 import '../preferences_screen.dart';
@@ -86,13 +88,42 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  void _handleImageSearch(XFile image) {
-    // Handle image search logic here
-    // You can navigate to search results or process the image
-    print('Image selected: ${image.path}');
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Image search coming soon!')));
+  Future<void> _handleImageSearch(XFile image) async {
+    setState(() {
+      _isLoading = true;
+      _hasSearched = true;
+      _searchResults.clear();
+      _searchController.text = 'Image Search';
+    });
+
+    try {
+      final File imageFile = File(image.path);
+
+      final products = await _searchService.searchProductsByImage(
+        imageFile,
+        filters: _currentFilters,
+      );
+
+      setState(() {
+        _searchResults = products;
+      });
+
+      await _saveSearchTerm(
+        'Image Search - ${DateTime.now().toString().substring(0, 16)}',
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Image search failed: ${e.toString()}'),
+          backgroundColor: Colors.red[600],
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _showFilters() async {

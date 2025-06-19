@@ -259,73 +259,82 @@ export class EmbeddingQdrantService {
 
   async searchByImage(
     userId: number | null,
-    file: Express.Multer.File,
+    image: Express.Multer.File,
     filters: FilterProductItemDto,
   ): Promise<ProductItemTransferDto[]> {
-    if (!file)
-      throw new HttpException('No image supplied', HttpStatus.BAD_REQUEST);
+    try {
+      const searchStart = Date.now();
 
-    const { label, embedding } =
-      await this.embeddingService.generateImageEmbedding(file);
-    const collection =
-      label === 'front'
-        ? CollectionType.IMAGE_FRONT_EMBEDDINGS
-        : CollectionType.IMAGE_BACK_EMBEDDINGS;
+      // 1. Generate image embedding using ML service
+      const imageEmbeddingResult =
+        await this.embeddingService.generateImageEmbedding(image);
 
-    let updatedFilters: QdrantFilterModel;
+      // 2. Determine which collection to search based on front/back classification
+      const searchCollection =
+        imageEmbeddingResult.label === 'front'
+          ? CollectionType.IMAGE_FRONT_EMBEDDINGS
+          : CollectionType.IMAGE_BACK_EMBEDDINGS;
 
-    if (userId) {
-      const userFilters = await this.getUserFilters(userId);
-      updatedFilters = {
-        gender: userFilters.gender,
-        style: userFilters.style,
-        filter: filters,
-      };
-    } else {
-      updatedFilters = { filter: filters };
-    }
+      // 3. Search for similar images in the appropriate collection
+      const topK = 50;
+      const searchResults = await this.qdrantService.search({
+        collection: searchCollection,
+        vector: imageEmbeddingResult.embedding,
+        top_k: topK,
+        ...filters,
+      });
 
-    const searchRes = await this.qdrantService.search({
-      collection,
-      vector: embedding,
-      ...filters,
-    });
-    if (!searchRes.results.length) {
+      if (!searchResults.results || searchResults.results.length === 0) {
+        return [];
+      }
+
+      // 4. Get product IDs and fetch full product details
+      const productIds = searchResults.results
+        .map((result) => result.id)
+        .filter((id) => id != null);
+
+      const products = await this.db.productItem.findMany({
+        where: { id: { in: productIds } },
+        select: {
+          id: true,
+          name: true,
+          brand: true,
+          category: true,
+          price: true,
+          retailer: true,
+          url: true,
+          productStyles: { select: { style: { select: { name: true } } } },
+          productImages: {
+            select: { id: true, imageUrl: true, frontFacing: true },
+            orderBy: { id: 'asc' },
+          },
+        },
+      });
+
+      // 5. Maintain search result order from similarity ranking
+      const productMap = new Map(products.map((p) => [p.id, p]));
+      const orderedProducts = productIds
+        .map((id) => productMap.get(id))
+        .filter((p): p is NonNullable<typeof p> => p !== undefined);
+
+      // 6. Return formatted results
+      return orderedProducts.map((p) => ({
+        id: p.id,
+        name: p.name,
+        brand: p.brand,
+        category: p.category,
+        price: p.price,
+        retailer: p.retailer,
+        url: p.url,
+        style: p.productStyles.map((s) => s.style.name),
+        images: p.productImages,
+      }));
+    } catch (error) {
       throw new HttpException(
-        'No products matched your image',
-        HttpStatus.NOT_FOUND,
+        `Image search failed: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-
-    const products = await this.db.productItem.findMany({
-      where: { id: { in: searchRes.results.map((r) => r.id) } },
-      select: {
-        id: true,
-        name: true,
-        brand: true,
-        category: true,
-        price: true,
-        retailer: true,
-        url: true,
-        productStyles: { select: { style: { select: { name: true } } } },
-        productImages: {
-          select: { id: true, imageUrl: true, frontFacing: true },
-          orderBy: { id: 'asc' },
-        },
-      },
-    });
-
-    return products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      brand: p.brand,
-      category: p.category,
-      price: p.price,
-      retailer: p.retailer,
-      url: p.url,
-      style: p.productStyles.map((s) => s.style.name),
-      images: p.productImages,
-    }));
   }
 
   /* ─────────────────────── batch pipeline (optimised) ─────────────────────── */

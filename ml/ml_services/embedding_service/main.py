@@ -263,4 +263,4 @@ async def image_embed(file: UploadFile = File(...)):
     if torch.cuda.is_available(): torch.cuda.empty_cache()
     return ImageEmbedResponse(label="front" if label else "back", embedding=vec[0].tolist())
 
-app.include_router(router, prefix="/api/v1/embedding")
+app.include_router(router, prefix="/api/v1/embedding") 

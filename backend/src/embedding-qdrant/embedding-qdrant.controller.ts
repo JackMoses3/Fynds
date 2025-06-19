@@ -94,6 +94,7 @@ export class EmbeddingQdrantController {
    */
   @Public()
   @Post('search-image')
+  @UseGuards(JwtAuthGuard) // Make sure the JWT guard is applied
   @UseInterceptors(
     FileInterceptor('image', {
       storage: memoryStorage(), // keep in RAM so "file.buffer" is available
@@ -106,7 +107,7 @@ export class EmbeddingQdrantController {
     @Body() filters: FilterProductItemDto,
   ): Promise<ProductItemTransferDto[]> {
     return this.embeddingQdrantService.searchByImage(
-      req.user.sub,
+      req.user?.sub ?? null,
       image,
       filters,
     );
