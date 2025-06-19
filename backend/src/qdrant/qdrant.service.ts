@@ -13,7 +13,7 @@ import {
 } from './models/qdrant.model';
 
 import { DatabaseService } from '../database/database.service';
-import { SearchDto } from 'src/embedding-qdrant/dto/embedding-qdrant.dto';
+import { SearchDto } from '../embedding-qdrant/dto/embedding-qdrant.dto';
 
 @Injectable()
 export class QdrantService {

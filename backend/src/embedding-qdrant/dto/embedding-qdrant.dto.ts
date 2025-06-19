@@ -1,5 +1,5 @@
 import { IsString, IsNumber, IsOptional, Min, Max } from 'class-validator';
-import { QdrantFilterModel } from 'src/qdrant/models/filter.model';
+import { QdrantFilterModel } from '../../qdrant/models/filter.model';
 
 /**
  *

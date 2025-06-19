@@ -29,7 +29,7 @@ import {
   MultimodalStyleClassificationResponse,
 } from './dto/embedding-style.dto';
 import { StyleAnalysisConfig } from './dto/multimodal-style-classification.dto';
-import { FilterDto } from 'src/product-item/dto/filter.dto';
+import { FilterProductItemDto } from '../product-item/dto/filter.dto';
 import { TextSearchDto } from './dto/controller.dto';
 
 @Controller('embedding-qdrant')
@@ -73,7 +73,7 @@ export class EmbeddingQdrantController {
   async searchImage(
     @UploadedFile() image: Express.Multer.File,
     @Req() req: RequestUser,
-    @Body() filters: FilterDto,
+    @Body() filters: FilterProductItemDto,
   ): Promise<ProductItemTransferDto[]> {
     return this.embeddingQdrantService.searchByImage(
       req.user.sub,

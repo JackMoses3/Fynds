@@ -27,8 +27,8 @@ import {
   WeightedStyleScore,
   StyleAnalysisResult,
 } from './dto/multimodal-style-classification.dto';
-import { FilterDto } from '../product-item/dto/filter.dto';
-import { QdrantFilterModel } from 'src/qdrant/models/filter.model';
+import { FilterProductItemDto } from '../product-item/dto/filter.dto';
+import { QdrantFilterModel } from '../qdrant/models/filter.model';
 
 @Injectable()
 export class EmbeddingQdrantService {
@@ -45,7 +45,7 @@ export class EmbeddingQdrantService {
   async searchByText(
     userId: number | null,
     query: string,
-    filters: FilterDto,
+    filters: FilterProductItemDto,
   ): Promise<ProductItemTransferDto[]> {
     // Finish the filters for a personalized search
     let updatedFilters: QdrantFilterModel;
@@ -109,7 +109,7 @@ export class EmbeddingQdrantService {
   async searchByImage(
     userId: number | null,
     file: Express.Multer.File,
-    filters: FilterDto,
+    filters: FilterProductItemDto,
   ): Promise<ProductItemTransferDto[]> {
     if (!file)
       throw new HttpException('No image supplied', HttpStatus.BAD_REQUEST);

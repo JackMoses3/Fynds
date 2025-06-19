@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ProductItemTransferDto } from 'src/product-item/dto/product-item.dto';
+import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 

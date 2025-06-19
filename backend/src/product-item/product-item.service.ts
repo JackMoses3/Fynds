@@ -3,7 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ProductImage, ProductItem } from '../../generated/prisma';
 import { DatabaseService } from '../database/database.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
-import { FilterDto } from './dto/filter.dto';
+import { FilterProductItemDto } from './dto/filter.dto';
 
 @Injectable()
 export class ProductItemService {
@@ -92,7 +92,6 @@ export class ProductItemService {
 
   /** Fetch products by arbitrary filters */
   async getFilteredProductItems(
-<<<<<<< HEAD
     filters: FilterProductItemDto,
   ): Promise<ProductItemTransferDto[]> {
     console.log(
@@ -101,10 +100,6 @@ export class ProductItemService {
     );
 
     const startTime = Date.now();
-=======
-    filters: FilterDto,
-  ): Promise<ProductItemTransferDto[] | null> {
->>>>>>> b0d3baf (fixing up filter)
     const where: any = {};
 
     // Handle both singular and plural forms from frontend

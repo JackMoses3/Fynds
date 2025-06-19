@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateCollectionDto } from './dto/create-collection.dto';
 import { DatabaseService } from '../database/database.service';
 import { Prisma } from '../../generated/prisma';
-import { ProductItemTransferDto } from 'src/product-item/dto/product-item.dto';
+import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
 
 @Injectable()
 export class CollectionService {

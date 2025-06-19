@@ -1,10 +1,10 @@
 import { IsOptional, IsArray, IsString, IsEnum } from 'class-validator';
-import { FilterDto } from 'src/product-item/dto/filter.dto';
-import { Gender } from '../dto/qdrant.dto';
+import { FilterProductItemDto } from '../../product-item/dto/filter.dto';
+import { Gender } from '../enums';
 
 export class QdrantFilterModel {
   @IsOptional()
-  filter?: FilterDto;
+  filter?: FilterProductItemDto;
 
   @IsOptional()
   @IsArray()

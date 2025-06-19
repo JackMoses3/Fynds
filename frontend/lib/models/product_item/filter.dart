@@ -85,4 +85,6 @@ class FilterDto {
     if (maxPrice != null) map['maxPrice'] = maxPrice;
     return map;
   }
+
+  static FilterDto? fromJson(result) {}
 }
