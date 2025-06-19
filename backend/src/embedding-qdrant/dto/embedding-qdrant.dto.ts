@@ -63,6 +63,11 @@ export interface EmbeddingQdrantBatchResult {
   timeElapsed: number;
 }
 
+export class ProcessProductDto {
+  @IsNumber()
+  productId: number;
+}
+
 export class ProcessProductResponseDto {
   success: boolean;
   message: string;

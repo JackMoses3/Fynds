@@ -5,6 +5,7 @@ import {
   ProcessProductResponseDto,
   BatchEmbedRetailerDto,
   EmbeddingQdrantBatchResult,
+  ProcessProductDto,
 } from './dto/embedding-qdrant.dto';
 import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
 import { Public, RequestUser } from '../types';
@@ -111,7 +112,8 @@ export class EmbeddingQdrantController {
     @Body() request: SimilarProductDto,
   ): Promise<{ id: number; distance: number }[]> {
     const { productId, ...filters } = request;
-    return this.qdrantService.searchProduct({ productId, searchDto: filters });
+    const searchDto = filters.searchDto || { top_k: 10 };
+    return this.qdrantService.searchProduct({ productId, searchDto });
   }
 
   /**
