@@ -187,7 +187,7 @@ export class QdrantService {
     ];
     const allResults: Array<{ id: number; score: number; collection: string }> =
       [];
-    const searchLimit = params.searchDto.top_k || 20; // Request 20 from each collection
+    const searchLimit = params.searchDto.top_k || 30; // Request 20 from each collection
 
     // Loop through each collection.
     for (const collection of collections) {
@@ -330,7 +330,7 @@ export class QdrantService {
 
     // 4. Sort by descending score and limit the results.
     uniqueResults.sort((a, b) => b.score - a.score);
-    const limitedResults = uniqueResults.slice(0, params.searchDto.top_k || 10);
+    const limitedResults = uniqueResults.slice(0, params.searchDto.top_k || 20);
     this.logger.debug(`Limited Results: ${JSON.stringify(limitedResults)}`);
 
     // 5. Fetch URLs from the database for each product id.

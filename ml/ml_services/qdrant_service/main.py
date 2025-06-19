@@ -1,11 +1,10 @@
-# ml/ml_services/qdrant_client/main.py
 import os
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 import numpy as np
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import PointStruct, Filter, FieldCondition, MatchAny, Range
+from qdrant_client.http.models import PointStruct, Filter, FieldCondition, MatchAny, Range, PointIdsList
 
 router = APIRouter()
 
@@ -350,8 +349,14 @@ async def delete(req: DeleteRequest):
     if req.collection not in collection_names:
         raise HTTPException(status_code=404, detail=f"Collection '{req.collection}' not found. Available: {collection_names}")
 
-    client.delete(
-        collection_name=req.collection,
-        points=[req.product_id]
-    )
+    try:
+        client.delete(
+            collection_name=req.collection,
+            points_selector=PointIdsList(
+                points=[req.product_id]
+            )
+        )
+        return {"status": "deleted", "id": req.product_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete product {req.product_id}: {str(e)}")
     return {"status": "deleted", "id": req.product_id}
