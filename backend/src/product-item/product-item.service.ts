@@ -248,4 +248,29 @@ export class ProductItemService {
       },
     });
   }
+
+  async findManyByIds(ids: number[]) {
+    const items = await this.db.productItem.findMany({
+      where: { id: { in: ids } },
+      include: {
+        productImages: true,
+        productStyles: { include: { style: true } },
+      },
+    });
+
+    // Map to transfer format (images, not productImages)
+    return items.map((p) => ({
+      id: p.id,
+      name: p.name,
+      brand: p.brand,
+      retailer: p.retailer,
+      price: p.price,
+      url: p.url,
+      images: p.productImages.map((img) => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+      })),
+      style: p.productStyles?.map((s) => s.style?.name) ?? [],
+    }));
+  }
 }

@@ -79,4 +79,12 @@ export class ProductItemController {
       })),
     }));
   }
+
+  /** POST /product-item/bulk
+   * Used for bulk fetching products by IDs (for like collections)
+   */
+  @Post('bulk')
+  async getBulk(@Body('ids') ids: number[]) {
+    return this.productItemService.findManyByIds(ids);
+  }
 }

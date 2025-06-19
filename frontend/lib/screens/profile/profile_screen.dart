@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:fynds/screens/profile/collection_widget.dart';
 import 'package:fynds/services/collection/collection_service.dart';
 import 'package:fynds/models/collection.dart';
+import 'package:fynds/services/like/like_service.dart' as like_service;
+import 'package:fynds/widgets/product_item/catalogue_view.dart'
+    as catalogue_view;
+import 'package:fynds/models/product_item/product_item.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -138,9 +142,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _collectionService.getCollectionById(collectionId),
         );
       case 1:
-        return const Text(
-          "Your Likes",
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+        return FutureBuilder<List<ProductItem>>(
+          future: like_service.LikeService().getLikedProducts(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Text('Failed to load liked items.'),
+                ),
+              );
+            } else {
+              final data = snapshot.data ?? [];
+              final items =
+                  data.where((p) => p.images.isNotEmpty).toList()
+                    ..sort((a, b) => b.id.compareTo(a.id));
+              if (items.isEmpty) {
+                return const Center(child: Text('No liked items.'));
+              }
+              return catalogue_view.CatalogueView(items: items);
+            }
+          },
         );
       case 2:
         return const Text(
