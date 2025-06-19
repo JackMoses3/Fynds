@@ -50,4 +50,20 @@ class CollectionService {
       return [];
     }
   }
+
+  Future<List<int>> getSavedProductIds() async {
+    final resp = await _dio.get('collection/saved/ids');
+    return List<int>.from(resp.data);
+  }
+
+  Future<void> addProductToCollection(int collectionId, int productId) async {
+    await _dio.post('collection/$collectionId/add/$productId');
+  }
+
+  Future<void> removeProductFromCollection(
+    int collectionId,
+    int productId,
+  ) async {
+    await _dio.delete('collection/$collectionId/remove/$productId');
+  }
 }

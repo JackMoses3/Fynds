@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/product_item/product_item.dart';
 import 'package:fynds/services/basket/basket_service.dart';
+import 'package:fynds/services/like/like_service.dart' as like_service;
+import 'package:fynds/services/collection/collection_service.dart';
 
 class ProductItemWidget extends StatefulWidget {
   final ProductItem product;
@@ -18,6 +20,12 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
   late final PageController _pageController;
   late final AnimationController _basketController;
   late final Animation<double> _basketAnimation;
+
+  final _likeService = like_service.LikeService();
+  final _collectionService = CollectionService();
+
+  // For demo: use the first collection as the "saved" collection
+  int? _myCollectionId;
 
   @override
   void initState() {
@@ -37,8 +45,8 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
       if (s == AnimationStatus.completed) _basketController.reverse();
     });
 
-    // Precache
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _fetchStates();
       for (final img in widget.product.images) {
         precacheImage(
           CachedNetworkImageProvider(
@@ -49,6 +57,29 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
         );
       }
     });
+  }
+
+  Future<void> _fetchStates() async {
+    // Liked
+    final likedIds = await _likeService.getLikedProductIds();
+    setState(() {
+      _isLiked = likedIds.contains(widget.product.id);
+    });
+
+    // Saved (in any collection)
+    final savedIds = await _collectionService.getSavedProductIds();
+    setState(() {
+      _isSaved = savedIds.contains(widget.product.id);
+    });
+
+    // In basket (optional: you may want to fetch basket here as well)
+    // For now, keep as before or implement similar logic if needed
+
+    // For demo: fetch first collection ID for save/unsave
+    final collections = await _collectionService.getCollections();
+    if (collections != null && collections.isNotEmpty) {
+      _myCollectionId = collections.first.id;
+    }
   }
 
   @override
@@ -94,7 +125,10 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
   Widget build(BuildContext context) {
     final p = widget.product;
     return GestureDetector(
-      onDoubleTap: () => setState(() => _isLiked = true),
+      onDoubleTap: () async {
+        await _likeService.likeProduct(p.id);
+        setState(() => _isLiked = true);
+      },
       child: Stack(
         children: [
           // ── Horizontal carousel ──
@@ -195,11 +229,28 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
             bottom: MediaQuery.of(context).size.height * 0.25,
             child: Column(
               children: [
-                _actionIcon(Icons.favorite, () {
+                _actionIcon(Icons.favorite, () async {
+                  if (_isLiked) {
+                    await _likeService.unlikeProduct(p.id);
+                  } else {
+                    await _likeService.likeProduct(p.id);
+                  }
                   setState(() => _isLiked = !_isLiked);
                 }, color: _isLiked ? Colors.red : Colors.white),
                 const SizedBox(height: 24),
-                _actionIcon(Icons.bookmark, () {
+                _actionIcon(Icons.bookmark, () async {
+                  if (_myCollectionId == null) return;
+                  if (_isSaved) {
+                    await _collectionService.removeProductFromCollection(
+                      _myCollectionId!,
+                      p.id,
+                    );
+                  } else {
+                    await _collectionService.addProductToCollection(
+                      _myCollectionId!,
+                      p.id,
+                    );
+                  }
                   setState(() => _isSaved = !_isSaved);
                 }, color: _isSaved ? Colors.red : Colors.white),
                 const SizedBox(height: 24),

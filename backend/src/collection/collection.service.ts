@@ -90,5 +90,49 @@ export class CollectionService {
       })),
     }));
   }
-  // Fetch the collection with its items and their products
+
+  async addProductToCollection(
+    userId: number,
+    collectionId: number,
+    productId: number,
+  ) {
+    // Optionally, check that collection belongs to user
+    const collection = await this.db.collection.findUnique({
+      where: { id: collectionId },
+    });
+    if (!collection || collection.userId !== userId)
+      throw new Error('Unauthorized');
+    return this.db.collectionItem.upsert({
+      where: {
+        collectionId_productItemId: { collectionId, productItemId: productId },
+      },
+      update: {},
+      create: { collectionId, productItemId: productId },
+    });
+  }
+
+  async removeProductFromCollection(
+    userId: number,
+    collectionId: number,
+    productId: number,
+  ) {
+    // Optionally, check that collection belongs to user
+    const collection = await this.db.collection.findUnique({
+      where: { id: collectionId },
+    });
+    if (!collection || collection.userId !== userId)
+      throw new Error('Unauthorized');
+    return this.db.collectionItem.deleteMany({
+      where: { collectionId, productItemId: productId },
+    });
+  }
+
+  async getSavedProductIds(userId: number): Promise<number[]> {
+    // Get all product IDs in any collection owned by user
+    const items = await this.db.collectionItem.findMany({
+      where: { collection: { userId } },
+      select: { productItemId: true },
+    });
+    return items.map((i) => i.productItemId);
+  }
 }

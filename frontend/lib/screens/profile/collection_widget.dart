@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fynds/models/collection.dart';
 import 'package:fynds/models/product_item/product_item.dart';
-import 'package:fynds/widgets/product_item/catalogue_view.dart';
+import 'package:fynds/widgets/product_item/catalogue_view.dart'
+    as catalogue_view;
 import 'package:fynds/services/collection/collection_service.dart';
 
 class CollectionWidget extends StatefulWidget {
@@ -140,7 +141,15 @@ class _CollectionWidgetState extends State<CollectionWidget> {
             );
           } else {
             print('📬 Loaded items: ${snapshot.data?.length}');
-            body = CatalogueView(items: snapshot.data!);
+            // Filter out products with no images and sort by descending id
+            final items =
+                (snapshot.data ?? []).where((p) => p.images.isNotEmpty).toList()
+                  ..sort((a, b) => b.id.compareTo(a.id));
+            if (items.isEmpty) {
+              body = const Center(child: Text('No items in this collection.'));
+            } else {
+              body = catalogue_view.CatalogueView(items: items);
+            }
           }
           final selected = _collections.firstWhere(
             (c) => c.id == _selectedCollectionId,

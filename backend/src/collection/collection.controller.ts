@@ -1,7 +1,16 @@
-import { Controller, Get, Post, Body, Param, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Req,
+  Delete,
+} from '@nestjs/common';
 import { CollectionService } from './collection.service';
 import { CreateCollectionDto } from './dto/create-collection.dto';
 import { RequestUser } from '../types';
+import { ParseIntPipe } from '@nestjs/common';
 
 @Controller('collection')
 export class CollectionController {
@@ -20,5 +29,39 @@ export class CollectionController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.collectionService.getProductsByCollectionId(+id);
+  }
+
+  // Add product to collection (save)
+  @Post(':collectionId/add/:productId')
+  async addProductToCollection(
+    @Req() req: RequestUser,
+    @Param('collectionId', ParseIntPipe) collectionId: number,
+    @Param('productId', ParseIntPipe) productId: number,
+  ) {
+    return this.collectionService.addProductToCollection(
+      req.user.sub,
+      collectionId,
+      productId,
+    );
+  }
+
+  // Remove product from collection (unsave)
+  @Delete(':collectionId/remove/:productId')
+  async removeProductFromCollection(
+    @Req() req: RequestUser,
+    @Param('collectionId', ParseIntPipe) collectionId: number,
+    @Param('productId', ParseIntPipe) productId: number,
+  ) {
+    return this.collectionService.removeProductFromCollection(
+      req.user.sub,
+      collectionId,
+      productId,
+    );
+  }
+
+  // Get all product IDs saved by user (across all collections)
+  @Get('saved/ids')
+  async getSavedProductIds(@Req() req: RequestUser) {
+    return this.collectionService.getSavedProductIds(req.user.sub);
   }
 }
