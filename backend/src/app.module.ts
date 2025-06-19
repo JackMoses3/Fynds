@@ -18,6 +18,7 @@ import { EmbeddingQdrantModule } from './embedding-qdrant/embedding-qdrant.modul
 import { QdrantModule } from './qdrant/qdrant.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { LikeModule } from './like/like.module';
+import { ViewingModule } from './viewing/viewing.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { LikeModule } from './like/like.module';
     QdrantModule,
     OnboardingModule,
     LikeModule,
+    ViewingModule,
   ],
 })
 export class AppModule {}
