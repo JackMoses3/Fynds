@@ -64,13 +64,30 @@ class _InfiniteProductFeedState extends State<InfiniteProductFeed> {
 
     List<ProductItem>? batch;
     try {
-      batch =
-          _filters != null
-              ? await _service.getFilteredProductItems(_filters!)
-              : await _service.getProductItems();
+      if (_filters != null) {
+        // Use filtered products if filters are provided
+        batch = await _service.getFilteredProductItems(_filters!);
+      } else {
+        // Use personalized feed for home screen
+        batch = await _service.getPersonalizedFeed(limit: 20, stage: 0);
+
+        // Fallback to random products if personalized feed fails
+        if (batch == null || batch.isEmpty) {
+          debugPrint(
+            '⚠️ Personalized feed failed, falling back to random products',
+          );
+          batch = await _service.getProductItems();
+        }
+      }
     } catch (e) {
       debugPrint('Error fetching products: $e');
-      batch = [];
+      // Fallback to random products on any error
+      try {
+        batch = await _service.getProductItems();
+      } catch (fallbackError) {
+        debugPrint('Fallback also failed: $fallbackError');
+        batch = [];
+      }
     }
 
     if (batch == null || batch.isEmpty) {

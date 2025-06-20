@@ -17,6 +17,40 @@ class ProductItemService {
     }
   }
 
+  /// NEW: Get personalized feed for authenticated user
+  Future<List<ProductItem>?> getPersonalizedFeed({
+    int? limit,
+    int stage = 0,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (limit != null) queryParams['limit'] = limit;
+      queryParams['stage'] = stage;
+
+      print('🔍 Requesting personalized feed with params: $queryParams');
+
+      final response = await _dio.get(
+        'feed/personalised',
+        queryParameters: queryParams,
+      );
+
+      // The response has a different structure: { batchMeta: {...}, products: [...] }
+      final Map<String, dynamic> data = response.data;
+      final List products = data['products'] ?? [];
+
+      print('✅ Received ${products.length} products from personalized feed');
+
+      return products.map((json) => ProductItem.fromJson(json)).toList();
+    } catch (e) {
+      print('❌ Error fetching personalized feed: $e');
+      if (e is DioException) {
+        print('📊 Response status: ${e.response?.statusCode}');
+        print('📊 Response data: ${e.response?.data}');
+      }
+      return null;
+    }
+  }
+
   Future<List<ProductItem>?> getFilteredProductItems(FilterDto filters) async {
     try {
       final payload = <String, dynamic>{};

@@ -45,3 +45,6 @@ export class FilterProductItemDto {
   @Min(0)
   maxPrice?: number;
 }
+
+// Export alias for backward compatibility
+export { FilterProductItemDto as FilterDto };

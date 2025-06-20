@@ -1,6 +1,6 @@
 // src/scraper.ts
 
-import { PrismaClient, SiteDataConfig } from '@prisma/client';
+import { PrismaClient } from '../../generated/prisma';
 import { handleShopify } from './handlers/shopify';
 import { handleZara } from './handlers/zara';
 import { handleCityBeach } from './handlers/citybeach';
@@ -35,64 +35,63 @@ async function main() {
   // 2. dispatch to the right handler
   switch (config.ecommercePlatform) {
     case 'shopify':
-      await handleShopify(config as SiteDataConfig, prisma);
+      await handleShopify(config, prisma);
       break;
 
     case 'zara':
-      await handleZara(config as SiteDataConfig, prisma);
+      await handleZara(config, prisma);
       break;
 
-
     case 'iamgia':
-      await handleIAmGia(config as SiteDataConfig, prisma);
+      await handleIAmGia(config, prisma);
       break;
 
     case 'skims':
-      await handleSkims(config as SiteDataConfig, prisma);
+      await handleSkims(config, prisma);
       break;
 
     case 'mango':
-      await handleMango(config as SiteDataConfig, prisma);
+      await handleMango(config, prisma);
       break;
 
     case 'americaneagle':
-      await handleAmericanEagle(config as SiteDataConfig, prisma);
+      await handleAmericanEagle(config, prisma);
       break;
 
     case 'fashionnova':
-      await handleFashionNova(config as SiteDataConfig, prisma);
+      await handleFashionNova(config, prisma);
       break;
 
     case 'cos':
-      await handleCos(config as SiteDataConfig, prisma);
+      await handleCos(config, prisma);
       break;
 
     case 'ghanda':
-      await handleGhanda(config as SiteDataConfig, prisma);
+      await handleGhanda(config, prisma);
       break;
 
     case 'lululemon':
-      await handleLululemon(config as SiteDataConfig, prisma);
+      await handleLululemon(config, prisma);
       break;
 
     case 'adidas':
-      await handleAdidas(config as SiteDataConfig, prisma);
+      await handleAdidas(config, prisma);
       break;
 
     case 'hm':
-      await handleHM(config as SiteDataConfig, prisma);
+      await handleHM(config, prisma);
       break;
 
     case 'glassons':
-      await handleGlassons(config as SiteDataConfig, prisma);
+      await handleGlassons(config, prisma);
       break
 
     case 'urbanoutfitters':
-      await handleUrban(config as SiteDataConfig, prisma);
+      await handleUrban(config, prisma);
       break;
 
     case 'citybeach':
-      await handleCityBeach(config as SiteDataConfig, prisma);
+      await handleCityBeach(config, prisma);
       break;
 
     default:

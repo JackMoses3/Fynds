@@ -19,6 +19,7 @@ import { QdrantModule } from './qdrant/qdrant.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { LikeModule } from './like/like.module';
 import { ViewingModule } from './viewing/viewing.module';
+import { RecommendationModule } from './recommendation/recommendation.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { ViewingModule } from './viewing/viewing.module';
     OnboardingModule,
     LikeModule,
     ViewingModule,
+    RecommendationModule,
   ],
 })
 export class AppModule {}

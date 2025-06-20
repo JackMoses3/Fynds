@@ -196,7 +196,7 @@ export class ProductItemService {
     }
   }
 
-  /** Fetch a random “page” of 10 products */
+  /** Fetch a random "page" of 10 products */
   async getRandomProducts(): Promise<ProductItemTransferDto[]> {
     const count = await this.db.productItem.count();
     if (count === 0) {
@@ -272,5 +272,43 @@ export class ProductItemService {
       })),
       style: p.productStyles?.map((s) => s.style?.name) ?? [],
     }));
+  }
+
+  /** Create a product with images (for scraper) */
+  async createProductWithImages(data: {
+    name: string;
+    brand: string;
+    sex: string;
+    price: number;
+    url: string;
+    metaData: string;
+    retailer: string;
+    imageUrls: string[];
+  }) {
+    // Create the product first
+    const product = await this.db.productItem.create({
+      data: {
+        name: data.name,
+        brand: data.brand,
+        sex: data.sex,
+        price: data.price,
+        url: data.url,
+        metaData: data.metaData,
+        retailer: data.retailer,
+      },
+    });
+
+    // Create the images
+    if (data.imageUrls.length > 0) {
+      await this.db.productImage.createMany({
+        data: data.imageUrls.map((imageUrl, index) => ({
+          productItemId: product.id,
+          imageUrl,
+          frontFacing: index === 0, // First image is front facing
+        })),
+      });
+    }
+
+    return product;
   }
 }

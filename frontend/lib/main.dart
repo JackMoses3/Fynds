@@ -18,7 +18,7 @@ void main() async {
   final authService = AuthService();
   final bool isAuthenticated = await authService.checkLoginStatus();
 
-  runApp(MyApp(onboardingDone: done, isAuthenticated: isAuthenticated));
+  runApp(MyApp(onboardingDone: done, isAuthenticated: false));
 }
 
 class MyApp extends StatelessWidget {
