@@ -7,6 +7,9 @@ import {
   UseGuards,
   Param,
   Res,
+  Body,
+  Post,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/strategies/jwt/jwt-auth.guard';
 import { OnboardingService } from './onboarding.service';
@@ -15,11 +18,19 @@ import { RequestUser } from '../types';
 import { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
+import { ProductScoreService } from '../recommendation/service/product-score.service';
+
+class CompleteOnboardingDto {
+  selectedIds!: number[];
+}
 
 @Controller('onboarding')
 @UseGuards(JwtAuthGuard)
 export class OnboardingController {
-  constructor(private readonly onboardingService: OnboardingService) {}
+  constructor(
+    private readonly onboardingService: OnboardingService,
+    private readonly productScoreService: ProductScoreService,
+  ) {}
 
   /**
    * GET /api/onboarding/style-products
@@ -69,35 +80,20 @@ export class OnboardingController {
   }
 
   /**
-   * GET /api/onboarding/images/:genderFolder/styles/:styleId/:filename
+   * GET  /api/onboarding/:genderFolder/styles/:styleId/:filename
    *
-   * Static file server for product images during onboarding
-   * Serves images from the filesystem with proper caching and CORS headers
+   * Serves images from src/onboarding/<genderFolder>/styles/... with
+   * proper Content‐Type, cache and CORS headers.
    *
-   * Path Structure:
-   * - genderFolder: "men_images" or "women_images"
-   * - styleId: Numeric style identifier (e.g., "1", "2", "3")
-   * - filename: Image filename with extension (e.g., "12345.jpg")
-   *
-   * Example URL: /api/onboarding/images/women_images/styles/1/12345.jpg
-   *
-   * Features:
-   * - File existence validation
-   * - Proper Content-Type headers (image/jpeg or image/png)
-   * - Cache headers for performance (1 hour cache)
-   * - CORS headers for cross-origin requests
-   * - Error handling for missing files
-   *
-   * @Public decorator allows image access without authentication
+   * Public decorator not shown here—make sure this route is not guarded.
    */
-  @Get('images/:genderFolder/styles/:styleId/:filename')
+  @Get(':genderFolder/styles/:styleId/:filename')
   async getImage(
     @Param('genderFolder') genderFolder: string,
     @Param('styleId') styleId: string,
     @Param('filename') filename: string,
     @Res() res: Response,
   ) {
-    // Build absolute file path from URL parameters
     const filePath = path.join(
       __dirname,
       '../onboarding',
@@ -107,31 +103,36 @@ export class OnboardingController {
       filename,
     );
 
-    console.log(`🖼️ [Images] Attempting to serve: ${filePath}`);
-
-    // Validate file exists before attempting to serve
     if (!fs.existsSync(filePath)) {
-      console.log(`❌ [Images] File not found: ${filePath}`);
-      return res.status(404).json({ error: 'Image not found' });
+      throw new NotFoundException(`Image not found: ${filename}`);
     }
 
-    try {
-      // Determine Content-Type based on file extension
-      const ext = path.extname(filename).toLowerCase();
-      const contentType = ext === '.png' ? 'image/png' : 'image/jpeg';
+    // Set MIME type
+    const ext = path.extname(filename).toLowerCase();
+    const mime = ext === '.png' ? 'image/png' : 'image/jpeg';
+    res.type(mime);
 
-      // Set HTTP headers for optimal image delivery
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour cache
-      res.setHeader('Access-Control-Allow-Origin', '*'); // Allow CORS
+    // Caching and CORS
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.set('Access-Control-Allow-Origin', '*');
 
-      console.log(`✅ [Images] Serving: ${filename} as ${contentType}`);
+    return res.sendFile(filePath);
+  }
 
-      // Send file using Express's optimized file serving
-      return res.sendFile(path.resolve(filePath));
-    } catch (error) {
-      console.error(`❌ [Images] Error serving image:`, error);
-      return res.status(500).json({ error: 'Internal server error' });
+  /** POST /onboarding/complete */
+  @Post('complete')
+  async complete(@Req() req: RequestUser, @Body() dto: CompleteOnboardingDto) {
+    const userId = req.user.sub;
+    const { selectedIds } = dto;
+
+    for (const productItemId of selectedIds) {
+      await this.productScoreService.addScore({
+        userId,
+        productItemId,
+        signals: { onboarding: true },
+      });
     }
+
+    return { success: true };
   }
 }

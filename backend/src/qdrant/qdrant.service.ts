@@ -166,9 +166,9 @@ export class QdrantService {
         }
 
         const getData = await getResp.json();
-        this.logger.debug(
-          `GET Data from ${collection}: ${JSON.stringify(getData)}`,
-        );
+        //this.logger.debug(
+        //  `GET Data from ${collection}: ${JSON.stringify(getData)}`,
+        //);
 
         // Adjusted: Qdrant returns the points array directly in getData.result.
         if (
@@ -183,9 +183,9 @@ export class QdrantService {
         }
         // Get the vector from the first returned point.
         targetVector = getData.result[0].vector;
-        this.logger.debug(
-          `Fetched vector in ${collection}: ${JSON.stringify(targetVector)}`,
-        );
+        //this.logger.debug(
+        //  `Fetched vector in ${collection}: ${JSON.stringify(targetVector)}`,
+        //);
 
         // Check that targetVector is a valid numeric array.
         if (!targetVector || !Array.isArray(targetVector)) {
@@ -208,7 +208,7 @@ export class QdrantService {
           score_threshold: 0, // Allow even low-similarity matches
         };
         this.logger.debug(`Search URL: ${searchUrl}`);
-        this.logger.debug(`Search Payload: ${JSON.stringify(searchPayload)}`);
+        //this.logger.debug(`Search Payload: ${JSON.stringify(searchPayload)}`);
 
         const searchResp = await fetch(searchUrl, {
           method: 'POST',
@@ -228,9 +228,9 @@ export class QdrantService {
         }
 
         const searchResult = await searchResp.json();
-        this.logger.debug(
-          `Search Result from ${collection}: ${JSON.stringify(searchResult)}`,
-        );
+        //this.logger.debug(
+        //  `Search Result from ${collection}: ${JSON.stringify(searchResult)}`,
+        //);
         // Expected response shape: { result: { hits: Array<{ id: number; score: number, ... }> } }
         const hits = Array.isArray(searchResult.result)
           ? searchResult.result
@@ -239,9 +239,9 @@ export class QdrantService {
           const results = hits
             .filter((r: any) => r.id !== params.productId) // Exclude the queried product.
             .map((r: any) => ({ id: r.id, score: r.score, collection }));
-          this.logger.debug(
-            `Results from ${collection}: ${JSON.stringify(results)}`,
-          );
+          //this.logger.debug(
+          //  `Results from ${collection}: ${JSON.stringify(results)}`,
+          //);
           allResults.push(...results);
         }
       } catch (error) {
@@ -271,12 +271,12 @@ export class QdrantService {
       },
       [] as Array<{ id: number; score: number; collection: string }>,
     );
-    this.logger.debug(`Unique Results: ${JSON.stringify(uniqueResults)}`);
+    //this.logger.debug(`Unique Results: ${JSON.stringify(uniqueResults)}`);
 
     // 4. Sort by descending score and limit the results.
     uniqueResults.sort((a, b) => b.score - a.score);
     const limitedResults = uniqueResults.slice(0, params.searchDto.top_k || 20);
-    this.logger.debug(`Limited Results: ${JSON.stringify(limitedResults)}`);
+    //this.logger.debug(`Limited Results: ${JSON.stringify(limitedResults)}`);
 
     // 5. Fetch URLs from the database for each product id.
     const productIds = limitedResults.map((r) => r.id);

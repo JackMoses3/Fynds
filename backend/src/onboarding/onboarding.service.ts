@@ -119,11 +119,6 @@ export class OnboardingService {
               );
 
               // Add to ProductScore for this user
-              await this.productScoreService.addScore({
-                userId,
-                productItemId: productId,
-                signals: { onboarding: true },
-              });
             }
           }
 
