@@ -217,13 +217,22 @@ export class RecommendationService {
     }
 
     // 8. 3 random: embedding not null, category != Uncategorized, sex matches
+    const currentRetailers = new Set<string>();
+    for (const id of [...selectedRecent, ...topOld]) {
+      const product = await this.db.productItem.findUnique({
+        where: { id },
+        select: { retailer: true },
+      });
+      if (product?.retailer) currentRetailers.add(product.retailer);
+    }
+
     const randomProducts = await this.db.productItem.findMany({
       where: {
         embedding: { not: null },
         category: { not: 'Uncategorized' },
         ...sexFilter,
+        retailer: { notIn: Array.from(currentRetailers) }, // <-- exclude already used retailers
       },
-      orderBy: { id: 'asc' },
       take: 1000,
     });
     let randomIds = shuffle(randomProducts.map((p) => p.id));

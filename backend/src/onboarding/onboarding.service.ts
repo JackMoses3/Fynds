@@ -112,13 +112,11 @@ export class OnboardingService {
             const productId = parseInt(path.parse(fileName).name);
 
             if (!isNaN(productId)) {
-              const imageUrl = `/api/onboarding/images/${genderFolder}/styles/${styleId}/${fileName}`;
+              const imageUrl = `/api/onboarding/${genderFolder}/styles/${styleId}/${fileName}`;
               results.push({ id: productId, imageUrl });
               console.log(
                 `🔗 [Onboarding] Generated URL: ${imageUrl} for product ${productId}`,
               );
-
-              // Add to ProductScore for this user
             }
           }
 
@@ -175,12 +173,6 @@ export class OnboardingService {
                   console.log(
                     `📦 [Onboarding] Added 1 item from other style ${styleId}`,
                   );
-                  // Optionally, you can also add these to ProductScore if you want
-                  await this.productScoreService.addScore({
-                    userId,
-                    productItemId: productId,
-                    signals: { onboarding: true },
-                  });
                   break; // Only 1 per style
                 }
               }
