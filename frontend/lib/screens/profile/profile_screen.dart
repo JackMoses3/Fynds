@@ -6,6 +6,7 @@ import 'package:fynds/services/like/like_service.dart' as like_service;
 import 'package:fynds/widgets/product_item/catalogue_view.dart'
     as catalogue_view;
 import 'package:fynds/models/product_item/product_item.dart';
+import 'package:fynds/screens/basket/basket_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -167,10 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           },
         );
       case 2:
-        return const Text(
-          "Your Cart",
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-        );
+        return const BasketScreen();
       default:
         return const SizedBox.shrink();
     }
