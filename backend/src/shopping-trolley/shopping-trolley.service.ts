@@ -6,10 +6,14 @@ import {
   ProductItem,
   ProductImage,
 } from '../../generated/prisma'; // Adjust the import path based on your project structure
+import { ProductScoreService } from '../recommendation/service/product-score.service';
 
 @Injectable()
 export class ShoppingTrolleyService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly productScoreService: ProductScoreService,
+  ) {}
 
   /**
    * Get (or create) the user's single ShoppingTrolley.
@@ -68,7 +72,7 @@ export class ShoppingTrolleyService {
     productId: number,
     qty = 1,
   ): Promise<TrolleyItem> {
-    const trolley = await this.getOrCreateForUser(userId); // Get or create the user's shopping trolley
+    const trolley = await this.getOrCreateForUser(userId);
     const existing = await this.db.trolleyItem.findFirst({
       where: {
         shoppingTrolleyId: trolley.id,
@@ -81,6 +85,13 @@ export class ShoppingTrolleyService {
         where: { id: existing.id },
       });
     }
+
+    // Record product score for trolleyItem
+    await this.productScoreService.addScore({
+      userId,
+      productItemId: productId,
+      signals: { trolleyItem: true },
+    });
 
     return this.db.trolleyItem.create({
       data: {
