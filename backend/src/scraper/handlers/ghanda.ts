@@ -71,7 +71,7 @@ export async function buildUpsert(
   const slug = pathname.split('/').pop()?.split('?')[0] || null;
   if (!slug) return null;
 
-  const BUILD_ID = 'sMQ5IyshhLw3_OzJOUOjL';
+  const BUILD_ID = 'fqRwvVZTE-qjmgDVQlU2B';
   const apiUrl = `${origin}/_next/data/${BUILD_ID}/en-US/product/${slug}.json`;
   let data: any;
   try {

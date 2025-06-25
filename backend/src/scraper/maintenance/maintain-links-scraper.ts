@@ -412,16 +412,44 @@ async function maintainConfig(cfg: SiteDataConfig): Promise<void> {
 if (require.main === module) {
   (async () => {
     try {
-      // Only target config with ID 193
-      const configs = await prisma.siteDataConfig.findMany({
-        where: { id: 98 },
+      // Target all configs except IDs: 4, 16, 6, 8, 86
+      const excludeIds = [3, 4, 16, 6, 8, 86];
+
+      // Fetch all configs except the excluded ones
+      let configs = await prisma.siteDataConfig.findMany({
+        where: {
+          id: { notIn: excludeIds },
+        },
       });
 
       if (configs.length === 0) {
-        console.log('→ No config found with ID 193');
+        console.log('→ No configs found (all excluded)');
         return;
       }
 
+      // Sort configs by ID in ascending order
+      configs = configs.sort((a, b) => a.id - b.id);
+
+      // Find config with ID 10 (if present)
+      const cfg10Index = configs.findIndex((cfg) => cfg.id === 10);
+      if (cfg10Index !== -1) {
+        const cfg = configs[cfg10Index];
+        console.log(
+          `→ Running maintenance for ${cfg.retailerName} (ID: ${cfg.id})`,
+        );
+        await maintainConfig(cfg);
+        await prisma.siteDataConfig.update({
+          where: { id: cfg.id },
+          data: { lastCrawled: new Date() },
+        });
+        console.log(
+          `✓ Updated lastCrawled for ${cfg.retailerName} (${cfg.ecommercePlatform})`,
+        );
+        // Remove ID 10 from the list so it's not processed again
+        configs.splice(cfg10Index, 1);
+      }
+
+      // Process the rest in sequential order (ascending by ID)
       for (const cfg of configs) {
         console.log(
           `→ Running maintenance for ${cfg.retailerName} (ID: ${cfg.id})`,

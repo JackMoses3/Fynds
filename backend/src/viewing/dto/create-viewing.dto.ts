@@ -1,16 +1,6 @@
-import { IsInt, IsOptional, Min } from 'class-validator';
-
 export class CreateViewingDto {
-  @IsInt()
   productId: number;
-
-  @IsInt()
-  @IsOptional()
-  @Min(0)
-  scrollLength?: number;
-
-  @IsInt()
-  @IsOptional()
-  @Min(0)
-  scrollDepth?: number;
+  scrollLength?: number; // Number of horizontal swipes
+  scrollDepth?: number; // % of horizontal swipes (0-100)
+  scrollTime?: number; // Time spent on product (seconds)
 }

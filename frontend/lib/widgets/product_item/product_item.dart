@@ -35,6 +35,9 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
   // Variable to store the collection ID
   int? _myCollectionId;
 
+  // Add a variable to track the number of images (for % calculation)
+  late int _imageCount;
+
   @override
   void initState() {
     super.initState();
@@ -91,6 +94,11 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
     if (collections != null && collections.isNotEmpty) {
       _myCollectionId = collections.first.id;
     }
+
+    // Set the image count for analytics
+    setState(() {
+      _imageCount = widget.product.images.length;
+    });
   }
 
   // Submit viewing analytics
@@ -102,10 +110,21 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
 
     // Only submit if they viewed for at least 1 second
     if (viewDurationSeconds >= 1) {
+      // scrollLength: number of horizontal swipes
+      // scrollDepth: % of horizontal swipes (0-100)
+      // scrollTime: time spent on product (seconds)
+      final scrollLength = _horizontalSwipes;
+      final scrollDepth =
+          _imageCount > 1
+              ? (scrollLength / (_imageCount - 1) * 100).clamp(0, 100)
+              : 100.0;
+      final scrollTime = now.difference(_viewStartTime!).inSeconds.toDouble();
+
       await _viewingService.recordViewing(
         productId: widget.product.id,
-        scrollLengthSeconds: viewDurationSeconds,
-        scrollDepth: _horizontalSwipes,
+        scrollLength: scrollLength,
+        scrollDepth: scrollDepth.toDouble(),
+        scrollTime: scrollTime,
       );
 
       _analyticsSubmitted = true;

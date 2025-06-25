@@ -210,8 +210,9 @@ model ViewingHistory {
   productItemId Int
 
   // Signals/interactions
-  scrollLength Int?
-  scrollDepth  Float?
+  scrollLength Int? //number of horizntal swipes
+  scrollDepth  Float? // % of horizontal swipes
+  scrollTime Float? // time spent on product (seconds)
 
   // Time tracking
   viewedAt      DateTime    @default(now())
