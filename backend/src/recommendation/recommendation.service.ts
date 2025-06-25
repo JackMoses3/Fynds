@@ -191,6 +191,31 @@ export class RecommendationService {
         .map((s) => s.productItemId);
     }
 
+    // --- Lower ProductScore by 40% for all seeds used and round to 2 decimals ---
+    const seedProductIds = [
+      ...topRecent.map((s) => s.productItemId),
+      ...topOld,
+    ];
+    if (seedProductIds.length > 0) {
+      // Fetch current scores
+      const scores = await this.db.productScore.findMany({
+        where: {
+          userId,
+          productItemId: { in: seedProductIds },
+        },
+        select: { id: true, score: true },
+      });
+
+      // Update each with rounded value
+      for (const s of scores) {
+        const newScore = Number(((s.score ?? 0) * 0.6).toFixed(2));
+        await this.db.productScore.update({
+          where: { id: s.id },
+          data: { score: newScore },
+        });
+      }
+    }
+
     // 8. 3 random: embedding not null, category != Uncategorized, sex matches
     const randomProducts = await this.db.productItem.findMany({
       where: {

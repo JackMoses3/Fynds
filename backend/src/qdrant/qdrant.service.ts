@@ -134,6 +134,13 @@ export class QdrantService {
       [];
     const searchLimit = params.searchDto.top_k || 50; // Request 20 from each collection
 
+    // Weight for each collection
+    const collectionWeights: Record<string, number> = {
+      IMAGE_FRONT_EMBEDDINGS: 0.4,
+      IMAGE_BACK_EMBEDDINGS: 0.4,
+      TEXT_EMBEDDINGS: 0.2,
+    };
+
     // Loop through each collection.
     for (const collection of collections) {
       let targetVector: number[];
@@ -236,9 +243,16 @@ export class QdrantService {
           ? searchResult.result
           : searchResult.result.hits;
         if (Array.isArray(hits)) {
+          const weight = collectionWeights[collection] ?? 1;
           const results = hits
             .filter((r: any) => r.id !== params.productId) // Exclude the queried product.
-            .map((r: any) => ({ id: r.id, score: r.score, collection }));
+            .map((r: any) => ({
+              id: r.id,
+              score: r.score * weight, // <-- weighted score
+              collection,
+              originalScore: r.score, // (optional, for debugging)
+              weight, // (optional, for debugging)
+            }));
           //this.logger.debug(
           //  `Results from ${collection}: ${JSON.stringify(results)}`,
           //);
