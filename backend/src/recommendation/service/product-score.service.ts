@@ -5,14 +5,14 @@ import { DatabaseService } from '../../database/database.service';
 export class ProductScoreService {
   private readonly logger = new Logger(ProductScoreService.name);
 
-  constructor(private readonly db: DatabaseService) {}
-
   private static readonly WEIGHTS = {
     trolleyItem: 10,
     collectionItem: 8,
     like: 5,
     onboarding: 2,
   };
+
+  constructor(private readonly db: DatabaseService) {}
 
   async addScore(params: {
     userId: number;
@@ -37,54 +37,48 @@ export class ProductScoreService {
       trolleyItem = false,
     } = params.signals;
 
-    let score = 0;
+    // 1) Calculate the incremental score
+    let delta = 0;
     const debug: Record<string, any> = {};
 
-    // Trolley, collection, like, onboarding (unchanged)
     if (trolleyItem) {
-      score += ProductScoreService.WEIGHTS.trolleyItem;
+      delta += ProductScoreService.WEIGHTS.trolleyItem;
       debug.trolleyItem = ProductScoreService.WEIGHTS.trolleyItem;
     }
     if (collectionItem) {
-      score += ProductScoreService.WEIGHTS.collectionItem;
+      delta += ProductScoreService.WEIGHTS.collectionItem;
       debug.collectionItem = ProductScoreService.WEIGHTS.collectionItem;
     }
     if (like) {
-      score += ProductScoreService.WEIGHTS.like;
+      delta += ProductScoreService.WEIGHTS.like;
       debug.like = ProductScoreService.WEIGHTS.like;
     }
     if (onboarding) {
-      score += ProductScoreService.WEIGHTS.onboarding;
+      delta += ProductScoreService.WEIGHTS.onboarding;
       debug.onboarding = ProductScoreService.WEIGHTS.onboarding;
     }
 
-    // --- Updated viewing scoring logic ---
-    // 1. Each second viewing (up to 10s): +0.2 per second
     const scrollTimeScore = Number((Math.min(scrollTime, 10) * 0.2).toFixed(2));
-    score += scrollTimeScore;
+    delta += scrollTimeScore;
     debug.scrollTime = scrollTime;
     debug.scrollTimeScore = scrollTimeScore;
 
-    // 2. Scroll depth as decimal (e.g., 0.5 for 50%) * 3
-    let normalizedScrollDepth = scrollDepth ?? 0;
-    if (normalizedScrollDepth > 1) {
-      normalizedScrollDepth = normalizedScrollDepth / 100;
-    }
-    normalizedScrollDepth = Number(normalizedScrollDepth.toFixed(2));
-    const scrollDepthScore = Number((normalizedScrollDepth * 3).toFixed(2));
-    score += scrollDepthScore;
+    let nsd = scrollDepth;
+    if (nsd > 1) nsd = nsd / 100;
+    nsd = Number(nsd.toFixed(2));
+    const scrollDepthScore = Number((nsd * 3).toFixed(2));
+    delta += scrollDepthScore;
     debug.scrollDepth = scrollDepth;
-    debug.normalizedScrollDepth = normalizedScrollDepth;
+    debug.normalizedScrollDepth = nsd;
     debug.scrollDepthScore = scrollDepthScore;
 
-    // 3. Scroll length: +1 per horizontal scroll, max 5
-    const scrollLengthScore = Math.min(scrollLength ?? 0, 5) * 1;
-    score += scrollLengthScore;
+    const scrollLengthScore = Math.min(scrollLength, 5);
+    delta += scrollLengthScore;
     debug.scrollLength = scrollLength;
     debug.scrollLengthScore = scrollLengthScore;
 
-    score = Number(score.toFixed(2));
-    debug.totalScore = score;
+    const inc = Number(delta.toFixed(2));
+    debug.totalScore = inc;
 
     this.logger.log(
       `[ProductScore] userId=${params.userId}, productItemId=${params.productItemId}, signals=${JSON.stringify(
@@ -92,14 +86,30 @@ export class ProductScoreService {
       )}, breakdown=${JSON.stringify(debug)}`,
     );
 
-    await this.db.productScore.create({
-      data: {
+    // 2) Manual upsert: find existing row for (userId, productItemId)
+    const existing = await this.db.productScore.findFirst({
+      where: {
         userId: params.userId,
         productItemId: params.productItemId,
-        score,
       },
+      orderBy: { created: 'desc' }, // just in case multiple; pick latest
     });
 
-    return score;
+    if (existing) {
+      // update the existing total
+      return this.db.productScore.update({
+        where: { id: existing.id },
+        data: { score: (existing.score ?? 0) + inc },
+      });
+    } else {
+      // no row yet → create a fresh one
+      return this.db.productScore.create({
+        data: {
+          userId: params.userId,
+          productItemId: params.productItemId,
+          score: inc,
+        },
+      });
+    }
   }
 }

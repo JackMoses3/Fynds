@@ -48,6 +48,8 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
   bool _collectionItem = false;
   bool _trolleyItem = false;
 
+  bool _scoreSubmitted = false;
+
   @override
   void initState() {
     super.initState();
@@ -164,16 +166,18 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
   void dispose() {
     // Submit analytics when widget disposes
     _submitViewingAnalytics();
-    _submitAnalytics();
+    _submitScoreAnalytics(); // <- renamed and guarded
     _pageController.dispose();
     _basketController.dispose();
     super.dispose();
   }
 
-  Future<void> _submitAnalytics() async {
-    if (_viewStartTime == null) return;
+  Future<void> _submitScoreAnalytics() async {
+    if (_scoreSubmitted) return;
+    _scoreSubmitted = true;
+
     final now = DateTime.now();
-    _scrollTime = now.difference(_viewStartTime!).inSeconds.toDouble();
+    final scrollTime = now.difference(_viewStartTime!).inSeconds.toDouble();
 
     final signals = {
       'like': _like,
@@ -181,12 +185,10 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
       'trolleyItem': _trolleyItem,
       'scrollLength': _scrollLength,
       'scrollDepth': _scrollDepth,
-      'scrollTime': _scrollTime,
+      'scrollTime': scrollTime,
     };
 
-    // Get userId from your AuthService or context
     final userId = await AuthService().getUserId();
-
     if (userId != null) {
       await ScoreService().addScore(
         userId: userId,
