@@ -99,7 +99,11 @@ export class RecommendationService {
       const allIds = [...onboardingMatches, ...randomIds].slice(0, limit);
       const products = await this.db.productItem.findMany({
         where: { id: { in: allIds } },
-        include: { productImages: true },
+        include: {
+          productImages: {
+            orderBy: { id: 'asc' }, // This ensures consistent ordering by ID
+          },
+        },
       });
 
       return products.map((p) => ({
@@ -248,7 +252,11 @@ export class RecommendationService {
     const allIds = [...selectedRecent, ...topOld, ...randomIds].slice(0, limit);
     const products = await this.db.productItem.findMany({
       where: { id: { in: allIds } },
-      include: { productImages: true },
+      include: {
+        productImages: {
+          orderBy: { id: 'asc' }, // This ensures consistent ordering by ID
+        },
+      },
     });
 
     // Map to DTO
