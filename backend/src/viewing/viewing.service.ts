@@ -10,7 +10,7 @@ export class ViewingService {
    * Record a product viewing with metrics
    */
   async recordViewing(userId: number, dto: CreateViewingDto) {
-    const { productId, scrollLength, scrollDepth } = dto;
+    const { productId, scrollLength, scrollDepth, scrollTime } = dto;
 
     // Create viewing history record
     return this.db.viewingHistory.create({
@@ -19,6 +19,7 @@ export class ViewingService {
         productItemId: productId,
         scrollLength,
         scrollDepth,
+        scrollTime,
         viewedAt: new Date(),
         viewUntil: new Date(), // For now, set both times to now
       },

@@ -42,7 +42,7 @@ def process_all_retailers():
         r for r in retailers
         if r["name"]
            and r["name"] not in SKIP_RETAILERS
-           and r["id"] > 94   # only process IDs above 30
+           and r["id"] > 119   # only process IDs above 30
     ]
 
     print(

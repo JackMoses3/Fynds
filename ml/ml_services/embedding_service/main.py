@@ -87,7 +87,7 @@ async def fetch_image(url: str) -> Optional[Image.Image]:
     }
 
     try:
-        async with get_session().get(url, timeout=15, headers=headers) as resp:
+        async with get_session().get(url, timeout=30, headers=headers) as resp:
             if resp.status != 200:
                 logger.warning(f"❌ Failed to fetch {url}: HTTP {resp.status}")
                 return None

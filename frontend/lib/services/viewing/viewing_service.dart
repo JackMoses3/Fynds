@@ -7,21 +7,23 @@ class ViewingService {
   /// Record product viewing metrics
   Future<void> recordViewing({
     required int productId,
-    required int scrollLengthSeconds,
-    required int scrollDepth,
+    required int scrollLength, // Number of horizontal swipes
+    required double scrollDepth, // % of horizontal swipes (0-100)
+    required double scrollTime, // Time spent on product (seconds)
   }) async {
     try {
       await _dio.post(
         '/viewing-history',
         data: {
           'productId': productId,
-          'scrollLength': scrollLengthSeconds,
+          'scrollLength': scrollLength,
           'scrollDepth': scrollDepth,
+          'scrollTime': scrollTime,
         },
       );
       print(
         '✅ Viewing metrics saved for product $productId: '
-        '$scrollLengthSeconds sec, $scrollDepth swipes',
+        '$scrollLength swipes, $scrollDepth%, $scrollTime sec',
       );
     } catch (e) {
       print('❌ Failed to save viewing metrics: $e');
