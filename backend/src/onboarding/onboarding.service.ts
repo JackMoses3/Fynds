@@ -2,10 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { ProductScoreService } from '../recommendation/service/product-score.service';
 
 @Injectable()
 export class OnboardingService {
   private readonly imagesBasePath = path.join(__dirname, '../onboarding');
+
+  constructor(private readonly productScoreService: ProductScoreService) {}
 
   async getStyleProducts(
     selectedStyleIds: number[],
@@ -109,6 +112,13 @@ export class OnboardingService {
               console.log(
                 `🔗 [Onboarding] Generated URL: ${imageUrl} for product ${productId}`,
               );
+
+              const userId = 0; // Replace 0 with the actual user ID or logic to fetch it
+              await this.productScoreService.addScore({
+                userId,
+                productItemId: productId,
+                signals: { onboarding: true },
+              });
             }
           }
 

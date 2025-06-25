@@ -3,10 +3,14 @@ import { CreateCollectionDto } from './dto/create-collection.dto';
 import { DatabaseService } from '../database/database.service';
 import { Prisma } from '../../generated/prisma';
 import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
+import { ProductScoreService } from '../recommendation/service/product-score.service';
 
 @Injectable()
 export class CollectionService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly productScoreService: ProductScoreService,
+  ) {}
 
   async createNewCollection(userId: number, dto: CreateCollectionDto) {
     return this.db.collection.create({
@@ -102,6 +106,11 @@ export class CollectionService {
     });
     if (!collection || collection.userId !== userId)
       throw new Error('Unauthorized');
+    await this.productScoreService.addScore({
+      userId,
+      productItemId: productId,
+      signals: { collectionItem: true },
+    });
     return this.db.collectionItem.upsert({
       where: {
         collectionId_productItemId: { collectionId, productItemId: productId },

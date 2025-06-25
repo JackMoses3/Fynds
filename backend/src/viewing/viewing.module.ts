@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ViewingService } from './viewing.service';
 import { ViewingController } from './viewing.controller';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseModule } from '../database/database.module';
+import { ProductScoreService } from '../recommendation/service/product-score.service';
 
 @Module({
-  providers: [ViewingService, DatabaseService],
+  imports: [DatabaseModule],
+  providers: [ViewingService, ProductScoreService],
   controllers: [ViewingController],
   exports: [ViewingService],
 })

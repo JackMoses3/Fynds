@@ -37,6 +37,7 @@ model ProductItem {
   trolleyItems      TrolleyItem[]
   viewingHistory   ViewingHistory[]
   onboardingProducts OnboardingProduct[]
+  ProductScore ProductScore[]
 }
 
 model ProductImage {
@@ -115,6 +116,7 @@ model User {
   userStyles           UserStyle[]
   viewingHistory      ViewingHistory[]
   onboardingProducts  OnboardingProduct[]
+  productScores       ProductScore[]
 
 
   @@unique([provider, providerId])
@@ -242,4 +244,17 @@ model OnboardingProduct {
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([productItemId, userId])
+}
+
+model ProductScore {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  productItemId Int
+  score         Float?
+  created       DateTime @default(now())
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productItem   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productItemId, created])
 }
