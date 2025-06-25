@@ -259,7 +259,7 @@ async def text_embed(req: TextEmbedRequest):
 async def image_embed(file: UploadFile = File(...)):
     pil = Image.open(BytesIO(await file.read())).convert("RGB")
     label, _ = classify_image(pil)
-    vec, _ = embed_images_and_text([pil], [])
+    vec, _ = embed_images_and_text([pil], [], [False])
     if torch.cuda.is_available(): torch.cuda.empty_cache()
     return ImageEmbedResponse(label="front" if label else "back", embedding=vec[0].tolist())
 

@@ -4,10 +4,14 @@ import { ProductImage, ProductItem } from '../../generated/prisma';
 import { DatabaseService } from '../database/database.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
 import { FilterProductItemDto } from './dto/filter.dto';
+import { RecommendationService } from '../recommendation/recommendation.service';
 
 @Injectable()
 export class ProductItemService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly recommendationService: RecommendationService,
+  ) {}
 
   async getUniqueBrands(filters?: {
     category?: string[];
@@ -196,45 +200,6 @@ export class ProductItemService {
     }
   }
 
-  /** Fetch a random “page” of 10 products */
-  async getRandomProducts(): Promise<ProductItemTransferDto[]> {
-    const count = await this.db.productItem.count();
-    if (count === 0) {
-      throw new NotFoundException('No products in database');
-    }
-    const skip = Math.floor(Math.random() * count);
-
-    const items = await this.db.productItem.findMany({
-      skip,
-      take: 10,
-      select: {
-        id: true,
-        name: true,
-        brand: true,
-        retailer: true,
-        price: true,
-        url: true,
-        productImages: {
-          orderBy: { id: 'asc' },
-          select: { id: true, imageUrl: true },
-        },
-      },
-    });
-
-    return items.map((p) => ({
-      id: p.id,
-      name: p.name,
-      brand: p.brand,
-      retailer: p.retailer,
-      price: p.price,
-      url: p.url,
-      images: p.productImages.map((img) => ({
-        id: img.id,
-        imageUrl: img.imageUrl,
-      })),
-    }));
-  }
-
   /** Lookup a single product (with its images) */
   async findById(
     id: number,
@@ -272,5 +237,12 @@ export class ProductItemService {
       })),
       style: p.productStyles?.map((s) => s.style?.name) ?? [],
     }));
+  }
+
+  /** Get recommended products for a user */
+  async getRecommendedProducts(
+    userId: number,
+  ): Promise<ProductItemTransferDto[]> {
+    return this.recommendationService.getRecommendedProductsForUser(userId);
   }
 }

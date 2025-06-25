@@ -51,4 +51,28 @@ class ProductItemService {
       return null;
     }
   }
+
+  /// NEW: fetch recommended products for the user
+  Future<List<ProductItem>?> getRecommendedProducts(int userId) async {
+    try {
+      final url = 'http://10.0.2.2:3000/api/product-item/recommended';
+      final response = await _dio.get(
+        url,
+        options: Options(
+          headers: {'Authorization': 'Bearer ${authTokenFor(userId)}'},
+        ),
+      );
+      final List data = response.data;
+      return data.map((json) => ProductItem.fromJson(json)).toList();
+    } catch (e) {
+      print('Error fetching recommended products: $e');
+      return null;
+    }
+  }
+
+  // If you have a function to get the token for a user
+  String authTokenFor(int userId) {
+    // implement your logic or store token in SharedPreferences
+    return 'YourJWTToken';
+  }
 }

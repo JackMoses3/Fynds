@@ -5,6 +5,7 @@ import 'package:fynds/core/constants.dart';
 import 'package:fynds/core/dio_client.dart';
 import 'package:fynds/core/logger.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
 
 class AuthService {
   final Dio _dio = DioClient().client;
@@ -190,6 +191,37 @@ class AuthService {
     } catch (e) {
       _logger.d('Error fetching user profile: $e');
       throw Exception('Failed to load user profile');
+    }
+  }
+
+  /// Returns the user ID (sub) from the stored JWT, or null if not found/invalid
+  Future<int?> getUserId() async {
+    // Read the access token from secure storage
+    final token = await _storage.read(key: 'access_token');
+    if (token == null) {
+      return null; // no token stored
+    }
+
+    try {
+      // JWT is typically 3 parts: header, payload, signature
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+
+      // Decode the payload
+      final payload = parts[1];
+      final normalized = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(normalized));
+      final payloadMap = json.decode(decoded);
+
+      // “sub” should be the user’s ID (per your NestJS code)
+      final userId = payloadMap['sub'];
+      if (userId is int) {
+        return userId;
+      }
+      // If it's not an int, return null
+      return null;
+    } catch (_) {
+      return null; // token invalid / parse error
     }
   }
 }

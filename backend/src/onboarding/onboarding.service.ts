@@ -11,6 +11,7 @@ export class OnboardingService {
   constructor(private readonly productScoreService: ProductScoreService) {}
 
   async getStyleProducts(
+    userId: number, // <-- add this parameter
     selectedStyleIds: number[],
     clothingPreference: string,
     limit = 25,
@@ -25,11 +26,13 @@ export class OnboardingService {
       );
 
       const maleItems = await this.loadFromGenderFolder(
+        userId,
         selectedStyleIds,
         'men_images',
         12,
       );
       const femaleItems = await this.loadFromGenderFolder(
+        userId,
         selectedStyleIds,
         'women_images',
         13,
@@ -49,6 +52,7 @@ export class OnboardingService {
     // Single gender case
     const genderFolder = this.getGenderFolder(clothingPreference);
     const items = await this.loadFromGenderFolder(
+      userId,
       selectedStyleIds,
       genderFolder,
       limit,
@@ -63,6 +67,7 @@ export class OnboardingService {
   }
 
   private async loadFromGenderFolder(
+    userId: number, // <-- add this parameter
     selectedStyleIds: number[],
     genderFolder: string,
     targetLimit: number,
@@ -107,18 +112,11 @@ export class OnboardingService {
             const productId = parseInt(path.parse(fileName).name);
 
             if (!isNaN(productId)) {
-              const imageUrl = `/api/onboarding/images/${genderFolder}/styles/${styleId}/${fileName}`;
+              const imageUrl = `/api/onboarding/${genderFolder}/styles/${styleId}/${fileName}`;
               results.push({ id: productId, imageUrl });
               console.log(
                 `🔗 [Onboarding] Generated URL: ${imageUrl} for product ${productId}`,
               );
-
-              const userId = 0; // Replace 0 with the actual user ID or logic to fetch it
-              await this.productScoreService.addScore({
-                userId,
-                productItemId: productId,
-                signals: { onboarding: true },
-              });
             }
           }
 
@@ -169,7 +167,7 @@ export class OnboardingService {
                 const productId = parseInt(path.parse(fileName).name);
 
                 if (!isNaN(productId) && !usedIds.has(productId)) {
-                  const imageUrl = `/api/onboarding/images/${genderFolder}/styles/${styleId}/${fileName}`;
+                  const imageUrl = `/api/onboarding/${genderFolder}/styles/${styleId}/${fileName}`;
                   results.push({ id: productId, imageUrl });
                   usedIds.add(productId);
                   console.log(

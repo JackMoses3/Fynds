@@ -1,4 +1,4 @@
-import requests
+"""import requests
 import psycopg2
 
 # --- CONFIG ---
@@ -64,3 +64,4 @@ def process_all_retailers():
 
 if __name__ == "__main__":
     process_all_retailers()
+"""

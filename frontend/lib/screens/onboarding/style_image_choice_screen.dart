@@ -80,16 +80,13 @@ class _StyleImageChoiceScreenState extends State<StyleImageChoiceScreen> {
   Future<void> _saveSelections() async {
     setState(() => _isLoading = true);
     try {
-      // Send selected product IDs to backend for user profile
-      await _onboardingService.saveOnboardingSelections(
+      await OnboardingService().saveOnboardingSelections(
         _selectedProductIds.toList(),
       );
 
-      // Mark onboarding flow as completed locally
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('onboardingComplete', true);
 
-      // Navigate to main app - onboarding is now complete
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const AppNavigation()),
       );

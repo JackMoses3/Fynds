@@ -1,15 +1,30 @@
-import { Body, Controller, Get, Post, NotFoundException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  NotFoundException,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/strategies/jwt/jwt-auth.guard';
 import { ProductItemService } from './product-item.service';
+import { ProductScoreService } from '../recommendation/service/product-score.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
 import { FilterProductItemDto } from './dto/filter.dto';
+import { RequestUser } from '../types';
 
 class BatchRequestDto {
   ids!: number[];
 }
 
+@UseGuards(JwtAuthGuard)
 @Controller('product-item')
 export class ProductItemController {
-  constructor(private readonly productItemService: ProductItemService) {}
+  constructor(
+    private readonly productItemService: ProductItemService,
+    private readonly productScoreService: ProductScoreService,
+  ) {}
 
   /** POST /product-item/brands */
   @Post('brands')
@@ -33,12 +48,6 @@ export class ProductItemController {
     @Body() body: { brand?: string[]; retailer?: string[] },
   ): Promise<string[]> {
     return this.productItemService.getUniqueCategories(body);
-  }
-
-  /** GET /product-item */
-  @Get()
-  getRandom(): Promise<ProductItemTransferDto[]> {
-    return this.productItemService.getRandomProducts();
   }
 
   /** POST /product-item/filtered */
@@ -86,5 +95,29 @@ export class ProductItemController {
   @Post('bulk')
   async getBulk(@Body('ids') ids: number[]) {
     return this.productItemService.findManyByIds(ids);
+  }
+
+  /** GET /product-item/recommended */
+  @Get('recommended')
+  async getRecommendedProducts(@Req() req: RequestUser) {
+    // Here, req.user should contain { sub: number, ... }
+    const userId = req.user.sub; // Make sure 'sub' is defined in your JWT payload
+    if (!userId) {
+      throw new Error('JWT is missing a valid user ID (sub)');
+    }
+
+    // Pass the valid userId to your service
+    return this.productItemService.getRecommendedProducts(userId);
+  }
+
+  /** POST /product-item/add-score */
+  @Post('add-score')
+  async addScore(@Body() body: any) {
+    const { userId, productItemId, signals } = body;
+    return this.productScoreService.addScore({
+      userId,
+      productItemId,
+      signals,
+    });
   }
 }
