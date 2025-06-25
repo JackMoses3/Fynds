@@ -167,7 +167,7 @@ export class OnboardingService {
                 const productId = parseInt(path.parse(fileName).name);
 
                 if (!isNaN(productId) && !usedIds.has(productId)) {
-                  const imageUrl = `/api/onboarding/images/${genderFolder}/styles/${styleId}/${fileName}`;
+                  const imageUrl = `/api/onboarding/${genderFolder}/styles/${styleId}/${fileName}`;
                   results.push({ id: productId, imageUrl });
                   usedIds.add(productId);
                   console.log(

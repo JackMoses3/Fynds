@@ -14,7 +14,7 @@ import {
 import { JwtAuthGuard } from '../auth/strategies/jwt/jwt-auth.guard';
 import { OnboardingService } from './onboarding.service';
 import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
-import { RequestUser } from '../types';
+import { Public, RequestUser } from '../types';
 import { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -87,6 +87,7 @@ export class OnboardingController {
    *
    * Public decorator not shown here—make sure this route is not guarded.
    */
+  @Public()
   @Get(':genderFolder/styles/:styleId/:filename')
   async getImage(
     @Param('genderFolder') genderFolder: string,

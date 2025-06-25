@@ -208,7 +208,7 @@ export class RecommendationService {
 
       // Update each with rounded value
       for (const s of scores) {
-        const newScore = Number(((s.score ?? 0) * 0.6).toFixed(2));
+        const newScore = Number(((s.score ?? 0) * 0.75).toFixed(2));
         await this.db.productScore.update({
           where: { id: s.id },
           data: { score: newScore },
@@ -231,7 +231,7 @@ export class RecommendationService {
         embedding: { not: null },
         category: { not: 'Uncategorized' },
         ...sexFilter,
-        retailer: { notIn: Array.from(currentRetailers) }, // <-- exclude already used retailers
+        retailer: { notIn: Array.from(currentRetailers) },
       },
       take: 1000,
     });
