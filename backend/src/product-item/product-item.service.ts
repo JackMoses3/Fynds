@@ -200,45 +200,6 @@ export class ProductItemService {
     }
   }
 
-  /** Fetch a random “page” of 10 products */
-  async getRandomProducts(): Promise<ProductItemTransferDto[]> {
-    const count = await this.db.productItem.count();
-    if (count === 0) {
-      throw new NotFoundException('No products in database');
-    }
-    const skip = Math.floor(Math.random() * count);
-
-    const items = await this.db.productItem.findMany({
-      skip,
-      take: 10,
-      select: {
-        id: true,
-        name: true,
-        brand: true,
-        retailer: true,
-        price: true,
-        url: true,
-        productImages: {
-          orderBy: { id: 'asc' },
-          select: { id: true, imageUrl: true },
-        },
-      },
-    });
-
-    return items.map((p) => ({
-      id: p.id,
-      name: p.name,
-      brand: p.brand,
-      retailer: p.retailer,
-      price: p.price,
-      url: p.url,
-      images: p.productImages.map((img) => ({
-        id: img.id,
-        imageUrl: img.imageUrl,
-      })),
-    }));
-  }
-
   /** Lookup a single product (with its images) */
   async findById(
     id: number,

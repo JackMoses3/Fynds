@@ -50,12 +50,6 @@ export class ProductItemController {
     return this.productItemService.getUniqueCategories(body);
   }
 
-  /** GET /product-item */
-  @Get()
-  getRandom(): Promise<ProductItemTransferDto[]> {
-    return this.productItemService.getRandomProducts();
-  }
-
   /** POST /product-item/filtered */
   @Post('filtered')
   getFilteredProducts(
