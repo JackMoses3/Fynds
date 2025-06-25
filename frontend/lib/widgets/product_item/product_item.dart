@@ -6,6 +6,8 @@ import 'package:fynds/services/like/like_service.dart' as like_service;
 import 'package:fynds/services/collection/collection_service.dart';
 import 'package:fynds/models/collection.dart';
 import 'package:fynds/services/viewing/viewing_service.dart'; // Import the new service
+import 'package:fynds/services/product_item/score/score_service.dart';
+import '../../services/auth/auth_service.dart';
 
 class ProductItemWidget extends StatefulWidget {
   final ProductItem product;
@@ -37,6 +39,14 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
 
   // Add a variable to track the number of images (for % calculation)
   late int _imageCount;
+
+  // Scroll analytics variables
+  late double _scrollLength, _scrollDepth, _scrollTime;
+
+  // Accumulate all signals here
+  bool _like = false;
+  bool _collectionItem = false;
+  bool _trolleyItem = false;
 
   @override
   void initState() {
@@ -131,13 +141,59 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
     }
   }
 
+  void _onLike() {
+    setState(() => _like = true);
+  }
+
+  void _onCollection() {
+    setState(() => _collectionItem = true);
+  }
+
+  void _onTrolley() {
+    setState(() => _trolleyItem = true);
+  }
+
+  void _onScroll(int length, double depth) {
+    setState(() {
+      _scrollLength += length;
+      _scrollDepth = depth;
+    });
+  }
+
   @override
   void dispose() {
     // Submit analytics when widget disposes
     _submitViewingAnalytics();
+    _submitAnalytics();
     _pageController.dispose();
     _basketController.dispose();
     super.dispose();
+  }
+
+  Future<void> _submitAnalytics() async {
+    if (_viewStartTime == null) return;
+    final now = DateTime.now();
+    _scrollTime = now.difference(_viewStartTime!).inSeconds.toDouble();
+
+    final signals = {
+      'like': _like,
+      'collectionItem': _collectionItem,
+      'trolleyItem': _trolleyItem,
+      'scrollLength': _scrollLength,
+      'scrollDepth': _scrollDepth,
+      'scrollTime': _scrollTime,
+    };
+
+    // Get userId from your AuthService or context
+    final userId = await AuthService().getUserId();
+
+    if (userId != null) {
+      await ScoreService().addScore(
+        userId: userId,
+        productItemId: widget.product.id,
+        signals: signals,
+      );
+    }
   }
 
   Widget _buildDots() {
@@ -399,17 +455,21 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
             bottom: MediaQuery.of(context).size.height * 0.25,
             child: Column(
               children: [
+                // Like button
                 _actionIcon(Icons.favorite, () async {
                   if (_isLiked) {
                     await _likeService.unlikeProduct(p.id);
                   } else {
                     await _likeService.likeProduct(p.id);
+                    _onLike(); // <-- Add this!
                   }
                   setState(() => _isLiked = !_isLiked);
                 }, color: _isLiked ? Colors.red : Colors.white),
                 const SizedBox(height: 24),
+                // Save/Collection button
                 _actionIcon(Icons.bookmark, () async {
                   await _showAddToCollectionSheet(context);
+                  _onCollection(); // <-- Add this!
                 }, color: _isSaved ? Colors.red : Colors.white),
                 const SizedBox(height: 24),
                 ScaleTransition(
@@ -442,6 +502,7 @@ class _ProductItemWidgetState extends State<ProductItemWidget>
                             );
                             setState(() => _isInBasket = true);
                             _basketController.forward();
+                            _onTrolley(); // <-- Add this!
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Added to basket')),
                             );

@@ -11,6 +11,7 @@ export class OnboardingService {
   constructor(private readonly productScoreService: ProductScoreService) {}
 
   async getStyleProducts(
+    userId: number, // <-- add this parameter
     selectedStyleIds: number[],
     clothingPreference: string,
     limit = 25,
@@ -25,11 +26,13 @@ export class OnboardingService {
       );
 
       const maleItems = await this.loadFromGenderFolder(
+        userId,
         selectedStyleIds,
         'men_images',
         12,
       );
       const femaleItems = await this.loadFromGenderFolder(
+        userId,
         selectedStyleIds,
         'women_images',
         13,
@@ -49,6 +52,7 @@ export class OnboardingService {
     // Single gender case
     const genderFolder = this.getGenderFolder(clothingPreference);
     const items = await this.loadFromGenderFolder(
+      userId,
       selectedStyleIds,
       genderFolder,
       limit,
@@ -63,6 +67,7 @@ export class OnboardingService {
   }
 
   private async loadFromGenderFolder(
+    userId: number, // <-- add this parameter
     selectedStyleIds: number[],
     genderFolder: string,
     targetLimit: number,
@@ -113,7 +118,7 @@ export class OnboardingService {
                 `🔗 [Onboarding] Generated URL: ${imageUrl} for product ${productId}`,
               );
 
-              const userId = 0; // Replace 0 with the actual user ID or logic to fetch it
+              // Add to ProductScore for this user
               await this.productScoreService.addScore({
                 userId,
                 productItemId: productId,
@@ -175,6 +180,12 @@ export class OnboardingService {
                   console.log(
                     `📦 [Onboarding] Added 1 item from other style ${styleId}`,
                   );
+                  // Optionally, you can also add these to ProductScore if you want
+                  await this.productScoreService.addScore({
+                    userId,
+                    productItemId: productId,
+                    signals: { onboarding: true },
+                  });
                   break; // Only 1 per style
                 }
               }

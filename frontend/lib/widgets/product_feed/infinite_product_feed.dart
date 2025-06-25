@@ -4,6 +4,7 @@ import '../../services/product_item/item/product_item_service.dart';
 import '../../models/product_item/product_item.dart';
 import '../product_item/product_item.dart';
 import '../../models/product_item/filter.dart';
+import '../../services/auth/auth_service.dart';
 
 class InfiniteProductFeed extends StatefulWidget {
   /// Optional initial filters for fetching products
@@ -64,10 +65,19 @@ class _InfiniteProductFeedState extends State<InfiniteProductFeed> {
 
     List<ProductItem>? batch;
     try {
+      // Suppose you have an AuthService that returns the current user’s ID
+      // or you store it in SharedPreferences or a provider.
+      final userId = await AuthService().getUserId();
+      // if userId is null, handle it or require login
+
+      // Use recommended products if no filters
       batch =
           _filters != null
               ? await _service.getFilteredProductItems(_filters!)
-              : await _service.getProductItems();
+              : userId != null
+              ? await _service.getRecommendedProducts(userId)
+              : [];
+      // pass the user ID here
     } catch (e) {
       debugPrint('Error fetching products: $e');
       batch = [];
@@ -125,6 +135,10 @@ class _InfiniteProductFeedState extends State<InfiniteProductFeed> {
       onPageChanged: (idx) {
         // fetch more when we get close to the end
         if (idx >= _items.length - _lookaheadCount) {
+          _loadMore();
+        }
+        // prefetch next batch when 13/20 have been seen
+        if (_items.length >= 20 && idx == 13) {
           _loadMore();
         }
         // also look‐ahead cache first image of next few

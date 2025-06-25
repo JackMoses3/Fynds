@@ -4,10 +4,14 @@ import { ProductImage, ProductItem } from '../../generated/prisma';
 import { DatabaseService } from '../database/database.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
 import { FilterProductItemDto } from './dto/filter.dto';
+import { RecommendationService } from '../recommendation/recommendation.service';
 
 @Injectable()
 export class ProductItemService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly recommendationService: RecommendationService,
+  ) {}
 
   async getUniqueBrands(filters?: {
     category?: string[];
@@ -272,5 +276,12 @@ export class ProductItemService {
       })),
       style: p.productStyles?.map((s) => s.style?.name) ?? [],
     }));
+  }
+
+  /** Get recommended products for a user */
+  async getRecommendedProducts(
+    userId: number,
+  ): Promise<ProductItemTransferDto[]> {
+    return this.recommendationService.getRecommendedProductsForUser(userId);
   }
 }

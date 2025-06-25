@@ -3,17 +3,21 @@ import {
   Get,
   Query,
   ParseIntPipe,
+  Req,
+  UseGuards,
   Param,
   Res,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/strategies/jwt/jwt-auth.guard';
 import { OnboardingService } from './onboarding.service';
-import { Public } from '../types';
 import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
+import { RequestUser } from '../types';
 import { Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 
 @Controller('onboarding')
+@UseGuards(JwtAuthGuard)
 export class OnboardingController {
   constructor(private readonly onboardingService: OnboardingService) {}
 
@@ -34,9 +38,9 @@ export class OnboardingController {
    * - Priority: 3 items from each selected style, then fills with items from other styles
    *
    */
-  @Public()
   @Get('style-products')
   async getStyleProducts(
+    @Req() req: RequestUser,
     @Query('styleIds') styleIdsString: string,
     @Query('clothingPreference') clothingPreference: string,
     @Query('limit', ParseIntPipe) limit: number = 25,
@@ -52,8 +56,12 @@ export class OnboardingController {
       throw new Error('At least one style ID must be provided');
     }
 
+    // Use the same method as like.controller to get the user id
+    const userId = req.user.sub;
+
     // Delegate to service layer for business logic
     return this.onboardingService.getStyleProducts(
+      userId,
       styleIds,
       clothingPreference,
       limit,
@@ -82,7 +90,6 @@ export class OnboardingController {
    *
    * @Public decorator allows image access without authentication
    */
-  @Public()
   @Get('images/:genderFolder/styles/:styleId/:filename')
   async getImage(
     @Param('genderFolder') genderFolder: string,

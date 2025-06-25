@@ -132,7 +132,7 @@ export class QdrantService {
     ];
     const allResults: Array<{ id: number; score: number; collection: string }> =
       [];
-    const searchLimit = params.searchDto.top_k || 30; // Request 20 from each collection
+    const searchLimit = params.searchDto.top_k || 50; // Request 20 from each collection
 
     // Loop through each collection.
     for (const collection of collections) {
