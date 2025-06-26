@@ -126,6 +126,8 @@ model Style {
   id           Int            @id @default(autoincrement())
   name         String
   description  String?
+  imageUrlMale     String?
+  imageUrlFemale   String?
   embeddingId  BigInt?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt

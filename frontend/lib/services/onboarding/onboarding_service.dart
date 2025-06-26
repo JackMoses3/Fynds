@@ -1,28 +1,11 @@
-import 'dart:convert';
 import 'dart:math' as math;
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:fynds/core/dio_client.dart';
 import 'package:fynds/models/product_item/product_item.dart';
 import 'package:fynds/models/style.dart';
 
 class OnboardingService {
-  // HTTP base for all your API endpoints:
-  static const String _apiBaseUrl = 'http://10.0.2.2:3000/api';
-
-  // Server base for turning "/api/..." image paths into full URLs:
-  static const String _serverBaseUrl = 'http://10.0.2.2:3000';
-
-  final Dio _dio = Dio(BaseOptions(baseUrl: _apiBaseUrl));
-
-  Future<Options> _options() async {
-    final token = await const FlutterSecureStorage().read(key: 'access_token');
-    return Options(
-      headers: {
-        'Content-Type': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      },
-    );
-  }
+  final Dio _dio = DioClient().client;
 
   /// Step 1: Save user's additional information
   Future<bool> additionalUserInformation({
@@ -49,7 +32,6 @@ class OnboardingService {
           'birthdate': formattedDate,
           'location': location,
         },
-        options: await _options(),
       );
 
       print('🐛 Status: ${resp.statusCode}, data: ${resp.data}');
@@ -67,7 +49,7 @@ class OnboardingService {
   /// Get all available styles
   Future<List<Style>?> getStyles() async {
     try {
-      final resp = await _dio.get('/style', options: await _options());
+      final resp = await _dio.get('/style');
       return (resp.data as List)
           .map((j) => Style.fromJson(j as Map<String, dynamic>))
           .toList();
@@ -83,7 +65,6 @@ class OnboardingService {
       final resp = await _dio.post(
         '/user/assign-styles',
         data: {'styleIds': styleIds},
-        options: await _options(),
       );
       return resp.statusCode == 200;
     } catch (e) {
@@ -95,10 +76,7 @@ class OnboardingService {
   /// Get the user's clothing preference
   Future<String> getClothingPreference() async {
     try {
-      final resp = await _dio.get(
-        '/user/clothing-preference',
-        options: await _options(),
-      );
+      final resp = await _dio.get('/user/clothing-preference');
       if (resp.statusCode == 200 && resp.data is Map) {
         return (resp.data as Map<String, dynamic>)['clothingPreference']
                 as String? ??
@@ -125,7 +103,6 @@ class OnboardingService {
         'clothingPreference': pref,
         'limit': limit,
       },
-      options: await _options(),
     );
 
     final data = resp.data as List<dynamic>;
@@ -138,7 +115,7 @@ class OnboardingService {
             for (var img in m['images'] as List) {
               final path = img['imageUrl'] as String;
               // e.g. "/api/onboarding/images/men_images/styles/2/6822.jpg"
-              img['imageUrl'] = '$_serverBaseUrl$path';
+              img['imageUrl'] = _dio.options.baseUrl + path;
             }
           }
 
@@ -160,7 +137,6 @@ class OnboardingService {
     final resp = await _dio.post(
       '/onboarding/complete',
       data: {'selectedIds': productIds},
-      options: await _options(),
     );
     if (resp.statusCode != 200 && resp.statusCode != 201) {
       throw Exception('Failed to save selections: ${resp.statusCode}');

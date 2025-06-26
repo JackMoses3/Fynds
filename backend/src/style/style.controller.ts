@@ -1,3 +1,4 @@
+/* eslint-disable */
 import {
   Controller,
   Get,
@@ -6,39 +7,49 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
+  ParseIntPipe,
+  Req,
 } from '@nestjs/common';
 import { StyleService } from './style.service';
 import { Prisma } from '../../generated/prisma';
+import { RequestUser } from 'src/types';
 
 @Controller('style')
 export class StyleController {
   constructor(private readonly styleService: StyleService) {}
-
-  @Post()
-  create(@Body() createStyleDto: Prisma.StyleCreateInput) {
-    return this.styleService.create(createStyleDto);
-  }
 
   @Get()
   findAll() {
     return this.styleService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.styleService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() updateStyleDto: Prisma.StyleUpdateInput,
+  // GET /api/style/:styleId/products
+  @Get(':styleId/products')
+  async getProductsByStyle(
+    @Param('styleId', ParseIntPipe) styleId: number,
+    @Query('limit', ParseIntPipe) limit: number = 50,
+    @Query('offset', ParseIntPipe) offset: number = 0,
+    @Req() req: RequestUser,
   ) {
-    return this.styleService.update(+id, updateStyleDto);
+    return this.styleService.getProductsByStyle(
+      req.user.sub,
+      styleId,
+      limit,
+      offset,
+    );
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.styleService.remove(+id);
+  // GET /api/style/:styleId/products/count
+  @Get(':styleId/products/count')
+  async getProductCountByStyle(
+    @Param('styleId', ParseIntPipe) styleId: number,
+    @Req() req: RequestUser,
+  ) {
+    const count = await this.styleService.getProductCountByStyle(
+      req.user.sub,
+      styleId,
+    );
+    return { count };
   }
 }
