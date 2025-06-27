@@ -37,7 +37,7 @@ class StyleService {
 
       final response = await _dio.get(
         '/style/$styleId/products',
-        queryParameters: {'limit': limit, 'offset': actualOffset},
+        data: {'limit': limit, 'offset': actualOffset},
       );
 
       if (response.statusCode == 200) {
@@ -66,7 +66,7 @@ class StyleService {
 
       final response = await _dio.get(
         '/style/name/$styleName/products',
-        queryParameters: {'limit': limit, 'offset': offset},
+        data: {'limit': limit, 'offset': offset},
       );
 
       if (response.statusCode == 200) {

@@ -12,8 +12,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { StyleService } from './style.service';
-import { Prisma } from '../../generated/prisma';
-import { RequestUser } from 'src/types';
+import { RequestUser } from '../types';
 
 @Controller('style')
 export class StyleController {
@@ -28,15 +27,14 @@ export class StyleController {
   @Get(':styleId/products')
   async getProductsByStyle(
     @Param('styleId', ParseIntPipe) styleId: number,
-    @Query('limit', ParseIntPipe) limit: number = 50,
-    @Query('offset', ParseIntPipe) offset: number = 0,
+    @Body() data: { limit?: number; offset?: number } = {},
     @Req() req: RequestUser,
   ) {
     return this.styleService.getProductsByStyle(
       req.user.sub,
       styleId,
-      limit,
-      offset,
+      data.limit || 50,
+      data.offset || 0,
     );
   }
 

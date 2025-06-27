@@ -26,7 +26,7 @@ export class StyleService {
     });
 
     const genderFilter = user?.clothingPreferences
-      ? { gender: user.clothingPreferences }
+      ? { sex: this.mapClothingPreferenceToSex(user.clothingPreferences) }
       : {};
 
     const products = await this.db.productItem.findMany({
@@ -34,9 +34,6 @@ export class StyleService {
         productStyles: {
           some: { styleId: styleId },
         },
-        ...(user?.clothingPreferences
-          ? { clothingPreferences: user.clothingPreferences }
-          : {}),
       },
       include: {
         productImages: {
@@ -47,6 +44,7 @@ export class StyleService {
       take: limit,
       skip: offset,
     });
+    console.log(`Found ${products.length} products for style ID ${styleId}`);
 
     // Map to ProductItemTransferDto format
     return products.map(
@@ -75,7 +73,7 @@ export class StyleService {
     });
 
     const genderFilter = user?.clothingPreferences
-      ? { gender: user.clothingPreferences }
+      ? { sex: this.mapClothingPreferenceToSex(user.clothingPreferences) }
       : {};
 
     return this.db.productItem.count({
@@ -86,5 +84,17 @@ export class StyleService {
         ...genderFilter,
       },
     });
+  }
+
+  private mapClothingPreferenceToSex(clothingPreference: string): string {
+    switch (clothingPreference.toLowerCase()) {
+      case 'male':
+        return 'Male';
+      case 'female':
+        return 'Female';
+      case 'both':
+      default:
+        return '';
+    }
   }
 }

@@ -2,9 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:fynds/services/product_item/search/search_service.dart';
+import 'package:fynds/widgets/explore/style_carousel.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:fynds/models/product_item/product_item.dart';
-import 'package:fynds/widgets/product_item/product_item.dart'; // Updated import
+import 'package:fynds/widgets/product_item/product_item.dart';
 import 'dart:io';
 
 class ExploreScreen extends StatefulWidget {
@@ -17,10 +18,10 @@ class ExploreScreen extends StatefulWidget {
 class _ExploreScreenState extends State<ExploreScreen> {
   final _searchCtrl = TextEditingController();
   final _picker = ImagePicker();
-  final _searchService = SearchService(); // Add search service instance
+  final _searchService = SearchService();
   bool _isLoading = false;
   List<ProductItem> _products = [];
-  bool _hasSearched = false; // Track if user has searched
+  bool _hasSearched = false;
 
   @override
   void dispose() {
@@ -36,15 +37,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
     setState(() {
       _isLoading = true;
       _hasSearched = true;
-      _products.clear(); // Clear previous results
+      _products.clear();
     });
 
     try {
       print('🔍 [ExploreScreen] Starting search for: "$query"');
-
-      // Use the working searchProductsByText method
       final products = await _searchService.searchProductsByText(query.trim());
-
       print(
         '✅ [ExploreScreen] Search completed, found ${products.length} products',
       );
@@ -53,10 +51,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
         _products = products;
       });
 
-      // Save search term to recent searches
       await _searchService.saveSearchTerm(query.trim());
 
-      // Show success message
       if (products.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -127,12 +123,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     try {
       print('📷 [ExploreScreen] Starting image search...');
-      print('📷 [ExploreScreen] File path: ${image.path}');
-      print('📷 [ExploreScreen] File exists: ${await image.exists()}');
-      print('📷 [ExploreScreen] File size: ${await image.length()} bytes');
-
       final products = await _searchService.searchProductsByImage(image);
-
       print(
         '✅ [ExploreScreen] Image search completed, found ${products.length} products',
       );
@@ -188,28 +179,31 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: Colors.black,
+      backgroundColor:
+          _hasSearched || _products.isNotEmpty
+              ? Colors.black
+              : Colors.white, // Dynamic background
       body: Stack(
         children: [
-          // Main content area
           _buildMainContent(),
 
-          // Gradient scrim for search bar readability
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: topInset + 60, // Increased height for better scrim
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+          // Gradient scrim - only show when in search mode
+          if (_hasSearched || _products.isNotEmpty || _isLoading)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: topInset + 60,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+                  ),
                 ),
               ),
             ),
-          ),
 
           // Search bar
           Positioned(
@@ -225,105 +219,234 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Widget _buildMainContent() {
     if (_isLoading) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: Colors.white),
-            SizedBox(height: 16),
-            Text('Searching...', style: TextStyle(color: Colors.white70)),
-          ],
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Colors.white),
+              SizedBox(height: 16),
+              Text('Searching...', style: TextStyle(color: Colors.white70)),
+            ],
+          ),
         ),
       );
     }
 
     if (_hasSearched && _products.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search_off, size: 64, color: Colors.white38),
-            const SizedBox(height: 16),
-            Text(
-              'No products found',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.search_off, size: 64, color: Colors.white38),
+              const SizedBox(height: 16),
+              Text(
+                'No products found',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Try a different search term',
-              style: TextStyle(color: Colors.white54, fontSize: 14),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _clearSearch,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white24,
-                foregroundColor: Colors.white,
+              const SizedBox(height: 8),
+              Text(
+                'Try a different search term',
+                style: TextStyle(color: Colors.white54, fontSize: 14),
               ),
-              child: const Text('Try Again'),
-            ),
-          ],
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _clearSearch,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white24,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Try Again'),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     if (_products.isNotEmpty) {
-      // Use PageView for vertical scrolling through products (TikTok-style)
-      return PageView.builder(
-        scrollDirection: Axis.vertical,
-        itemCount: _products.length,
-        itemBuilder: (context, index) {
-          return ProductItemWidget(product: _products[index]);
-        },
+      return Container(
+        color: Colors.black,
+        child: PageView.builder(
+          scrollDirection: Axis.vertical,
+          itemCount: _products.length,
+          itemBuilder: (context, index) {
+            return ProductItemWidget(product: _products[index]);
+          },
+        ),
       );
     }
 
-    // Default state - no search performed
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search, size: 64, color: Colors.white38),
-          const SizedBox(height: 16),
-          Text(
-            'Search for any product',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
+    // Default explore page with style carousel
+    return _buildExploreHomePage();
+  }
+
+  Widget _buildExploreHomePage() {
+    final topInset =
+        MediaQuery.of(context).padding.top + 80; // Account for search bar
+
+    return Container(
+      color: Colors.white,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(top: topInset + 16, bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Page Title
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Explore',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Try "yellow tshirt" or "blue jeans"',
-            style: TextStyle(color: Colors.white54, fontSize: 14),
-          ),
-        ],
+            const SizedBox(height: 24),
+
+            // Style Carousel
+            const StyleCarousel(title: 'EXPLORE STYLES', showTitle: true),
+            const SizedBox(height: 32),
+
+            // Shop By Section
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'SHOP BY',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Shop By Tags - Row 1
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildShopByChip('Trending'),
+                  _buildShopByChip('On Sale'),
+                  _buildShopByChip('Last Chance'),
+                  _buildShopByChip('Just Dropped'),
+                  _buildShopByChip('FYNDS Picks'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Shop By Tags - Row 2
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildShopByChip('Under \$100'),
+                  _buildShopByChip('Back In Stock'),
+                  _buildShopByChip('For Her'),
+                  _buildShopByChip('For Him'),
+                  _buildShopByChip('Airport Look'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Featured Products Grid (placeholder)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'FEATURED',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Placeholder for featured products grid
+            Container(
+              height: 400,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: Text(
+                  'Featured products coming soon',
+                  style: TextStyle(color: Colors.grey, fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShopByChip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
 
   Widget _buildSearchBar() {
+    // Dynamic styling based on current mode
+    final isSearchMode = _hasSearched || _products.isNotEmpty || _isLoading;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white12,
+        color: isSearchMode ? Colors.white12 : Colors.grey[100],
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white24, width: 1),
+        border:
+            isSearchMode
+                ? Border.all(color: Colors.white24, width: 1)
+                : Border.all(color: Colors.grey[300]!, width: 1),
       ),
       child: Row(
         children: [
-          // Search TextField
           Expanded(
             child: TextField(
               controller: _searchCtrl,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: isSearchMode ? Colors.white : Colors.black87,
+              ),
               decoration: InputDecoration(
-                hintText: 'Search products...',
-                hintStyle: const TextStyle(color: Colors.white60),
+                hintText: 'Search for anything',
+                hintStyle: TextStyle(
+                  color: isSearchMode ? Colors.white60 : Colors.grey[600],
+                ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -333,30 +456,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   Icons.search,
                   color:
                       _searchCtrl.text.isNotEmpty
-                          ? Colors.white
-                          : Colors.white60,
+                          ? (isSearchMode ? Colors.white : Colors.black87)
+                          : (isSearchMode ? Colors.white60 : Colors.grey[600]),
                 ),
               ),
               textInputAction: TextInputAction.search,
               onSubmitted: _doSearch,
               onChanged: (value) {
-                setState(() {}); // Rebuild to update prefix icon color
+                setState(() {});
               },
             ),
           ),
 
-          // Clear button (when there's text)
           if (_searchCtrl.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.clear, color: Colors.white60),
+              icon: Icon(
+                Icons.clear,
+                color: isSearchMode ? Colors.white60 : Colors.grey[600],
+              ),
               onPressed: _clearSearch,
             ),
 
-          // Camera button
           Container(
             margin: const EdgeInsets.only(right: 4),
             child: IconButton(
-              icon: const Icon(Icons.camera_alt, color: Colors.white70),
+              icon: Icon(
+                Icons.camera_alt,
+                color: isSearchMode ? Colors.white70 : Colors.grey[700],
+              ),
               onPressed: _pickImage,
               tooltip: 'Search by image',
             ),
