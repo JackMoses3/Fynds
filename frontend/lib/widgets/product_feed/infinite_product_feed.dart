@@ -145,13 +145,10 @@ class _InfiniteProductFeedState extends State<InfiniteProductFeed> {
         for (int off = 1; off <= _lookaheadCount; off++) {
           final next = idx + off;
           if (next < _items.length && _items[next].images.isNotEmpty) {
-            precacheImage(
-              CachedNetworkImageProvider(
-                _items[next].images.first.imageUrl,
-                headers: {"User-Agent": "Mozilla/5.0"},
-              ),
-              context,
-            );
+            // Pre-cache all images for the next product
+            for (final img in _items[next].images) {
+              precacheImage(CachedNetworkImageProvider(img.imageUrl), context);
+            }
           }
         }
       },
