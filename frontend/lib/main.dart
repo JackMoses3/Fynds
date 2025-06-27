@@ -4,6 +4,7 @@ import 'package:fynds/services/auth/auth_service.dart';
 import 'package:fynds/navigation/app_navigation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fynds/screens/onboarding/style_choice_screen.dart';
+import 'package:fynds/theme/app_theme.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 const String appTitle = 'Fynds';
@@ -35,10 +36,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Fynds',
       navigatorKey: navigatorKey,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: const Color(0xFFF6FCFA),
-      ),
+      theme: AppTheme.lightTheme,
       initialRoute:
           onboardingDone
               ? (isAuthenticated ? '/home' : '/title')
