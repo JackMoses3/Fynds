@@ -10,6 +10,75 @@ export class RecommendationService {
     private readonly qdrantService: QdrantService,
   ) {}
 
+  // HELPER METHODS
+
+  /**
+   * Gets recently viewed product IDs for a user
+   */
+  private async getRecentlyViewedProductIds(
+    userId: number,
+    take: number = 100,
+  ): Promise<Set<number>> {
+    const recentViewed = await this.db.viewingHistory.findMany({
+      where: { userId },
+      orderBy: { id: 'desc' },
+      take,
+      select: { productItemId: true },
+    });
+    return new Set(recentViewed.map((v) => v.productItemId));
+  }
+
+  /**
+   * Maps product database entities to DTOs
+   */
+  private mapProductsToDto(products: any[]): ProductItemTransferDto[] {
+    return products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      brand: p.brand,
+      retailer: p.retailer,
+      price: p.price,
+      url: p.url,
+      images: p.productImages.map((img: { id: any; imageUrl: any }) => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+      })),
+    }));
+  }
+
+  /**
+   * Gets non-personalized products with fallback logic
+   */
+  private async getNonPersonalizedFilteredProducts(
+    filterWhere: any,
+    sexFilter: any,
+    viewedIds: Set<number> = new Set(),
+    limit = 50,
+  ): Promise<ProductItemTransferDto[]> {
+    // Apply filters with quality constraints
+    const combinedWhere = {
+      ...filterWhere,
+      ...sexFilter,
+      embedding: { not: null },
+      category: { not: 'Uncategorized' },
+      ...(viewedIds.size > 0 ? { id: { notIn: Array.from(viewedIds) } } : {}),
+    };
+
+    const items = await this.db.productItem.findMany({
+      where: combinedWhere,
+      take: limit,
+      include: {
+        productImages: {
+          orderBy: { id: 'asc' },
+        },
+      },
+    });
+
+    return this.mapProductsToDto(items);
+  }
+
+  // MAIN METHODS - NOW USING HELPERS
+
   async getRecommendedProductsForUser(
     userId: number,
     limit = 20,
@@ -24,7 +93,7 @@ export class RecommendationService {
     }
 
     // 1. Get user clothing preference
-    const sexFilter = user ? getSexFilter(user.clothingPreferences) : {};
+    const sexFilter = user ? this.getSexFilterForUser(userId) : {};
 
     // Check for onboarding scenario
     const onboardingProducts = await this.db.onboardingProduct.findMany({
@@ -106,18 +175,8 @@ export class RecommendationService {
         },
       });
 
-      return products.map((p) => ({
-        id: p.id,
-        name: p.name,
-        brand: p.brand,
-        retailer: p.retailer,
-        price: p.price,
-        url: p.url,
-        images: p.productImages.map((img) => ({
-          id: img.id,
-          imageUrl: img.imageUrl,
-        })),
-      }));
+      // Use helper function instead of duplicated code
+      return this.mapProductsToDto(products);
     }
 
     // 2. Get 100 most recent ProductScores for user
@@ -259,28 +318,114 @@ export class RecommendationService {
       },
     });
 
-    // Map to DTO
-    return products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      brand: p.brand,
-      retailer: p.retailer,
-      price: p.price,
-      url: p.url,
-      images: p.productImages.map((img) => ({
-        id: img.id,
-        imageUrl: img.imageUrl,
-      })),
-    }));
+    // Use helper function instead of duplicated code
+    return this.mapProductsToDto(products);
   }
-}
 
-// Helper: get sex filter for clothingPreferences
-function getSexFilter(pref: string) {
-  const p = pref?.toLowerCase?.() ?? '';
-  if (p === 'male') return { sex: { in: ['men', 'unisex'] } };
-  if (p === 'female') return { sex: { in: ['women', 'unisex'] } };
-  return { sex: { in: ['men', 'women', 'unisex'] } };
+  async getPersonalizedFilteredProductsForUser(
+    userId: number,
+    filterWhere: any,
+    limit = 20,
+  ): Promise<ProductItemTransferDto[]> {
+    const start = Date.now();
+    const maxMs = 9500;
+
+    // 1) top-10 scores
+    const rawScores = await this.db.productScore.findMany({
+      where: { userId },
+      orderBy: { score: 'desc' },
+      take: 10,
+      select: { productItemId: true, score: true },
+    });
+    if (rawScores.length === 0) {
+      const sexFilter = await this.getSexFilterForUser(userId);
+      const viewedIds = await this.getRecentlyViewedProductIds(userId);
+      return this.getNonPersonalizedFilteredProducts(
+        filterWhere,
+        sexFilter,
+        viewedIds,
+        limit,
+      );
+    }
+
+    // 2) fetch embeddings
+    const seedIds = rawScores.map((s) => s.productItemId);
+    const seedRows = await this.db.productItem.findMany({
+      where: { id: { in: seedIds } },
+      select: { id: true, embedding: true },
+    });
+
+    // drop any null/empty embeddings
+    const validSeeds = seedRows.filter(
+      (r): r is { id: number; embedding: string | null } =>
+        Array.isArray(r.embedding) && r.embedding.length > 0,
+    );
+    if (validSeeds.length === 0) {
+      const sexFilter = await this.getSexFilterForUser(userId);
+      const viewedIds = await this.getRecentlyViewedProductIds(userId);
+      return this.getNonPersonalizedFilteredProducts(
+        filterWhere,
+        sexFilter,
+        viewedIds,
+        limit,
+      );
+    }
+
+    // 3) build weighted centroid
+    const dim = validSeeds[0].embedding ? validSeeds[0].embedding.length : 0;
+    const centroid = new Array<number>(dim).fill(0);
+    validSeeds.forEach((row) => {
+      const w = rawScores.find((s) => s.productItemId === row.id)!.score ?? 0;
+      JSON.parse(row.embedding ?? '[]').forEach((v: number, i: number) => {
+        centroid[i] += v * w;
+      });
+    });
+    for (let i = 0; i < dim; i++) {
+      centroid[i] /= validSeeds.length;
+    }
+
+    // 4) single Qdrant call
+    const qRes = await this.qdrantService.searchByVector({
+      vector: centroid,
+      searchDto: { top_k: limit * 5 },
+    });
+
+    if (!Array.isArray(qRes)) {
+      throw new Error(
+        'Unexpected response from QdrantService: Expected an array',
+      );
+    }
+
+    // 5) time-box end-to-end
+    if (Date.now() - start > maxMs) {
+      const ids = qRes.map((r) => r.id).slice(0, limit);
+      const items = await this.db.productItem.findMany({
+        where: { id: { in: ids } },
+        include: { productImages: { orderBy: { id: 'asc' } } },
+      });
+      return this.mapProductsToDto(items);
+    }
+
+    // 6) final DB lookup & map
+    const finalIds = qRes.map((r) => r.id).slice(0, limit);
+    const finalProducts = await this.db.productItem.findMany({
+      where: { id: { in: finalIds } },
+      include: { productImages: { orderBy: { id: 'asc' } } },
+    });
+
+    console.log(`⏱️ personalization total: ${Date.now() - start}ms`);
+    return this.mapProductsToDto(finalProducts);
+  }
+
+  // Make sure these helpers exist in the same class:
+
+  private async getSexFilterForUser(userId: number): Promise<any> {
+    const u = await this.db.user.findUnique({ where: { id: userId } });
+    const pref = u?.clothingPreferences?.toLowerCase() ?? '';
+    if (pref === 'male') return { sex: { in: ['men', 'unisex'] } };
+    if (pref === 'female') return { sex: { in: ['women', 'unisex'] } };
+    return { sex: { in: ['men', 'women', 'unisex'] } };
+  }
 }
 
 // Helper: shuffle array

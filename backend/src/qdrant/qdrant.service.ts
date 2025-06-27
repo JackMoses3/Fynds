@@ -17,6 +17,9 @@ import { SearchDto } from '../embedding-qdrant/dto/embedding-qdrant.dto';
 
 @Injectable()
 export class QdrantService {
+  searchByVector(arg0: { vector: number[]; searchDto: { top_k: number } }) {
+    throw new Error('Method not implemented.');
+  }
   constructor(private readonly db: DatabaseService) {}
   private readonly logger = new Logger(QdrantService.name);
   // The mlServiceUrl is used by other methods like insertVector; not used here.

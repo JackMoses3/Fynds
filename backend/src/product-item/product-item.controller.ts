@@ -54,8 +54,10 @@ export class ProductItemController {
   @Post('filtered')
   getFilteredProducts(
     @Body() filters: FilterProductItemDto,
+    @Req() req: RequestUser,
   ): Promise<ProductItemTransferDto[] | null> {
-    return this.productItemService.getFilteredProductItems(filters);
+    const userId = req.user?.sub; // or req.user.id, depending on your JWT payload
+    return this.productItemService.getFilteredProductItems(filters, userId);
   }
 
   /** POST /product-item/batch */

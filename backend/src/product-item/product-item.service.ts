@@ -5,27 +5,20 @@ import { DatabaseService } from '../database/database.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
 import { FilterProductItemDto } from './dto/filter.dto';
 import { RecommendationService } from '../recommendation/recommendation.service';
-import NodeCache from 'node-cache';
-
-const filterCache = new NodeCache({ stdTTL: 600, checkperiod: 120 }); // 10 min TTL
+import { QdrantService } from '../qdrant/qdrant.service';
 
 @Injectable()
 export class ProductItemService {
   constructor(
     private readonly db: DatabaseService,
     private readonly recommendationService: RecommendationService,
+    private readonly qdrantService: QdrantService, // Add this line
   ) {}
 
   async getUniqueBrands(filters?: {
     category?: string[];
     retailer?: string[];
   }): Promise<string[]> {
-    const noFilters =
-      !filters || (!filters.category?.length && !filters.retailer?.length);
-    if (noFilters) {
-      const cached = filterCache.get<string[]>('brands');
-      if (cached) return cached;
-    }
     const where: any = {};
     if (filters?.category?.length) where.category = { in: filters.category };
     if (filters?.retailer?.length) where.retailer = { in: filters.retailer };
@@ -35,9 +28,7 @@ export class ProductItemService {
       distinct: ['brand'],
       select: { brand: true },
     });
-    const brands = rows.map((r) => r.brand!).filter(Boolean);
-    if (noFilters) filterCache.set('brands', brands);
-    return brands;
+    return rows.map((r) => r.brand!).filter(Boolean);
   }
 
   /** Get distinct retailers */
@@ -45,12 +36,6 @@ export class ProductItemService {
     brand?: string[];
     category?: string[];
   }): Promise<string[]> {
-    const noFilters =
-      !filters || (!filters.brand?.length && !filters.category?.length);
-    if (noFilters) {
-      const cached = filterCache.get<string[]>('retailers');
-      if (cached) return cached;
-    }
     const where: any = {};
     if (filters?.brand?.length) where.brand = { in: filters.brand };
     if (filters?.category?.length) where.category = { in: filters.category };
@@ -60,9 +45,7 @@ export class ProductItemService {
       distinct: ['retailer'],
       select: { retailer: true },
     });
-    const retailers = rows.map((r) => r.retailer!).filter(Boolean);
-    if (noFilters) filterCache.set('retailers', retailers);
-    return retailers;
+    return rows.map((r) => r.retailer!).filter(Boolean);
   }
 
   /** Get distinct categories */
@@ -70,12 +53,6 @@ export class ProductItemService {
     brand?: string[];
     retailer?: string[];
   }): Promise<string[]> {
-    const noFilters =
-      !filters || (!filters.brand?.length && !filters.retailer?.length);
-    if (noFilters) {
-      const cached = filterCache.get<string[]>('categories');
-      if (cached) return cached;
-    }
     const where: any = {};
     if (filters?.brand?.length) where.brand = { in: filters.brand };
     if (filters?.retailer?.length) where.retailer = { in: filters.retailer };
@@ -85,9 +62,7 @@ export class ProductItemService {
       distinct: ['category'],
       select: { category: true },
     });
-    const categories = rows.map((r) => r.category!).filter(Boolean);
-    if (noFilters) filterCache.set('categories', categories);
-    return categories;
+    return rows.map((r) => r.category!).filter(Boolean);
   }
 
   /** Fetch all products (no filters) */
@@ -124,12 +99,16 @@ export class ProductItemService {
   /** Fetch products by arbitrary filters */
   async getFilteredProductItems(
     filters: FilterProductItemDto,
+    userId?: number,
   ): Promise<ProductItemTransferDto[]> {
     console.log(
-      '🔍 Starting filtered product search with filters:',
+      '🔍 Starting personalized filtered product search for user:',
+      userId,
+      'filters:',
       JSON.stringify(filters, null, 2),
     );
 
+    // Build filter conditions
     const startTime = Date.now();
     const where: any = {};
 
@@ -167,59 +146,27 @@ export class ProductItemService {
     console.log('🔍 Final where clause:', JSON.stringify(where, null, 2));
 
     try {
-      // Add a simple count query first to see if it's fast
-      const countStart = Date.now();
+      // Check if any PRODUCTS (not scores) match the filters
       const count = await this.db.productItem.count({ where });
-      const countTime = Date.now() - countStart;
-      console.log(
-        `📊 Found ${count} matching products (count took ${countTime}ms)`,
-      );
 
       if (count === 0) {
         console.log('⚠️ No products match the filters');
         return [];
       }
 
-      // Now do the full query with all images
-      const queryStart = Date.now();
-      const items = await this.db.productItem.findMany({
-        where,
-        take: 50, // Limit to 50 results for now
-        select: {
-          id: true,
-          name: true,
-          brand: true,
-          retailer: true,
-          price: true,
-          url: true,
-          productImages: {
-            orderBy: { id: 'asc' },
-            // Remove the take: 1 limit to get all images
-            select: { id: true, imageUrl: true },
-          },
-        },
-      });
-
-      const queryTime = Date.now() - queryStart;
-      const totalTime = Date.now() - startTime;
-
-      console.log(
-        `✅ Query executed in ${queryTime}ms, total time: ${totalTime}ms`,
-      );
-      console.log(`📦 Returning ${items.length} products`);
-
-      return items.map((p) => ({
-        id: p.id,
-        name: p.name,
-        brand: p.brand,
-        retailer: p.retailer,
-        price: p.price,
-        url: p.url,
-        images: p.productImages.map((img) => ({
-          id: img.id,
-          imageUrl: img.imageUrl,
-        })),
-      }));
+      // New personalization logic
+      if (userId) {
+        console.log('👤 User ID found, fetching personalized products');
+        return this.recommendationService.getPersonalizedFilteredProductsForUser(
+          userId,
+          where,
+        );
+      } else {
+        console.log('👤 No user ID found, fetching non-personalized products');
+        // Get an empty sex filter since we don't have a user
+        const sexFilter = {};
+        return this.getNonPersonalizedFilteredProducts(where, sexFilter);
+      }
     } catch (error) {
       const totalTime = Date.now() - startTime;
       console.error(`❌ Database query failed after ${totalTime}ms:`, error);
@@ -271,5 +218,42 @@ export class ProductItemService {
     userId: number,
   ): Promise<ProductItemTransferDto[]> {
     return this.recommendationService.getRecommendedProductsForUser(userId);
+  }
+
+  // Extract current implementation into separate method
+  private async getNonPersonalizedFilteredProducts(
+    filterWhere: any,
+    sexFilter: any = {}, // Make it optional to maintain backward compatibility
+  ): Promise<ProductItemTransferDto[]> {
+    // Apply sex filter, filter criteria, and basic quality filters
+    const combinedWhere = {
+      ...filterWhere,
+      ...sexFilter,
+      embedding: { not: null },
+      category: { not: 'Uncategorized' },
+    };
+
+    const items = await this.db.productItem.findMany({
+      where: combinedWhere,
+      take: 50,
+      include: {
+        productImages: {
+          orderBy: { id: 'asc' },
+        },
+      },
+    });
+
+    return items.map((p) => ({
+      id: p.id,
+      name: p.name,
+      brand: p.brand,
+      retailer: p.retailer,
+      price: p.price,
+      url: p.url,
+      images: p.productImages.map((img) => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+      })),
+    }));
   }
 }
