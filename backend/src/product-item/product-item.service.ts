@@ -5,6 +5,9 @@ import { DatabaseService } from '../database/database.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
 import { FilterProductItemDto } from './dto/filter.dto';
 import { RecommendationService } from '../recommendation/recommendation.service';
+import NodeCache from 'node-cache';
+
+const filterCache = new NodeCache({ stdTTL: 600, checkperiod: 120 }); // 10 min TTL
 
 @Injectable()
 export class ProductItemService {
@@ -17,6 +20,12 @@ export class ProductItemService {
     category?: string[];
     retailer?: string[];
   }): Promise<string[]> {
+    const noFilters =
+      !filters || (!filters.category?.length && !filters.retailer?.length);
+    if (noFilters) {
+      const cached = filterCache.get<string[]>('brands');
+      if (cached) return cached;
+    }
     const where: any = {};
     if (filters?.category?.length) where.category = { in: filters.category };
     if (filters?.retailer?.length) where.retailer = { in: filters.retailer };
@@ -26,7 +35,9 @@ export class ProductItemService {
       distinct: ['brand'],
       select: { brand: true },
     });
-    return rows.map((r) => r.brand!).filter(Boolean);
+    const brands = rows.map((r) => r.brand!).filter(Boolean);
+    if (noFilters) filterCache.set('brands', brands);
+    return brands;
   }
 
   /** Get distinct retailers */
@@ -34,6 +45,12 @@ export class ProductItemService {
     brand?: string[];
     category?: string[];
   }): Promise<string[]> {
+    const noFilters =
+      !filters || (!filters.brand?.length && !filters.category?.length);
+    if (noFilters) {
+      const cached = filterCache.get<string[]>('retailers');
+      if (cached) return cached;
+    }
     const where: any = {};
     if (filters?.brand?.length) where.brand = { in: filters.brand };
     if (filters?.category?.length) where.category = { in: filters.category };
@@ -43,7 +60,9 @@ export class ProductItemService {
       distinct: ['retailer'],
       select: { retailer: true },
     });
-    return rows.map((r) => r.retailer!).filter(Boolean);
+    const retailers = rows.map((r) => r.retailer!).filter(Boolean);
+    if (noFilters) filterCache.set('retailers', retailers);
+    return retailers;
   }
 
   /** Get distinct categories */
@@ -51,6 +70,12 @@ export class ProductItemService {
     brand?: string[];
     retailer?: string[];
   }): Promise<string[]> {
+    const noFilters =
+      !filters || (!filters.brand?.length && !filters.retailer?.length);
+    if (noFilters) {
+      const cached = filterCache.get<string[]>('categories');
+      if (cached) return cached;
+    }
     const where: any = {};
     if (filters?.brand?.length) where.brand = { in: filters.brand };
     if (filters?.retailer?.length) where.retailer = { in: filters.retailer };
@@ -60,7 +85,9 @@ export class ProductItemService {
       distinct: ['category'],
       select: { category: true },
     });
-    return rows.map((r) => r.category!).filter(Boolean);
+    const categories = rows.map((r) => r.category!).filter(Boolean);
+    if (noFilters) filterCache.set('categories', categories);
+    return categories;
   }
 
   /** Fetch all products (no filters) */
