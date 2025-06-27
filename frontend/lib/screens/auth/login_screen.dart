@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fynds/screens/onboarding/user_details_screen.dart';
 import 'package:fynds/services/auth/auth_service.dart';
+import 'package:fynds/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,6 +21,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   void _login(BuildContext context) async {
+    if (!_formKey.currentState!.validate()) return;
+
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
@@ -45,16 +48,75 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  InputDecoration _inputDecoration(String hintText) => InputDecoration(
-    hintText: hintText,
-    filled: true,
-    fillColor: Colors.grey.shade100,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide.none,
-    ),
-  );
+  void _handleGoogleLogin(BuildContext context) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final success = await _authService.loginWithGoogle();
+      if (success) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => UserDetailsScreen()),
+        );
+      } else {
+        setState(() => _errorMessage = 'Google login failed.');
+      }
+    } catch (e) {
+      setState(() => _errorMessage = 'Google login error occurred.');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Widget _buildSocialButton({
+    required String iconPath,
+    required String text,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: OutlinedButton(
+        onPressed: _isLoading ? null : onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: AppTheme.textPrimary,
+          side: const BorderSide(color: AppTheme.dividerColor, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Image.asset(
+                iconPath,
+                width: 24,
+                height: 24,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -66,80 +128,213 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ),
-                    const Text(
-                      'Log in',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                TextFormField(
-                  controller: emailController,
-                  decoration: _inputDecoration('Email'),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (val) {
-                    if (val == null || val.isEmpty) return 'Required';
-                    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                    if (!emailRegex.hasMatch(val)) return 'Invalid email';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: passwordController,
-                  decoration: _inputDecoration('Password'),
-                  obscureText: true,
-                  validator:
-                      (val) => val == null || val.isEmpty ? 'Required' : null,
-                ),
-                const SizedBox(height: 24),
-                if (_errorMessage != null)
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : () => _login(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child:
-                      _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Log in'),
-                ),
-              ],
+      backgroundColor: AppTheme.backgroundColor,
+      body: Column(
+        children: [
+          // Top pink section
+          Container(
+            width: double.infinity,
+            height: 200,
+            decoration: const BoxDecoration(color: AppTheme.primaryColor),
+            child: const SafeArea(
+              child: SizedBox(), // Empty space for pink section
             ),
           ),
-        ),
+
+          // Bottom white section with login form
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(color: AppTheme.backgroundColor),
+              padding: const EdgeInsets.all(32),
+              child: SafeArea(
+                top: false,
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Welcome Back Title
+                      const Text(
+                        'Welcome Back',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Email Input
+                      TextFormField(
+                        controller: emailController,
+                        decoration: const InputDecoration(
+                          hintText: 'Email address',
+                          hintStyle: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                        style: const TextStyle(color: AppTheme.textPrimary),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return 'Required';
+                          final emailRegex = RegExp(
+                            r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                          );
+                          if (!emailRegex.hasMatch(val)) return 'Invalid email';
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Password Input
+                      TextFormField(
+                        controller: passwordController,
+                        decoration: const InputDecoration(
+                          hintText: 'Password',
+                          hintStyle: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                        style: const TextStyle(color: AppTheme.textPrimary),
+                        obscureText: true,
+                        validator:
+                            (val) =>
+                                val == null || val.isEmpty ? 'Required' : null,
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Error Message
+                      if (_errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(color: AppTheme.errorColor),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+
+                      // Login Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : () => _login(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                AppTheme.buttonSecondary, // Black button
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child:
+                              _isLoading
+                                  ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : const Text(
+                                    'Log in',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Divider with "or continue with"
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              color: AppTheme.dividerColor,
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'or continue with',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              color: AppTheme.dividerColor,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Google Login Button
+                      _buildSocialButton(
+                        iconPath: 'assets/images/Google.png',
+                        text: 'Continue with Google',
+                        onPressed: () => _handleGoogleLogin(context),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Apple Login Button
+                      _buildSocialButton(
+                        iconPath: 'assets/images/Apple.png',
+                        text: 'Continue with Apple',
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Apple Sign In coming soon!'),
+                            ),
+                          );
+                        },
+                      ),
+
+                      const Spacer(),
+
+                      // Sign up link
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            "Don't have an account? ",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: const Text(
+                              'Sign up',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
