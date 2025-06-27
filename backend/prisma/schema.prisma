@@ -38,6 +38,10 @@ model ProductItem {
   viewingHistory   ViewingHistory[]
   onboardingProducts OnboardingProduct[]
   ProductScore ProductScore[]
+
+  @@index([brand])
+  @@index([category])
+  @@index([retailer])
 }
 
 model ProductImage {
