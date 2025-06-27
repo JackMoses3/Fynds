@@ -10,12 +10,12 @@ class OnboardingService {
   /// Step 1: Save user's additional information
   Future<bool> additionalUserInformation({
     required String clothingPreferences,
-    required DateTime birthDate,
+    required DateTime? birthDate,
     required String location,
   }) async {
     try {
       final formattedDate =
-          '${birthDate.year.toString().padLeft(4, '0')}-'
+          '${birthDate!.year.toString().padLeft(4, '0')}-'
           '${birthDate.month.toString().padLeft(2, '0')}-'
           '${birthDate.day.toString().padLeft(2, '0')}';
 

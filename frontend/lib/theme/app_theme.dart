@@ -89,7 +89,7 @@ class AppTheme {
 
     // Headline styles (for section headers)
     headlineLarge: TextStyle(
-      fontSize: 32,
+      fontSize: 24,
       fontWeight: FontWeight.w700,
       color: textPrimary,
       letterSpacing: 0.25,

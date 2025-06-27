@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fynds/screens/onboarding/user_details_screen.dart';
 import 'package:fynds/services/auth/auth_service.dart';
+import 'package:fynds/theme/app_theme.dart';
 
 class VerifyScreen extends StatefulWidget {
   final String email;
@@ -14,194 +15,248 @@ class VerifyScreen extends StatefulWidget {
 }
 
 class _VerifyScreenState extends State<VerifyScreen> {
-  final List<FocusNode> _focusNodes = List.generate(8, (_) => FocusNode());
-  final List<TextEditingController> _controllers = List.generate(
-    8,
-    (_) => TextEditingController(),
-  );
+  final TextEditingController _codeController = TextEditingController();
   final AuthService _authService = AuthService();
+  bool _isLoading = false;
+  String? _errorMessage;
 
   void _submitCode() async {
-    final code = _controllers.map((c) => c.text).join();
+    final code = _codeController.text.trim();
     if (code.length == 8) {
-      final success = await _authService.verifyEmail(widget.email, code);
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email verified successfully!')),
-        );
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => UserDetailsScreen()),
+      try {
+        final success = await _authService.verifyEmail(widget.email, code);
+        if (success && mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => UserDetailsScreen()),
+          );
+        } else {
+          setState(() => _errorMessage = 'Invalid verification code.');
+        }
+      } catch (e) {
+        setState(
+          () => _errorMessage = 'Verification failed. Please try again.',
         );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid verification code.')),
-        );
+      } finally {
+        setState(() => _isLoading = false);
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter all 8 digits')),
-      );
+      setState(() => _errorMessage = 'Please enter all 8 digits');
     }
   }
 
   void _resendVerificationEmail() async {
-    // This method should eventually call the NestJS backend endpoint to resend the code.
-    final success = await _authService.newVerification(widget.email);
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A new verification code has been sent.')),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to resend verification code.')),
-      );
-    }
-  }
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
-  Widget _buildCodeField(int index) {
-    return SizedBox(
-      width: 40,
-      child: Focus(
-        onKey: (node, event) {
-          if (event is RawKeyDownEvent &&
-              event.logicalKey == LogicalKeyboardKey.backspace &&
-              _controllers[index].text.isEmpty &&
-              index > 0) {
-            _focusNodes[index - 1].requestFocus();
-            _controllers[index - 1].clear();
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
-        },
-        child: TextField(
-          controller: _controllers[index],
-          focusNode: _focusNodes[index],
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          maxLength: 1,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Roboto',
-          ),
-          decoration: const InputDecoration(
-            counterText: '',
-            filled: true,
-            fillColor: Color(0xFFF0F0F0),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(8)),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          enableInteractiveSelection: false,
-          showCursor: false,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          onChanged: (val) {
-            if (val.isNotEmpty && index < 7) {
-              _focusNodes[index + 1].requestFocus();
-            }
-          },
-        ),
-      ),
-    );
+    try {
+      final success = await _authService.newVerification(widget.email);
+      if (success) {
+        setState(() => _errorMessage = null); // Clear any existing errors
+      } else {
+        setState(() => _errorMessage = 'Failed to resend verification code.');
+      }
+    } catch (e) {
+      setState(() => _errorMessage = 'Failed to resend verification code.');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
   void dispose() {
-    for (final node in _focusNodes) {
-      node.dispose();
-    }
-    for (final controller in _controllers) {
-      controller.dispose();
-    }
+    _codeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: null,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: Column(
-            children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () async {
-                        if (mounted) {
-                          Navigator.pop(context);
-                        }
+      backgroundColor: AppTheme.backgroundColor,
+      body: Column(
+        children: [
+          // Top pink section
+          Container(
+            width: double.infinity,
+            height: 150,
+            decoration: const BoxDecoration(color: AppTheme.primaryColor),
+            child: const SafeArea(
+              child: SizedBox(), // Empty pink section
+            ),
+          ),
+
+          // Bottom white section with verify form
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(color: AppTheme.backgroundColor),
+              padding: const EdgeInsets.all(32),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Header with back arrow and title
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: AppTheme.textPrimary,
+                            size: 24,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                          padding: EdgeInsets.zero,
+                        ),
+                        Expanded(
+                          child: Text(
+                            'Verify your email',
+                            textAlign: TextAlign.center,
+                            style: AppTheme.textTheme.headlineLarge,
+                          ),
+                        ),
+                        const SizedBox(width: 48), // Balance the arrow space
+                      ],
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Subtitle with email
+                    Text(
+                      'Enter the 8-digit code we sent to',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: AppTheme.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.email,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Single code input field
+                    TextFormField(
+                      controller: _codeController,
+                      decoration: const InputDecoration(
+                        hintText: '8-digit code',
+                        hintStyle: TextStyle(color: AppTheme.textSecondary),
+                      ),
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 16,
+                        letterSpacing: 2.0, // Space out the digits
+                      ),
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      maxLength: 8,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      validator: (val) {
+                        if (val == null || val.isEmpty) return 'Required';
+                        if (val.length != 8) return 'Code must be 8 digits';
+                        return null;
                       },
                     ),
-                  ),
-                  const Text(
-                    'Verify your account',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Verify your account with the 8 digit password sent to your email.',
-                style: TextStyle(fontSize: 14, color: Colors.black87),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(8, _buildCodeField),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _submitCode,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text('Verify'),
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: RichText(
-                  text: TextSpan(
-                    style: const TextStyle(
-                      color: Colors.black87,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    children: [
-                      const TextSpan(text: 'Click '),
-                      TextSpan(
-                        text: 'here',
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          decoration: TextDecoration.underline,
+
+                    const SizedBox(height: 24),
+
+                    // Error Message
+                    if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: AppTheme.errorColor),
+                          textAlign: TextAlign.center,
                         ),
-                        recognizer:
-                            TapGestureRecognizer()
-                              ..onTap = _resendVerificationEmail,
                       ),
-                      const TextSpan(text: ' to send a new verification code.'),
-                    ],
-                  ),
+
+                    // Confirm Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _submitCode,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              AppTheme.buttonSecondary, // Black button
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child:
+                            _isLoading
+                                ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                                : const Text(
+                                  'Confirm',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Resend code link
+                    RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textSecondary,
+                        ),
+                        children: [
+                          const TextSpan(text: "Haven't received your code? "),
+                          TextSpan(
+                            text: 'Resend',
+                            style: const TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer:
+                                TapGestureRecognizer()
+                                  ..onTap =
+                                      _isLoading
+                                          ? null
+                                          : _resendVerificationEmail,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const Spacer(),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

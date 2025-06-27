@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fynds/services/auth/auth_service.dart';
 import 'package:fynds/screens/auth/verify_screen.dart';
+import 'package:fynds/theme/app_theme.dart';
 
 class EmailSignUpScreen extends StatefulWidget {
   const EmailSignUpScreen({super.key});
@@ -15,17 +16,29 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
 
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
   final firstNameController = TextEditingController();
   final lastNameController = TextEditingController();
 
   String? _errorMessage;
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   void _register(BuildContext context) async {
+    if (!_formKey.currentState!.validate()) return;
+
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
+    final confirmPassword = confirmPasswordController.text.trim();
     final firstName = firstNameController.text.trim();
     final lastName = lastNameController.text.trim();
+
+    // Check if passwords match
+    if (password != confirmPassword) {
+      setState(() => _errorMessage = 'Passwords do not match.');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -66,21 +79,11 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
     }
   }
 
-  InputDecoration _inputDecoration(String hintText) => InputDecoration(
-    hintText: hintText,
-    filled: true,
-    fillColor: Colors.grey.shade100,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide.none,
-    ),
-  );
-
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
+    confirmPasswordController.dispose();
     firstNameController.dispose();
     lastNameController.dispose();
     super.dispose();
@@ -89,110 +92,271 @@ class _EmailSignUpScreenState extends State<EmailSignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ),
-                    const Text(
-                      'Sign up',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: firstNameController,
-                        decoration: _inputDecoration('First Name'),
-                        validator:
-                            (val) =>
-                                val == null || val.isEmpty ? 'Required' : null,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        controller: lastNameController,
-                        decoration: _inputDecoration('Last Name'),
-                        validator:
-                            (val) =>
-                                val == null || val.isEmpty ? 'Required' : null,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: emailController,
-                  decoration: _inputDecoration('Email'),
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (val) {
-                    if (val == null || val.isEmpty) return 'Required';
-                    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                    if (!emailRegex.hasMatch(val)) return 'Invalid email';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: passwordController,
-                  decoration: _inputDecoration('Password'),
-                  obscureText: true,
-                  validator: (val) {
-                    if (val == null || val.isEmpty) return 'Required';
-                    if (val.length < 8 ||
-                        !RegExp(r'[0-9A-Za-z!@#\$%^&*()]').hasMatch(val)) {
-                      return 'Password must be at least 8 characters with letters, numbers, and symbols';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-                if (_errorMessage != null)
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : () => _register(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child:
-                      _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Continue'),
-                ),
-              ],
+      backgroundColor: AppTheme.backgroundColor,
+      body: Column(
+        children: [
+          // Top pink section (no back arrow here)
+          Container(
+            width: double.infinity,
+            height: 150,
+            decoration: const BoxDecoration(color: AppTheme.primaryColor),
+            child: const SafeArea(
+              child: SizedBox(), // Empty pink section
             ),
           ),
-        ),
+
+          // Bottom white section with signup form
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(color: AppTheme.backgroundColor),
+              padding: const EdgeInsets.all(32),
+              child: SafeArea(
+                top: false,
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Header with back arrow and Sign Up title
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back,
+                              color: AppTheme.textPrimary, // Black arrow
+                              size: 24,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                            padding: EdgeInsets.zero,
+                          ),
+                          Expanded(
+                            child: Text(
+                              'Sign Up',
+                              textAlign: TextAlign.center,
+                              style: AppTheme.textTheme.headlineLarge,
+                            ),
+                          ),
+                          const SizedBox(width: 48), // Balance the arrow space
+                        ],
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // First Name Input
+                      TextFormField(
+                        controller: firstNameController,
+                        decoration: const InputDecoration(
+                          hintText: 'First name',
+                          hintStyle: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                        style: const TextStyle(color: AppTheme.textPrimary),
+                        validator:
+                            (val) =>
+                                val == null || val.isEmpty ? 'Required' : null,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Last Name Input
+                      TextFormField(
+                        controller: lastNameController,
+                        decoration: const InputDecoration(
+                          hintText: 'Surname',
+                          hintStyle: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                        style: const TextStyle(color: AppTheme.textPrimary),
+                        validator:
+                            (val) =>
+                                val == null || val.isEmpty ? 'Required' : null,
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Email Input
+                      TextFormField(
+                        controller: emailController,
+                        decoration: const InputDecoration(
+                          hintText: 'Email address',
+                          hintStyle: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                        style: const TextStyle(color: AppTheme.textPrimary),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return 'Required';
+                          final emailRegex = RegExp(
+                            r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                          );
+                          if (!emailRegex.hasMatch(val)) return 'Invalid email';
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Password Input
+                      TextFormField(
+                        controller: passwordController,
+                        decoration: InputDecoration(
+                          hintText: 'Password',
+                          hintStyle: const TextStyle(
+                            color: AppTheme.textSecondary,
+                          ),
+                          suffixIcon: TextButton(
+                            onPressed:
+                                () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                            child: Text(
+                              _obscurePassword ? 'Show' : 'Hide',
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        style: const TextStyle(color: AppTheme.textPrimary),
+                        obscureText: _obscurePassword,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return 'Required';
+                          if (val.length < 8 ||
+                              !RegExp(
+                                r'[0-9A-Za-z!@#\$%^&*()]',
+                              ).hasMatch(val)) {
+                            return 'Password must be at least 8 characters with letters, numbers, and symbols';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Confirm Password Input
+                      TextFormField(
+                        controller: confirmPasswordController,
+                        decoration: InputDecoration(
+                          hintText: 'Confirm password',
+                          hintStyle: const TextStyle(
+                            color: AppTheme.textSecondary,
+                          ),
+                          suffixIcon: TextButton(
+                            onPressed:
+                                () => setState(
+                                  () =>
+                                      _obscureConfirmPassword =
+                                          !_obscureConfirmPassword,
+                                ),
+                            child: Text(
+                              _obscureConfirmPassword ? 'Show' : 'Hide',
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                        style: const TextStyle(color: AppTheme.textPrimary),
+                        obscureText: _obscureConfirmPassword,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return 'Required';
+                          if (val != passwordController.text)
+                            return 'Passwords do not match';
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Error Message
+                      if (_errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(color: AppTheme.errorColor),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+
+                      // Create Account Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed:
+                              _isLoading ? null : () => _register(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                AppTheme.buttonSecondary, // Black button
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child:
+                              _isLoading
+                                  ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : const Text(
+                                    'Create account',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                        ),
+                      ),
+
+                      const Spacer(),
+
+                      // Terms and Privacy
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: RichText(
+                          textAlign: TextAlign.center,
+                          text: const TextSpan(
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: 'By continuing, you agree to our ',
+                              ),
+                              TextSpan(
+                                text: 'Terms and Conditions',
+                                style: TextStyle(
+                                  decoration: TextDecoration.underline,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              TextSpan(text: ' and '),
+                              TextSpan(
+                                text: 'Privacy Policy',
+                                style: TextStyle(
+                                  decoration: TextDecoration.underline,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              TextSpan(text: '.'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

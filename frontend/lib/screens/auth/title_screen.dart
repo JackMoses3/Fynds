@@ -111,7 +111,8 @@ class TitleScreen extends StatelessWidget {
               child: SafeArea(
                 // Only apply SafeArea to content inside
                 child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment:
+                      MainAxisAlignment.end, // Changed from center to end
                   children: [
                     // FYNDS Logo Text
                     Text(
@@ -140,6 +141,8 @@ class TitleScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+
+                    SizedBox(height: 50), // Add some bottom spacing
                   ],
                 ),
               ),
@@ -155,7 +158,7 @@ class TitleScreen extends StatelessWidget {
                 color:
                     AppTheme.backgroundColor, // Explicitly set white background
               ),
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(20),
               child: SafeArea(
                 // Apply SafeArea only to bottom section
                 top: false, // Don't apply to top since we want red to extend
@@ -163,16 +166,9 @@ class TitleScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Sign Up Title - Made smaller
-                    const Text(
-                      'Sign Up',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
+                    Text('Sign Up', style: AppTheme.textTheme.headlineLarge),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 20),
 
                     // Google Sign Up Button
                     _buildSignUpButton(

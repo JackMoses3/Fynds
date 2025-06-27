@@ -1,47 +1,26 @@
-import { IsOptional, IsArray, IsNumber, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional } from 'class-validator';
 
-export class FilterProductItemDto {
+export class Filters {
   // Support both singular and plural forms
+
   @IsOptional()
-  @IsArray()
-  @Type(() => String)
+  sex?: string;
+
+  @IsOptional()
   brands?: string[];
 
   @IsOptional()
-  @IsArray()
-  @Type(() => String)
-  brand?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @Type(() => String)
   retailers?: string[];
 
   @IsOptional()
-  @IsArray()
-  @Type(() => String)
-  retailer?: string[];
-
-  @IsOptional()
-  @IsArray()
-  @Type(() => String)
   categories?: string[];
 
   @IsOptional()
-  @IsArray()
-  @Type(() => String)
-  category?: string[];
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
   minPrice?: number;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
   maxPrice?: number;
+
+  @IsOptional()
+  styles?: number[];
 }
