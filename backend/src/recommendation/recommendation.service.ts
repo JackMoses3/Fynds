@@ -367,6 +367,14 @@ export class RecommendationService {
     filterWhere: any,
     limit = 20,
   ): Promise<ProductItemTransferDto[]> {
+    // If filters are empty ({}), fallback to recommended algorithm
+    if (
+      !filterWhere ||
+      (Object.keys(filterWhere).length === 0 &&
+        filterWhere.constructor === Object)
+    ) {
+      return this.getRecommendedProductsForUser(userId, limit);
+    }
     // Add this line at the start to track total execution time
     const startTime = Date.now();
     const maxTimeMs = 30000;

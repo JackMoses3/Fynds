@@ -24,15 +24,19 @@ class InfiniteProductFeed extends StatefulWidget {
   _InfiniteProductFeedState createState() => _InfiniteProductFeedState();
 }
 
-class _InfiniteProductFeedState extends State<InfiniteProductFeed> {
+class _InfiniteProductFeedState extends State<InfiniteProductFeed>
+    with AutomaticKeepAliveClientMixin {
   static const int _lookaheadCount = 6;
-  late FilterDto? _filters;
+  FilterDto? _filters;
   final ProductItemService _service = ProductItemService();
 
   final List<ProductItem> _items = [];
   bool _isLoading = false;
   bool _hasMore = true;
   final PageController _controller = PageController();
+
+  @override
+  bool get wantKeepAlive => true; // Keep state alive
 
   @override
   void initState() {
@@ -65,7 +69,7 @@ class _InfiniteProductFeedState extends State<InfiniteProductFeed> {
 
     List<ProductItem>? batch;
     try {
-      // Suppose you have an AuthService that returns the current user’s ID
+      // Suppose you have an AuthService that returns the current user's ID
       // or you store it in SharedPreferences or a provider.
       final userId = await AuthService().getUserId();
       // if userId is null, handle it or require login
@@ -116,6 +120,8 @@ class _InfiniteProductFeedState extends State<InfiniteProductFeed> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+
     if (_items.isEmpty) {
       return _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -133,14 +139,16 @@ class _InfiniteProductFeedState extends State<InfiniteProductFeed> {
       allowImplicitScrolling: true,
       itemCount: _hasMore ? _items.length + 1 : _items.length,
       onPageChanged: (idx) {
-        // fetch more when we get close to the end
-        if (idx >= _items.length - _lookaheadCount) {
+        // More aggressive preloading: fetch when 75% through current batch
+        if (idx >= _items.length - (_lookaheadCount * 2)) {
           _loadMore();
         }
-        // prefetch next batch when 13/20 have been seen
-        if (_items.length >= 20 && idx == 13) {
+
+        // Early preload: fetch next batch when halfway through current batch
+        if (_items.length >= 10 && idx >= (_items.length ~/ 2) && _hasMore) {
           _loadMore();
         }
+
         // also look‐ahead cache first image of next few
         for (int off = 1; off <= _lookaheadCount; off++) {
           final next = idx + off;

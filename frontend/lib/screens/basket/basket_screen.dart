@@ -22,10 +22,20 @@ class _BasketScreenState extends State<BasketScreen> {
     _loadBasket();
   }
 
+  Future<void> warmImages(BuildContext ctx, List<BasketItem> items) async {
+    for (final item in items) {
+      await precacheImage(
+        CachedNetworkImageProvider(item.product.images.first.imageUrl),
+        ctx,
+      );
+    }
+  }
+
   Future<void> _loadBasket() async {
     try {
       final items = await _basketService.fetchBasket();
       setState(() => _items = items);
+      await warmImages(context, items); // Pre-cache images sequentially
     } catch (e) {
       debugPrint('Error loading basket: $e');
     } finally {

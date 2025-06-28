@@ -15,13 +15,17 @@ class ExploreScreen extends StatefulWidget {
   _ExploreScreenState createState() => _ExploreScreenState();
 }
 
-class _ExploreScreenState extends State<ExploreScreen> {
+class _ExploreScreenState extends State<ExploreScreen>
+    with AutomaticKeepAliveClientMixin {
   final _searchCtrl = TextEditingController();
   final _picker = ImagePicker();
   final _searchService = SearchService();
   bool _isLoading = false;
   List<ProductItem> _products = [];
   bool _hasSearched = false;
+
+  @override
+  bool get wantKeepAlive => true; // Keep state alive when switching tabs
 
   @override
   void dispose() {
@@ -175,6 +179,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final topInset = MediaQuery.of(context).padding.top + 16;
 
     return Scaffold(
