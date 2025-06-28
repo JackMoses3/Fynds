@@ -126,84 +126,6 @@ export class ProductItemService {
     }));
   }
 
-  /** Fetch products by arbitrary filters */
-  async getFilteredProductItems(
-    filters: FilterProductItemDto,
-    userId?: number,
-  ): Promise<ProductItemTransferDto[]> {
-    console.log(
-      '🔍 Starting personalized filtered product search for user:',
-      userId,
-      'filters:',
-      JSON.stringify(filters, null, 2),
-    );
-
-    // Build filter conditions
-    const startTime = Date.now();
-    const where: any = {};
-
-    // Handle both singular and plural forms from frontend
-    const brands = filters.brands || filters.brand;
-    const retailers = filters.retailers || filters.retailer; // <- Add this line
-    const categories = filters.categories || filters.category;
-
-    if (brands?.length) {
-      where.brand = { in: brands };
-      console.log('🏷️ Brand filter applied:', brands);
-    }
-
-    if (retailers?.length) {
-      // <- Use the normalized variable
-      where.retailer = { in: retailers };
-      console.log('🏪 Retailer filter applied:', retailers);
-    }
-
-    if (categories?.length) {
-      where.category = { in: categories };
-      console.log('📂 Category filter applied:', categories);
-    }
-
-    if (typeof filters.minPrice === 'number') {
-      where.price = { ...(where.price || {}), gte: filters.minPrice };
-      console.log('💰 Min price filter applied:', filters.minPrice);
-    }
-
-    if (typeof filters.maxPrice === 'number') {
-      where.price = { ...(where.price || {}), lte: filters.maxPrice };
-      console.log('💰 Max price filter applied:', filters.maxPrice);
-    }
-
-    console.log('🔍 Final where clause:', JSON.stringify(where, null, 2));
-
-    try {
-      // Check if any PRODUCTS (not scores) match the filters
-      const count = await this.db.productItem.count({ where });
-
-      if (count === 0) {
-        console.log('⚠️ No products match the filters');
-        return [];
-      }
-
-      // New personalization logic
-      if (userId) {
-        console.log('👤 User ID found, fetching personalized products');
-        return this.recommendationService.getPersonalizedFilteredProductsForUser(
-          userId,
-          where,
-        );
-      } else {
-        console.log('👤 No user ID found, fetching non-personalized products');
-        // Get an empty sex filter since we don't have a user
-        const sexFilter = {};
-        return this.getNonPersonalizedFilteredProducts(where, sexFilter);
-      }
-    } catch (error) {
-      const totalTime = Date.now() - startTime;
-      console.error(`❌ Database query failed after ${totalTime}ms:`, error);
-      throw error;
-    }
-  }
-
   /** Lookup a single product (with its images) */
   async findById(
     id: number,
@@ -266,6 +188,17 @@ export class ProductItemService {
     const items = await this.db.productItem.findMany({
       where: combinedWhere,
       take: 50,
+      select: {
+        id: true,
+        name: true,
+        brand: true,
+        retailer: true,
+        price: true,
+        url: true,
+        productImages: {
+          select: { id: true, imageUrl: true },
+        },
+      },
     });
 
     return items.map((p) => ({
@@ -356,6 +289,7 @@ export class ProductItemService {
           orderBy: { id: 'asc' },
         },
       },
+      take: limit,
     });
 
     return products.map(

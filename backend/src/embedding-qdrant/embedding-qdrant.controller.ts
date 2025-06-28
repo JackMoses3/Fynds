@@ -30,7 +30,7 @@ import {
   MultimodalStyleClassificationResponse,
 } from './dto/embedding-style.dto';
 import { StyleAnalysisConfig } from './dto/multimodal-style-classification.dto';
-import { FilterProductItemDto } from '../product-item/dto/filter.dto';
+import { Filters } from '../product-item/dto/filter.dto';
 import { TextSearchDto } from './dto/controller.dto';
 import { JwtAuthGuard } from '../auth/strategies/jwt/jwt-auth.guard';
 
@@ -73,7 +73,7 @@ export class EmbeddingQdrantController {
       const results = await this.embeddingQdrantService.searchByText(
         userId,
         request.query,
-        request.filters || {},
+        request.filters instanceof Filters ? request.filters : new Filters(), // Ensure filters is always of type Filters
       );
 
       console.log(
@@ -104,7 +104,7 @@ export class EmbeddingQdrantController {
   async searchImage(
     @UploadedFile() image: Express.Multer.File,
     @Req() req: RequestUser,
-    @Body() filters: FilterProductItemDto,
+    @Body() filters: Filters,
   ): Promise<ProductItemTransferDto[]> {
     return this.embeddingQdrantService.searchByImage(
       req.user?.sub ?? null,

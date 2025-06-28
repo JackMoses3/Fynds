@@ -27,7 +27,7 @@ import {
   WeightedStyleScore,
   StyleAnalysisResult,
 } from './dto/multimodal-style-classification.dto';
-import { FilterProductItemDto } from '../product-item/dto/filter.dto';
+import { Filters } from '../product-item/dto/filter.dto';
 import { QdrantFilterModel } from '../qdrant/models/filter.model';
 
 @Injectable()
@@ -45,7 +45,7 @@ export class EmbeddingQdrantService {
   async searchByText(
     userId: number | null,
     query: string,
-    filters: FilterProductItemDto,
+    filters: Filters,
   ): Promise<ProductItemTransferDto[]> {
     console.log('🔍 [EmbeddingQdrantService] Starting hybrid text search');
     console.log('🔍 [EmbeddingQdrantService] Query:', query);
@@ -260,7 +260,7 @@ export class EmbeddingQdrantService {
   async searchByImage(
     userId: number | null,
     image: Express.Multer.File,
-    filters: FilterProductItemDto,
+    filters: Filters,
   ): Promise<ProductItemTransferDto[]> {
     try {
       const searchStart = Date.now();

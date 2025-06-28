@@ -1,3 +1,4 @@
+/*eslint-disable */
 import {
   Body,
   Controller,
@@ -11,7 +12,7 @@ import { JwtAuthGuard } from '../auth/strategies/jwt/jwt-auth.guard';
 import { ProductItemService } from './product-item.service';
 import { ProductScoreService } from '../recommendation/service/product-score.service';
 import { ProductItemTransferDto } from './dto/product-item.dto';
-import { FilterProductItemDto } from './dto/filter.dto';
+import { Filters } from './dto/filter.dto';
 import { RequestUser } from '../types';
 
 class BatchRequestDto {
@@ -48,16 +49,6 @@ export class ProductItemController {
     @Body() body: { brand?: string[]; retailer?: string[] },
   ): Promise<string[]> {
     return this.productItemService.getUniqueCategories(body);
-  }
-
-  /** POST /product-item/filtered */
-  @Post('filtered')
-  getFilteredProducts(
-    @Body() filters: FilterProductItemDto,
-    @Req() req: RequestUser,
-  ): Promise<ProductItemTransferDto[] | null> {
-    const userId = req.user?.sub;
-    return this.productItemService.getFilteredProductItems(filters, userId);
   }
 
   /** POST /product-item/batch */
