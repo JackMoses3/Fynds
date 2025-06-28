@@ -42,12 +42,14 @@ class _AppNavigationState extends State<AppNavigation> {
           ),
         ],
       ),
-      body:
-          <Widget>[
-            const HomeScreen(),
-            const ExploreScreen(),
-            const ProfileScreen(),
-          ][currentPageIndex],
+      body: IndexedStack(
+        index: currentPageIndex,
+        children: const <Widget>[
+          HomeScreen(),
+          ExploreScreen(),
+          ProfileScreen(),
+        ],
+      ),
     );
   }
 }

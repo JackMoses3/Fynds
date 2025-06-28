@@ -11,8 +11,12 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with AutomaticKeepAliveClientMixin {
   FilterDto? _currentFilters;
+
+  @override
+  bool get wantKeepAlive => true; // Keep this screen alive when switching tabs
 
   @override
   void initState() {
@@ -55,6 +59,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: true,
