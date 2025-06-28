@@ -35,9 +35,8 @@ class TitleScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSignUpButton(
-    BuildContext context, {
-    String? iconPath,
+  Widget _buildSignUpButton({
+    required String iconPath,
     required String text,
     required VoidCallback onPressed,
   }) {
@@ -58,20 +57,17 @@ class TitleScreen extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (iconPath != null) ...[
-              Container(
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Image.asset(
+                iconPath,
                 width: 24,
                 height: 24,
-                alignment: Alignment.center,
-                child: Image.asset(
-                  iconPath,
-                  width: _getIconSize(iconPath), // Custom size per icon
-                  height: _getIconSize(iconPath), // Custom size per icon
-                  fit: BoxFit.contain,
-                ),
+                fit: BoxFit.contain,
               ),
-              const SizedBox(width: 12),
-            ],
+            ),
+            const SizedBox(width: 12),
             Text(
               text,
               style: const TextStyle(
@@ -86,185 +82,158 @@ class TitleScreen extends StatelessWidget {
     );
   }
 
-  double _getIconSize(String iconPath) {
-    if (iconPath.contains('Google')) {
-      return 26.0; // Adjust Google icon size
-    } else if (iconPath.contains('Apple')) {
-      return 18.0; // Adjust Apple icon size
-    }
-    return 24.0; // Default size
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.primaryColor, // Set background to pink
+      backgroundColor: AppTheme.backgroundColor,
+      resizeToAvoidBottomInset: false, // ✅ Prevent screen resizing
       body: Column(
-        // Remove SafeArea to allow red to extend to top
         children: [
-          // Top section with brand colors and text
-          Expanded(
-            flex: 5,
-            child: Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(color: AppTheme.primaryColor),
-              child: SafeArea(
-                // Only apply SafeArea to content inside
-                child: const Column(
-                  mainAxisAlignment:
-                      MainAxisAlignment.end, // Changed from center to end
-                  children: [
-                    // FYNDS Logo Text
-                    Text(
-                      'FYNDS',
-                      style: TextStyle(
-                        fontSize: 64,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 2.0,
-                      ),
-                    ),
-
-                    SizedBox(height: 16),
-
-                    // Subtitle
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(
-                        'Finding fashion curated for you',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: 50), // Add some bottom spacing
-                  ],
-                ),
-              ),
-            ),
+          // Top pink section (fixed height)
+          Container(
+            width: double.infinity,
+            height: 200,
+            decoration: const BoxDecoration(color: AppTheme.primaryColor),
+            child: const SafeArea(child: SizedBox()),
           ),
 
-          // Bottom section with sign up options
+          // Bottom white section with scrollable content
           Expanded(
-            flex: 6,
             child: Container(
               width: double.infinity,
-              decoration: const BoxDecoration(
-                color:
-                    AppTheme.backgroundColor, // Explicitly set white background
-              ),
-              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(color: AppTheme.backgroundColor),
               child: SafeArea(
-                // Apply SafeArea only to bottom section
-                top: false, // Don't apply to top since we want red to extend
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Sign Up Title - Made smaller
-                    Text('Sign Up', style: AppTheme.textTheme.headlineLarge),
+                top: false,
+                child: SingleChildScrollView(
+                  // ✅ Make content scrollable
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Title
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: AppTheme.textTheme.headlineLarge,
+                      ),
 
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 16),
 
-                    // Google Sign Up Button
-                    _buildSignUpButton(
-                      context,
-                      iconPath: 'assets/images/Google.png',
-                      text: 'Continue with Google',
-                      onPressed: () => _handleGoogleLogin(context),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Apple Sign Up Button
-                    _buildSignUpButton(
-                      context,
-                      iconPath: 'assets/images/Apple.png',
-                      text: 'Continue with Apple',
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Apple Sign In coming soon!'),
-                          ),
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Email Sign Up Button
-                    _buildSignUpButton(
-                      context,
-                      text: 'Continue with email',
-                      onPressed: () => _handleEmailLogin(context),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Already have account
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Already have an account? ',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textSecondary,
-                          ),
+                      // Subtitle
+                      Text(
+                        subtitle,
+                        textAlign: TextAlign.center,
+                        style: AppTheme.textTheme.bodyLarge?.copyWith(
+                          color: AppTheme.textSecondary,
                         ),
-                        GestureDetector(
-                          onTap: () => _navigateToLogin(context),
+                      ),
+
+                      const SizedBox(height: 48),
+
+                      // Email signup button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: () => _handleEmailLogin(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.buttonSecondary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                           child: const Text(
-                            'Log in',
+                            'Continue with Email',
                             style: TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.primaryColor,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    // Terms and Privacy
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: RichText(
-                        textAlign: TextAlign.center,
-                        text: const TextSpan(
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary,
-                          ),
-                          children: [
-                            TextSpan(text: 'By continuing, you agree to our '),
-                            TextSpan(
-                              text: 'Terms and Conditions',
-                              style: TextStyle(
-                                decoration: TextDecoration.underline,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                            TextSpan(text: '\nand '),
-                            TextSpan(
-                              text: 'Privacy Policy',
-                              style: TextStyle(
-                                decoration: TextDecoration.underline,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                            TextSpan(text: '.'),
-                          ],
-                        ),
                       ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 24),
+
+                      // Divider with "or continue with"
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              color: AppTheme.dividerColor,
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'or continue with',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              color: AppTheme.dividerColor,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Google signup button
+                      _buildSignUpButton(
+                        iconPath: 'assets/images/Google.png',
+                        text: 'Continue with Google',
+                        onPressed: () => _handleGoogleLogin(context),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Apple signup button
+                      _buildSignUpButton(
+                        iconPath: 'assets/images/Apple.png',
+                        text: 'Continue with Apple',
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Apple Sign In coming soon!'),
+                            ),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 40), // ✅ Extra space for keyboard
+                      // Login link
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'Already have an account? ',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => _navigateToLogin(context),
+                            child: const Text(
+                              'Log in',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -1,238 +1,341 @@
+/* eslint-disable */
 import { Injectable } from '@nestjs/common';
-import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { ProductScoreService } from '../recommendation/service/product-score.service';
+import { ProductIdWithImageDto } from './dto/style-images.dto';
 
 @Injectable()
 export class OnboardingService {
   private readonly imagesBasePath = path.join(__dirname, '../onboarding');
 
-  constructor(private readonly productScoreService: ProductScoreService) {}
-
   async getStyleProducts(
-    userId: number, // <-- add this parameter
     selectedStyleIds: number[],
     clothingPreference: string,
     limit = 25,
-  ): Promise<ProductItemTransferDto[]> {
-    const startTime = Date.now();
-    const pref = clothingPreference.toLowerCase();
+  ): Promise<ProductIdWithImageDto[]> {
+    console.log('🎯 [OnboardingService] Starting getStyleProducts');
+    console.log(
+      `📋 [OnboardingService] Selected Style IDs: ${selectedStyleIds}`,
+    );
+    console.log(
+      `👥 [OnboardingService] Clothing Preference: ${clothingPreference}`,
+    );
+    console.log(`🔢 [OnboardingService] Limit: ${limit}`);
+    console.log(
+      `📁 [OnboardingService] Base images path: ${this.imagesBasePath}`,
+    );
 
-    if (pref === 'both') {
-      // Handle "both" case: 12 male + 13 female
+    const result: ProductIdWithImageDto[] = [];
+
+    if (clothingPreference === 'unisex') {
       console.log(
-        `🔍 [Onboarding] Both genders requested: 12 male + 13 female`,
+        '🔀 [OnboardingService] Using unisex preference - loading both genders',
       );
 
-      const maleItems = await this.loadFromGenderFolder(
-        userId,
+      const menProducts = await this.loadProductsWithImagesForGender(
         selectedStyleIds,
-        'men_images',
+        'men',
         12,
       );
-      const femaleItems = await this.loadFromGenderFolder(
-        userId,
+      console.log(
+        `👨 [OnboardingService] Men products loaded: ${menProducts.length}`,
+      );
+
+      const womenProducts = await this.loadProductsWithImagesForGender(
         selectedStyleIds,
-        'women_images',
+        'women',
         13,
       );
-
-      // Combine and shuffle for final randomness
-      const combined = this.shuffle([...maleItems, ...femaleItems]);
-      const endTime = Date.now();
-
       console.log(
-        `✅ [Onboarding] Returning ${combined.length} items (${maleItems.length} male + ${femaleItems.length} female) in ${endTime - startTime}ms`,
+        `👩 [OnboardingService] Women products loaded: ${womenProducts.length}`,
       );
 
-      return this.convertToDto(combined.slice(0, limit));
+      result.push(...menProducts, ...womenProducts);
+    } else {
+      console.log(
+        `🎯 [OnboardingService] Loading single gender: ${clothingPreference}`,
+      );
+
+      const products = await this.loadProductsWithImagesForGender(
+        selectedStyleIds,
+        clothingPreference,
+        limit,
+      );
+      console.log(
+        `📦 [OnboardingService] Single gender products loaded: ${products.length}`,
+      );
+      result.push(...products);
     }
 
-    // Single gender case
-    const genderFolder = this.getGenderFolder(clothingPreference);
-    const items = await this.loadFromGenderFolder(
-      userId,
-      selectedStyleIds,
-      genderFolder,
-      limit,
-    );
-
-    const endTime = Date.now();
+    const shuffledResult = this.shuffleArray(result).slice(0, limit);
     console.log(
-      `✅ [Onboarding] Returning ${items.length} items from ${genderFolder} in ${endTime - startTime}ms`,
+      `✅ [OnboardingService] Final result: ${shuffledResult.length} products`,
     );
 
-    return this.convertToDto(this.shuffle(items).slice(0, limit));
+    // Log first few product IDs for verification
+    const firstFewIds = shuffledResult.slice(0, 5).map((p) => p.id);
+    console.log(
+      `🆔 [OnboardingService] First few product IDs: ${firstFewIds.join(', ')}`,
+    );
+
+    return shuffledResult;
   }
 
-  private async loadFromGenderFolder(
-    userId: number, // <-- add this parameter
+  private async loadProductsWithImagesForGender(
     selectedStyleIds: number[],
     genderFolder: string,
     targetLimit: number,
-  ): Promise<Array<{ id: number; imageUrl: string }>> {
-    const imagesPath = path.join(this.imagesBasePath, genderFolder, 'styles');
-    const results: Array<{ id: number; imageUrl: string }> = [];
+  ): Promise<ProductIdWithImageDto[]> {
+    console.log(`\n🚀 [LoadGender] Starting load for gender: ${genderFolder}`);
+    console.log(`🎯 [LoadGender] Target limit: ${targetLimit}`);
 
-    console.log(
-      `🔍 [Onboarding] Loading from: ${imagesPath} (limit: ${targetLimit})`,
-    );
-    console.log(
-      `🎯 [Onboarding] Selected styles: [${selectedStyleIds.join(', ')}]`,
-    );
+    const imagesPath = path.join(this.imagesBasePath, genderFolder, 'styles');
+    console.log(`📁 [LoadGender] Images path: ${imagesPath}`);
+
+    // Check if the gender folder exists
+    try {
+      await fs.access(this.imagesBasePath);
+      console.log(`✅ [LoadGender] Base path exists: ${this.imagesBasePath}`);
+    } catch (error) {
+      console.error(
+        `❌ [LoadGender] Base path does not exist: ${this.imagesBasePath}`,
+      );
+      return [];
+    }
+
+    try {
+      await fs.access(path.join(this.imagesBasePath, genderFolder));
+      console.log(`✅ [LoadGender] Gender folder exists: ${genderFolder}`);
+    } catch (error) {
+      console.error(
+        `❌ [LoadGender] Gender folder does not exist: ${genderFolder}`,
+      );
+      return [];
+    }
+
+    try {
+      await fs.access(imagesPath);
+      console.log(`✅ [LoadGender] Styles folder exists: ${imagesPath}`);
+    } catch (error) {
+      console.error(
+        `❌ [LoadGender] Styles folder does not exist: ${imagesPath}`,
+      );
+      return [];
+    }
+
+    const result: ProductIdWithImageDto[] = [];
+    const usedIds = new Set<number>();
 
     try {
       // 1) Take up to 3 items from each selected style
+      console.log(`\n🎨 [LoadGender] Phase 1: Loading from selected styles`);
       for (const styleId of selectedStyleIds) {
-        if (results.length >= targetLimit) break;
-
-        const styleDir = path.join(imagesPath, styleId.toString());
-
-        try {
-          const files = await fs.readdir(styleDir);
-          const imageFiles = files.filter((file) =>
-            /\.(jpe?g|png)$/i.test(file),
-          );
-
+        if (result.length >= targetLimit) {
           console.log(
-            `📂 [Onboarding] Style ${styleId}: found ${imageFiles.length} images`,
+            `🛑 [LoadGender] Reached target limit during style ${styleId}`,
           );
+          break;
+        }
 
-          // Shuffle and take up to 3
-          const shuffled = this.shuffle(imageFiles);
-          const toTake = Math.min(
-            3,
-            shuffled.length,
-            targetLimit - results.length,
-          );
+        console.log(`📂 [LoadGender] Processing style ID: ${styleId}`);
 
-          for (let i = 0; i < toTake; i++) {
-            const fileName = shuffled[i];
-            const productId = parseInt(path.parse(fileName).name);
+        const styleImages = await this.getImagesFromStyle(
+          imagesPath,
+          styleId,
+          3,
+          usedIds,
+        );
 
-            if (!isNaN(productId)) {
-              const imageUrl = `/api/onboarding/${genderFolder}/styles/${styleId}/${fileName}`;
-              results.push({ id: productId, imageUrl });
-              console.log(
-                `🔗 [Onboarding] Generated URL: ${imageUrl} for product ${productId}`,
-              );
-            }
+        console.log(
+          `🖼️ [LoadGender] Style ${styleId} returned ${styleImages.length} images`,
+        );
+
+        const toAdd = Math.min(styleImages.length, targetLimit - result.length);
+        result.push(...styleImages.slice(0, toAdd));
+
+        console.log(
+          `➕ [LoadGender] Added ${toAdd} images from style ${styleId}. Total: ${result.length}`,
+        );
+
+        // Update used IDs
+        styleImages.slice(0, toAdd).forEach((img) => usedIds.add(img.id));
+      }
+
+      // 2) Fill remaining space with items from other styles
+      if (result.length < targetLimit) {
+        console.log(
+          `\n🔄 [LoadGender] Phase 2: Need ${targetLimit - result.length} more images`,
+        );
+
+        const allStyleDirs = await fs.readdir(imagesPath);
+        console.log(
+          `📁 [LoadGender] Available style directories: ${allStyleDirs.join(', ')}`,
+        );
+
+        const otherStyleIds = allStyleDirs
+          .filter((dir) => !selectedStyleIds.includes(parseInt(dir)))
+          .map((dir) => parseInt(dir))
+          .filter((id) => !isNaN(id));
+
+        console.log(
+          `🎯 [LoadGender] Other style IDs to use: ${otherStyleIds.join(', ')}`,
+        );
+
+        const shuffledOtherStyles = this.shuffleArray(otherStyleIds);
+        console.log(
+          `🔀 [LoadGender] Shuffled other styles: ${shuffledOtherStyles.join(', ')}`,
+        );
+
+        for (const styleId of shuffledOtherStyles) {
+          if (result.length >= targetLimit) {
+            console.log(
+              `🛑 [LoadGender] Reached target limit during other style ${styleId}`,
+            );
+            break;
           }
 
-          console.log(
-            `📦 [Onboarding] Added ${toTake} items from style ${styleId}`,
+          console.log(`📂 [LoadGender] Processing other style ID: ${styleId}`);
+
+          const styleImages = await this.getImagesFromStyle(
+            imagesPath,
+            styleId,
+            1, // Only 1 from each other style
+            usedIds,
           );
-        } catch (error) {
-          console.warn(`⚠️ [Onboarding] Style directory ${styleId} not found`);
+
+          if (styleImages.length > 0) {
+            result.push(styleImages[0]);
+            usedIds.add(styleImages[0].id);
+            console.log(
+              `➕ [LoadGender] Added 1 image from other style ${styleId}. Total: ${result.length}`,
+            );
+          } else {
+            console.log(
+              `⚠️ [LoadGender] No new images from other style ${styleId}`,
+            );
+          }
         }
       }
 
-      // 2) Fill remaining space with items from other styles (1 each)
-      const remaining = targetLimit - results.length;
       console.log(
-        `🔄 [Onboarding] Need ${remaining} more items from other styles`,
+        `✅ [LoadGender] Completed ${genderFolder}: ${result.length} images total`,
       );
-
-      if (remaining > 0) {
-        const usedIds = new Set(results.map((r) => r.id));
-
-        try {
-          const allStyleDirs = await fs.readdir(imagesPath);
-          const availableStyleIds = allStyleDirs
-            .filter((dir) => !selectedStyleIds.includes(parseInt(dir)))
-            .map((dir) => parseInt(dir))
-            .filter((id) => !isNaN(id));
-
-          console.log(
-            `📊 [Onboarding] Available other styles: [${availableStyleIds.join(', ')}]`,
-          );
-
-          const shuffledStyles = this.shuffle(availableStyleIds);
-
-          for (const styleId of shuffledStyles) {
-            if (results.length >= targetLimit) break;
-
-            const styleDir = path.join(imagesPath, styleId.toString());
-
-            try {
-              const files = await fs.readdir(styleDir);
-              const imageFiles = files.filter((file) =>
-                /\.(jpe?g|png)$/i.test(file),
-              );
-
-              const shuffledFiles = this.shuffle(imageFiles);
-
-              for (const fileName of shuffledFiles) {
-                const productId = parseInt(path.parse(fileName).name);
-
-                if (!isNaN(productId) && !usedIds.has(productId)) {
-                  const imageUrl = `/api/onboarding/${genderFolder}/styles/${styleId}/${fileName}`;
-                  results.push({ id: productId, imageUrl });
-                  usedIds.add(productId);
-                  console.log(
-                    `📦 [Onboarding] Added 1 item from other style ${styleId}`,
-                  );
-                  break; // Only 1 per style
-                }
-              }
-            } catch (error) {
-              console.warn(
-                `⚠️ [Onboarding] Could not read style directory ${styleId}`,
-              );
-            }
-          }
-        } catch (error) {
-          console.warn(`⚠️ [Onboarding] Could not read main images directory`);
-        }
-      }
-
-      return results.slice(0, targetLimit);
+      return result.slice(0, targetLimit);
     } catch (error) {
       console.error(
-        `❌ [Onboarding] Error loading from ${genderFolder}:`,
+        `❌ [LoadGender] Error loading from ${genderFolder}:`,
         error,
       );
       return [];
     }
   }
 
-  private convertToDto(
-    items: Array<{ id: number; imageUrl: string }>,
-  ): ProductItemTransferDto[] {
-    const productIds = items.map((r) => r.id);
-    console.log(`🆔 [Onboarding] Product IDs: [${productIds.join(', ')}]`);
+  private async getImagesFromStyle(
+    imagesPath: string,
+    styleId: number,
+    maxImages: number,
+    usedIds: Set<number>,
+  ): Promise<ProductIdWithImageDto[]> {
+    console.log(
+      `  🎨 [GetImages] Processing style ${styleId}, max: ${maxImages}`,
+    );
 
-    return items.map((item) => ({
-      id: item.id,
-      name: '',
-      brand: '',
-      category: '',
-      price: 0,
-      retailer: '',
-      url: '',
-      style: [],
-      images: [
-        {
-          id: item.id,
-          imageUrl: item.imageUrl,
-          frontFacing: true,
-        },
-      ],
-    }));
-  }
+    const styleDir = path.join(imagesPath, styleId.toString());
+    console.log(`  📁 [GetImages] Style directory: ${styleDir}`);
 
-  private getGenderFolder(clothingPreference: string): string {
-    const pref = clothingPreference.toLowerCase();
-    if (pref === 'male' || pref.includes('men')) {
-      return 'men_images';
-    } else if (pref === 'female' || pref.includes('women')) {
-      return 'women_images';
+    const results: ProductIdWithImageDto[] = [];
+
+    try {
+      // Check if style directory exists
+      await fs.access(styleDir);
+      console.log(`  ✅ [GetImages] Style directory exists`);
+
+      const files = await fs.readdir(styleDir);
+      console.log(`  📄 [GetImages] Files in directory: ${files.join(', ')}`);
+
+      const imageFiles = files.filter((file) => /\.(jpe?g|png)$/i.test(file));
+      console.log(
+        `  🖼️ [GetImages] Image files found: ${imageFiles.join(', ')}`,
+      );
+
+      if (imageFiles.length === 0) {
+        console.log(
+          `  ⚠️ [GetImages] No image files found in style ${styleId}`,
+        );
+        return [];
+      }
+
+      const shuffledFiles = this.shuffleArray(imageFiles);
+      console.log(
+        `  🔀 [GetImages] Shuffled files: ${shuffledFiles.slice(0, 3).join(', ')}${shuffledFiles.length > 3 ? '...' : ''}`,
+      );
+
+      for (const fileName of shuffledFiles) {
+        if (results.length >= maxImages) {
+          console.log(
+            `  🛑 [GetImages] Reached max images (${maxImages}) for style ${styleId}`,
+          );
+          break;
+        }
+
+        const productId = parseInt(path.parse(fileName).name);
+        console.log(
+          `  🆔 [GetImages] Processing file: ${fileName} -> Product ID: ${productId}`,
+        );
+
+        // Skip if invalid ID or already used
+        if (isNaN(productId)) {
+          console.log(
+            `  ⚠️ [GetImages] Invalid product ID from filename: ${fileName}`,
+          );
+          continue;
+        }
+
+        if (usedIds.has(productId)) {
+          console.log(
+            `  ⚠️ [GetImages] Product ID ${productId} already used, skipping`,
+          );
+          continue;
+        }
+
+        const filePath = path.join(styleDir, fileName);
+
+        try {
+          // Read image file and convert to base64
+          const imageBuffer = await fs.readFile(filePath);
+          const base64Image = imageBuffer.toString('base64');
+          const imageSizeKB = Math.round(imageBuffer.length / 1024);
+
+          console.log(
+            `  📸 [GetImages] Successfully processed ${fileName}: ${imageSizeKB}KB -> ${base64Image.length} base64 chars`,
+          );
+
+          results.push({
+            id: productId,
+            imageData: base64Image,
+          });
+        } catch (fileError) {
+          console.error(
+            `  ❌ [GetImages] Could not read image file ${filePath}:`,
+            fileError,
+          );
+        }
+      }
+
+      console.log(
+        `  ✅ [GetImages] Style ${styleId} completed: ${results.length} images processed`,
+      );
+    } catch (dirError) {
+      console.warn(
+        `  ❌ [GetImages] Style directory ${styleId} not found or inaccessible:`,
+        dirError,
+      );
     }
-    return 'men_images';
+
+    return results;
   }
 
-  private shuffle<T>(array: T[]): T[] {
+  private shuffleArray<T>(array: T[]): T[] {
     const arr = [...array];
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));

@@ -59,7 +59,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
     try {
       final success = await _authService.newVerification(widget.email);
       if (success) {
-        setState(() => _errorMessage = null); // Clear any existing errors
+        setState(() => _errorMessage = null);
       } else {
         setState(() => _errorMessage = 'Failed to resend verification code.');
       }
@@ -80,178 +80,177 @@ class _VerifyScreenState extends State<VerifyScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
+      resizeToAvoidBottomInset: false, // Prevent screen resizing
       body: Column(
         children: [
-          // Top pink section
+          // Top pink section (fixed height)
           Container(
             width: double.infinity,
             height: 150,
             decoration: const BoxDecoration(color: AppTheme.primaryColor),
-            child: const SafeArea(
-              child: SizedBox(), // Empty pink section
-            ),
+            child: const SafeArea(child: SizedBox()),
           ),
 
-          // Bottom white section with verify form
+          // Bottom white section with scrollable content
           Expanded(
             child: Container(
               width: double.infinity,
               decoration: const BoxDecoration(color: AppTheme.backgroundColor),
-              padding: const EdgeInsets.all(32),
               child: SafeArea(
                 top: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Header with back arrow and title
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: AppTheme.textPrimary,
-                            size: 24,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                          padding: EdgeInsets.zero,
-                        ),
-                        Expanded(
-                          child: Text(
-                            'Verify your email',
-                            textAlign: TextAlign.center,
-                            style: AppTheme.textTheme.headlineLarge,
-                          ),
-                        ),
-                        const SizedBox(width: 48), // Balance the arrow space
-                      ],
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Subtitle with email
-                    Text(
-                      'Enter the 8-digit code we sent to',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: AppTheme.textSecondary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.email,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Single code input field
-                    TextFormField(
-                      controller: _codeController,
-                      decoration: const InputDecoration(
-                        hintText: '8-digit code',
-                        hintStyle: TextStyle(color: AppTheme.textSecondary),
-                      ),
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 16,
-                        letterSpacing: 2.0, // Space out the digits
-                      ),
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
-                      maxLength: 8,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      validator: (val) {
-                        if (val == null || val.isEmpty) return 'Required';
-                        if (val.length != 8) return 'Code must be 8 digits';
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Error Message
-                    if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(color: AppTheme.errorColor),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-
-                    // Confirm Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _submitCode,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              AppTheme.buttonSecondary, // Black button
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child:
-                            _isLoading
-                                ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                                : const Text(
-                                  'Confirm',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Resend code link
-                    RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textSecondary,
-                        ),
+                child: SingleChildScrollView(
+                  // Make content scrollable
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Header with back arrow and title
+                      Row(
                         children: [
-                          const TextSpan(text: "Haven't received your code? "),
-                          TextSpan(
-                            text: 'Resend',
-                            style: const TextStyle(
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
+                          IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back,
+                              color: AppTheme.textPrimary,
+                              size: 24,
                             ),
-                            recognizer:
-                                TapGestureRecognizer()
-                                  ..onTap =
-                                      _isLoading
-                                          ? null
-                                          : _resendVerificationEmail,
+                            onPressed: () => Navigator.pop(context),
+                            padding: EdgeInsets.zero,
                           ),
+                          Expanded(
+                            child: Text(
+                              'Verify Email',
+                              textAlign: TextAlign.center,
+                              style: AppTheme.textTheme.headlineLarge,
+                            ),
+                          ),
+                          const SizedBox(width: 48), // Balance the arrow space
                         ],
                       ),
-                    ),
 
-                    const Spacer(),
-                  ],
+                      const SizedBox(height: 32),
+
+                      // Verification instruction
+                      Text(
+                        'Enter the 8-digit code sent to',
+                        style: AppTheme.textTheme.bodyLarge?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      Text(
+                        widget.email,
+                        style: AppTheme.textTheme.bodyLarge?.copyWith(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Verification code input
+                      TextFormField(
+                        controller: _codeController,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter 8-digit code',
+                          hintStyle: TextStyle(color: AppTheme.textSecondary),
+                        ),
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 18,
+                          letterSpacing: 2,
+                        ),
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(8),
+                        ],
+                        onChanged: (value) {
+                          if (value.length == 8) {
+                            _submitCode();
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Error Message
+                      if (_errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(color: AppTheme.errorColor),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+
+                      // Verify Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _submitCode,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.buttonSecondary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child:
+                              _isLoading
+                                  ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : const Text(
+                                    'Verify',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 40), // Extra space for keyboard
+                      // Resend code
+                      RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.textSecondary,
+                          ),
+                          children: [
+                            const TextSpan(text: "Didn't receive a code? "),
+                            TextSpan(
+                              text: 'Resend',
+                              style: const TextStyle(
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              recognizer:
+                                  TapGestureRecognizer()
+                                    ..onTap =
+                                        _isLoading
+                                            ? null
+                                            : _resendVerificationEmail,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

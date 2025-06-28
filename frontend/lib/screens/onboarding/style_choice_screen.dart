@@ -128,7 +128,7 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 16), // More space before title
+                    const SizedBox(height: 10), // More space before title
                     // Title - now positioned lower
                     const Text(
                       'Pick your style',
@@ -140,7 +140,7 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
 
                     // Subtitle
                     const Text(
@@ -217,56 +217,71 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Skip button
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _skipSelection,
-                        child: const Text(
-                          'Skip',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppTheme.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Continue Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _submitDetails,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              AppTheme.buttonSecondary, // Black button
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child:
-                            _isLoading
-                                ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                                : const Text(
-                                  'Continue',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                    // Skip and Continue buttons in the same row
+                    Row(
+                      children: [
+                        // Skip button on the left (red)
+                        Expanded(
+                          flex: 1,
+                          child: SizedBox(
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _skipSelection,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    AppTheme.primaryColor, // Red color
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                      ),
+                              ),
+                              child: const Text(
+                                'Skip',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 16), // Space between buttons
+                        // Continue button on the right (black)
+                        Expanded(
+                          flex: 2, // Make continue button wider
+                          child: SizedBox(
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _submitDetails,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.black, // Black color
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child:
+                                  _isLoading
+                                      ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                      : const Text(
+                                        'Continue',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

@@ -1,24 +1,9 @@
-import {
-  Controller,
-  Get,
-  Query,
-  ParseIntPipe,
-  Req,
-  UseGuards,
-  Param,
-  Res,
-  Body,
-  Post,
-  NotFoundException,
-} from '@nestjs/common';
+import { Controller, Req, UseGuards, Body, Post } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/strategies/jwt/jwt-auth.guard';
 import { OnboardingService } from './onboarding.service';
-import { ProductItemTransferDto } from '../product-item/dto/product-item.dto';
-import { Public, RequestUser } from '../types';
-import { Response } from 'express';
-import * as path from 'path';
-import * as fs from 'fs';
+import { RequestUser } from '../types';
 import { ProductScoreService } from '../recommendation/service/product-score.service';
+import { ProductIdWithImageDto } from './dto/style-images.dto';
 
 class CompleteOnboardingDto {
   selectedIds!: number[];
@@ -49,75 +34,21 @@ export class OnboardingController {
    * - Priority: 3 items from each selected style, then fills with items from other styles
    *
    */
-  @Get('style-products')
+  @Post('style-products')
   async getStyleProducts(
-    @Req() req: RequestUser,
-    @Query('styleIds') styleIdsString: string,
-    @Query('clothingPreference') clothingPreference: string,
-    @Query('limit', ParseIntPipe) limit: number = 25,
-  ): Promise<ProductItemTransferDto[]> {
-    // Parse comma-separated style IDs into array of integers
-    const styleIds = styleIdsString
-      .split(',')
-      .map((id) => parseInt(id.trim(), 10))
-      .filter((id) => !isNaN(id));
-
-    // Validate that at least one valid style ID was provided
-    if (styleIds.length === 0) {
-      throw new Error('At least one style ID must be provided');
-    }
-
-    // Use the same method as like.controller to get the user id
-    const userId = req.user.sub;
-
+    @Body()
+    data: {
+      styleIds: number[];
+      clothingPreference: string;
+      limit?: number;
+    },
+  ): Promise<ProductIdWithImageDto[]> {
     // Delegate to service layer for business logic
     return this.onboardingService.getStyleProducts(
-      userId,
-      styleIds,
-      clothingPreference,
-      limit,
+      data.styleIds,
+      data.clothingPreference,
+      data.limit,
     );
-  }
-
-  /**
-   * GET  /api/onboarding/:genderFolder/styles/:styleId/:filename
-   *
-   * Serves images from src/onboarding/<genderFolder>/styles/... with
-   * proper Content‐Type, cache and CORS headers.
-   *
-   * Public decorator not shown here—make sure this route is not guarded.
-   */
-  @Public()
-  @Get(':genderFolder/styles/:styleId/:filename')
-  async getImage(
-    @Param('genderFolder') genderFolder: string,
-    @Param('styleId') styleId: string,
-    @Param('filename') filename: string,
-    @Res() res: Response,
-  ) {
-    const filePath = path.join(
-      __dirname,
-      '../onboarding',
-      genderFolder,
-      'styles',
-      styleId,
-      filename,
-    );
-
-    if (!fs.existsSync(filePath)) {
-      throw new NotFoundException(`Image not found: ${filename}`);
-    }
-
-    // Set MIME type
-    const ext = path.extname(filename).toLowerCase();
-    const mime = ext === '.png' ? 'image/png' : 'image/jpeg';
-    res.type(mime);
-
-    // Caching and CORS
-    res.set('Cache-Control', 'public, max-age=3600');
-    res.set('Access-Control-Allow-Origin', '*');
-
-    return res.sendFile(filePath);
   }
 
   /** POST /onboarding/complete */

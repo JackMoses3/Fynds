@@ -21,16 +21,16 @@ export class UserController {
   async updateUserOnboarding(
     @Req() req: RequestUser,
     @Body()
-    body: { clothingPreferences: string; birthdate: string; location: string },
+    body: { clothingPreferences: string; birthdate?: string; location: string },
   ) {
     try {
       console.log('📥 Received body:', body);
 
       // Parse the birthdate string properly
-      const birthDate = new Date(body.birthdate);
+      const birthDate = body.birthdate ? new Date(body.birthdate) : undefined;
 
       // Validate the parsed date
-      if (isNaN(birthDate.getTime())) {
+      if (birthDate && isNaN(birthDate.getTime())) {
         throw new Error(`Invalid birthdate format: ${body.birthdate}`);
       }
 

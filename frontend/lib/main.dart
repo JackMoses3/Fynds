@@ -3,7 +3,7 @@ import 'package:fynds/screens/auth/title_screen.dart';
 import 'package:fynds/services/auth/auth_service.dart';
 import 'package:fynds/navigation/app_navigation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fynds/screens/onboarding/style_choice_screen.dart';
+import 'package:fynds/screens/onboarding/user_details_screen.dart';
 import 'package:fynds/theme/app_theme.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -48,7 +48,7 @@ class MyApp extends StatelessWidget {
         '/title':
             (context) => TitleScreen(title: appTitle, subtitle: appSubtitle),
         '/home': (context) => const AppNavigation(),
-        '/onboarding': (context) => const StyleChoiceScreen(),
+        '/onboarding': (context) => const UserDetailsScreen(),
       },
     );
   }

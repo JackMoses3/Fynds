@@ -34,7 +34,6 @@ export class StyleController {
       req.user.sub,
       styleId,
       data.limit || 50,
-      data.offset || 0,
     );
   }
 
