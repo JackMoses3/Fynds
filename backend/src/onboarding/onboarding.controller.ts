@@ -4,6 +4,7 @@ import { OnboardingService } from './onboarding.service';
 import { RequestUser } from '../types';
 import { ProductScoreService } from '../recommendation/service/product-score.service';
 import { ProductIdWithImageDto } from './dto/style-images.dto';
+import { StyleWithImageDto } from './dto/style-with-image.dto';
 
 class CompleteOnboardingDto {
   selectedIds!: number[];
@@ -66,5 +67,25 @@ export class OnboardingController {
     }
 
     return { success: true };
+  }
+
+  /** POST /onboarding/style-images */
+  @Post('style-images')
+  async getStyleImages(
+    @Body() body: { clothingPreference: string },
+  ): Promise<StyleWithImageDto[]> {
+    console.log('🎯 [OnboardingController] POST /onboarding/style-images');
+    console.log(
+      `📋 [OnboardingController] Clothing Preference: ${body.clothingPreference}`,
+    );
+
+    const result = await this.onboardingService.getStyleImages(
+      body.clothingPreference,
+    );
+
+    console.log(
+      `✅ [OnboardingController] Returning ${result.length} styles with images`,
+    );
+    return result;
   }
 }

@@ -300,94 +300,49 @@ class _ExploreScreenState extends State<ExploreScreen>
     return Container(
       color: Colors.white,
       child: SingleChildScrollView(
-        padding: EdgeInsets.only(top: topInset + 16, bottom: 16),
+        padding: EdgeInsets.only(top: topInset, bottom: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Page Title
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'Explore',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-                textAlign: TextAlign.center,
-              ),
+            // Style Carousel with smaller, non-caps title
+            const StyleCarousel(
+              title:
+                  'Explore styles', // Changed from 'EXPLORE STYLES' to 'Explore styles'
+              showTitle: true,
             ),
-            const SizedBox(height: 24),
-
-            // Style Carousel
-            const StyleCarousel(title: 'EXPLORE STYLES', showTitle: true),
-            const SizedBox(height: 32),
-
-            // Shop By Section
+            const SizedBox(height: 4), // Reduced from 32 to 16
+            // Shop By Section - moved closer
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                'SHOP BY',
+                'Shop by',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 16, // Reduced from 18 to 16
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                   letterSpacing: 0.5,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // Shop By Tags - Row 1
+            const SizedBox(height: 12), // Reduced from 16 to 12
+            // Shop By Tags - Single row with only 3 items
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _buildShopByChip('Trending'),
+                  _buildShopByChip('Default'),
                   _buildShopByChip('On Sale'),
-                  _buildShopByChip('Last Chance'),
-                  _buildShopByChip('Just Dropped'),
-                  _buildShopByChip('FYNDS Picks'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Shop By Tags - Row 2
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
                   _buildShopByChip('Under \$100'),
-                  _buildShopByChip('Back In Stock'),
-                  _buildShopByChip('For Her'),
-                  _buildShopByChip('For Him'),
-                  _buildShopByChip('Airport Look'),
+                  _buildShopByChip('Trending'), // Only these 3 items
                 ],
               ),
             ),
-            const SizedBox(height: 32),
 
-            // Featured Products Grid (placeholder)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'FEATURED',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
             const SizedBox(height: 16),
 
-            // Placeholder for featured products grid
+            // Placeholder for featured products grid (no title)
             Container(
               height: 400,
               margin: const EdgeInsets.symmetric(horizontal: 16),

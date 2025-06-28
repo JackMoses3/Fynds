@@ -4,6 +4,11 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ProductIdWithImageDto } from './dto/style-images.dto';
 
+export interface StyleWithImageDto {
+  styleId: number;
+  imageData: string;
+}
+
 @Injectable()
 export class OnboardingService {
   private readonly imagesBasePath = path.join(__dirname, '../onboarding');
@@ -333,6 +338,182 @@ export class OnboardingService {
     }
 
     return results;
+  }
+
+  async getStyleImages(
+    clothingPreference: string,
+  ): Promise<StyleWithImageDto[]> {
+    console.log('🎨 [OnboardingService] Starting getStyleImages');
+    console.log(
+      `👥 [OnboardingService] Clothing Preference: ${clothingPreference}`,
+    );
+    console.log(
+      `📁 [OnboardingService] Base images path: ${this.imagesBasePath}`,
+    );
+
+    const result: StyleWithImageDto[] = [];
+
+    try {
+      // Determine which gender folder(s) to process
+      let genderFolders: string[] = [];
+
+      if (clothingPreference === 'unisex') {
+        genderFolders = ['men', 'women'];
+        console.log(
+          '🔀 [StyleImages] Using unisex preference - loading both genders',
+        );
+      } else {
+        genderFolders = [clothingPreference.toLowerCase()];
+        console.log(
+          `🎯 [StyleImages] Loading single gender: ${clothingPreference}`,
+        );
+      }
+
+      for (const genderFolder of genderFolders) {
+        console.log(`\n🚀 [StyleImages] Processing gender: ${genderFolder}`);
+
+        const imagesPath = path.join(
+          this.imagesBasePath,
+          genderFolder,
+          'styles',
+        );
+        console.log(`📁 [StyleImages] Styles path: ${imagesPath}`);
+
+        // Check if the styles directory exists
+        try {
+          await fs.access(imagesPath);
+          console.log(
+            `✅ [StyleImages] Styles directory exists for ${genderFolder}`,
+          );
+        } catch (error) {
+          console.warn(
+            `❌ [StyleImages] Styles directory not found for ${genderFolder}: ${imagesPath}`,
+          );
+          continue; // Skip this gender if directory doesn't exist
+        }
+
+        // Get all style directories
+        const styleDirs = await fs.readdir(imagesPath);
+        console.log(
+          `📂 [StyleImages] Found style directories: ${styleDirs.join(', ')}`,
+        );
+
+        // Filter and parse style IDs
+        const styleIds = styleDirs
+          .map((dir) => parseInt(dir))
+          .filter((id) => !isNaN(id))
+          .sort((a, b) => a - b); // Sort for consistent ordering
+
+        console.log(`🎯 [StyleImages] Valid style IDs: ${styleIds.join(', ')}`);
+
+        // Get one image from each style
+        for (const styleId of styleIds) {
+          console.log(`\n📂 [StyleImages] Processing style ID: ${styleId}`);
+
+          // Skip if we already have this style (in case of unisex preference)
+          const existingStyle = result.find((r) => r.styleId === styleId);
+          if (existingStyle) {
+            console.log(
+              `⚠️ [StyleImages] Style ${styleId} already processed, skipping`,
+            );
+            continue;
+          }
+
+          const styleImage = await this.getOneImageFromStyle(
+            imagesPath,
+            styleId,
+          );
+
+          if (styleImage) {
+            result.push({
+              styleId: styleId,
+              imageData: styleImage.imageData,
+            });
+            console.log(`✅ [StyleImages] Added image for style ${styleId}`);
+          } else {
+            console.log(`⚠️ [StyleImages] No image found for style ${styleId}`);
+          }
+        }
+      }
+
+      // Sort results by styleId for consistent ordering
+      result.sort((a, b) => a.styleId - b.styleId);
+
+      console.log(
+        `\n🎉 [StyleImages] Completed! Found ${result.length} styles with images`,
+      );
+      console.log(
+        `🆔 [StyleImages] Style IDs: ${result.map((r) => r.styleId).join(', ')}`,
+      );
+
+      return result;
+    } catch (error) {
+      console.error('❌ [StyleImages] Error in getStyleImages:', error);
+      return [];
+    }
+  }
+
+  private async getOneImageFromStyle(
+    imagesPath: string,
+    styleId: number,
+  ): Promise<{ imageData: string } | null> {
+    console.log(`  🎨 [GetOneImage] Getting image for style ${styleId}`);
+
+    const styleDir = path.join(imagesPath, styleId.toString());
+    console.log(`  📁 [GetOneImage] Style directory: ${styleDir}`);
+
+    try {
+      // Check if style directory exists
+      await fs.access(styleDir);
+      console.log(`  ✅ [GetOneImage] Style directory exists`);
+
+      const files = await fs.readdir(styleDir);
+      console.log(`  📄 [GetOneImage] Files in directory: ${files.join(', ')}`);
+
+      // Filter for image files
+      const imageFiles = files.filter((file) => /\.(jpe?g|png)$/i.test(file));
+      console.log(`  🖼️ [GetOneImage] Image files: ${imageFiles.join(', ')}`);
+
+      if (imageFiles.length === 0) {
+        console.log(
+          `  ⚠️ [GetOneImage] No image files found in style ${styleId}`,
+        );
+        return null;
+      }
+
+      // Take the first image (or you could randomize)
+      const selectedFile = imageFiles[0];
+      const filePath = path.join(styleDir, selectedFile);
+
+      console.log(`  📸 [GetOneImage] Selected file: ${selectedFile}`);
+
+      try {
+        // Read image file and convert to base64
+        const imageBuffer = await fs.readFile(filePath);
+        const base64Image = imageBuffer.toString('base64');
+        const imageSizeKB = Math.round(imageBuffer.length / 1024);
+
+        console.log(
+          `  ✅ [GetOneImage] Successfully processed ${selectedFile}: ${imageSizeKB}KB -> ${base64Image.length} base64 chars`,
+        );
+
+        return {
+          imageData: base64Image,
+        };
+      } catch (fileError) {
+        console.error(
+          `  ❌ [GetOneImage] Could not read image file ${filePath}:`,
+          fileError,
+        );
+        return null;
+      }
+    } catch (dirError) {
+      console.warn(
+        `  ❌ [GetOneImage] Style directory ${styleId} not found:`,
+        dirError,
+      );
+      return null;
+    }
   }
 
   private shuffleArray<T>(array: T[]): T[] {
