@@ -114,7 +114,7 @@ class OnboardingService {
   /// Step 2: Get all available styles
   Future<List<Style>> getStyles() async {
     try {
-      final resp = await _dio.get('/user/styles');
+      final resp = await _dio.get('/style');
       if (resp.statusCode == 200) {
         final data = resp.data as List<dynamic>;
         return data.map((json) => Style.fromJson(json)).toList();
@@ -130,7 +130,7 @@ class OnboardingService {
   Future<void> assignStylesToUser(List<int> styleIds) async {
     try {
       final resp = await _dio.post(
-        '/user/styles',
+        '/user/assign-styles',
         data: {'styleIds': styleIds},
       );
       if (resp.statusCode != 200 && resp.statusCode != 201) {

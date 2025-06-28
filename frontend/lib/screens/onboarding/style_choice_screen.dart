@@ -52,7 +52,8 @@ class _StyleChoiceScreenState extends State<StyleChoiceScreen> {
       await _onboardingService.assignStylesToUser(_selectedStyles.toList());
 
       // Navigate to image choice
-      Navigator.of(context).pushReplacement(
+      Navigator.push(
+        context,
         MaterialPageRoute(
           builder:
               (_) => StyleImageChoiceScreen(

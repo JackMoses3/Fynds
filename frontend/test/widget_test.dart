@@ -14,7 +14,11 @@ void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(
-      MyApp(onboardingDone: false, isAuthenticated: false),
+      MyApp(
+        onboardingDone: false,
+        isAuthenticated: false,
+        initialRoute: '/title',
+      ),
     );
 
     // Verify that our counter starts at 0.

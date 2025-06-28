@@ -22,16 +22,39 @@ void main() async {
   final authService = AuthService();
   final bool isAuthenticated = await authService.checkLoginStatus();
 
-  runApp(MyApp(onboardingDone: done, isAuthenticated: isAuthenticated));
+  String initialRoute;
+  if (!isAuthenticated) {
+    // Not authenticated -> go to auth flow
+    initialRoute = '/title';
+    print('🐛 [MAIN] Routing to /title (not authenticated)');
+  } else if (!done) {
+    // Authenticated but onboarding not done -> go to onboarding
+    initialRoute = '/onboarding';
+    print('🐛 [MAIN] Routing to /onboarding (authenticated, need onboarding)');
+  } else {
+    // Authenticated and onboarding done -> go to home
+    initialRoute = '/home';
+    print('🐛 [MAIN] Routing to /home (authenticated, onboarding done)');
+  }
+
+  runApp(
+    MyApp(
+      onboardingDone: done,
+      isAuthenticated: isAuthenticated,
+      initialRoute: initialRoute,
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
   final bool onboardingDone;
   final bool isAuthenticated;
+  final String initialRoute;
   const MyApp({
     super.key,
     required this.onboardingDone,
     required this.isAuthenticated,
+    required this.initialRoute,
   });
 
   @override
@@ -40,10 +63,7 @@ class MyApp extends StatelessWidget {
       title: 'Fynds',
       navigatorKey: navigatorKey,
       theme: AppTheme.lightTheme,
-      initialRoute:
-          onboardingDone
-              ? (isAuthenticated ? '/home' : '/title')
-              : '/onboarding',
+      initialRoute: initialRoute, // Use the calculated route
       routes: {
         '/title':
             (context) => TitleScreen(title: appTitle, subtitle: appSubtitle),
