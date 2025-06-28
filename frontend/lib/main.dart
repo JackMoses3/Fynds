@@ -12,6 +12,9 @@ const String appSubtitle = 'Finding fashion for you';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final cache = PaintingBinding.instance.imageCache;
+  cache.maximumSize = 4000; // 4k thumbs
+  cache.maximumSizeBytes = 400 << 20; // 400 MB
   // Initialize shared preferences to check if onboarding is complete
   final prefs = await SharedPreferences.getInstance();
   final done = prefs.getBool('onboardingComplete') ?? false;
