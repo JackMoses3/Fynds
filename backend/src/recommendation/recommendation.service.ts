@@ -10,6 +10,61 @@ export class RecommendationService {
     private readonly qdrantService: QdrantService,
   ) {}
 
+  /**
+   * Returns a Set of product IDs the user has already interacted with
+   * (viewed, liked, saved to a collection, or placed in the trolley).
+   */
+  private async excludeProductIds(
+    userId: number,
+    extra: Iterable<number> = [],
+  ): Promise<Set<number>> {
+    const [viewed, liked, collections, trolleys] = await Promise.all([
+      this.db.viewingHistory.findMany({
+        where: { userId },
+        orderBy: { id: 'desc' },
+        take: 100,
+        select: { productItemId: true },
+      }),
+      this.db.like.findMany({
+        where: { userId },
+        select: { productItemId: true },
+      }),
+      this.db.collectionItem.findMany({
+        where: {
+          collection: { userId },
+        },
+        select: { productItemId: true },
+      }),
+      this.db.trolleyItem.findMany({
+        where: {
+          shoppingTrolley: { userId },
+        },
+        select: { productItemId: true },
+      }),
+    ]);
+
+    const viewedIds = viewed.map((v) => v.productItemId);
+    const likedIds = liked.map((l) => l.productItemId);
+    const collectionIds = collections.map((c) => c.productItemId);
+    const trolleyIds = trolleys.map((t) => t.productItemId);
+    const extraIds = Array.from(extra);
+
+    // ✅ DEBUG LOGGING
+    console.log(`🧐 Viewing history exclusions:`, viewedIds);
+    console.log(`❤️ Like exclusions:`, likedIds);
+    console.log(`📁 Collection exclusions:`, collectionIds);
+    console.log(`🛒 Trolley exclusions:`, trolleyIds);
+    console.log(`➕ Extra exclusions:`, extraIds);
+
+    return new Set<number>([
+      ...viewed.map((v) => v.productItemId),
+      ...liked.map((l) => l.productItemId),
+      ...collections.map((c) => c.productItemId),
+      ...trolleys.map((t) => t.productItemId),
+      ...extra,
+    ]);
+  }
+
   // HELPER METHODS
 
   /**
@@ -243,14 +298,8 @@ export class RecommendationService {
         });
     }
 
-    // 5. Get user's 100 most recent ViewingHistory
-    const recentViewed = await this.db.viewingHistory.findMany({
-      where: { userId },
-      orderBy: { id: 'desc' },
-      take: 100,
-      select: { productItemId: true },
-    });
-    const viewedIds = new Set(recentViewed.map((v) => v.productItemId));
+    // 5. Get all product IDs to exclude (recently viewed, liked, saved, trolley)
+    const excludedIds = await this.excludeProductIds(userId);
 
     // 6. Select 1 per top score, ensuring 3 unique retailers and not in recent viewing
     const selectedRecent: number[] = [];
@@ -258,7 +307,7 @@ export class RecommendationService {
     for (const score of topRecent) {
       const candidates = qdrantResults[score.productItemId]
         .map((r) => r.id)
-        .filter((id) => !viewedIds.has(id));
+        .filter((id) => !excludedIds.has(id));
       if (candidates.length === 0) continue;
       // Fetch product info to check retailer and sex
       const products = await this.db.productItem.findMany({
@@ -335,6 +384,7 @@ export class RecommendationService {
         category: { not: 'Uncategorized' },
         ...sexFilter,
         retailer: { notIn: Array.from(currentRetailers) },
+        id: { notIn: Array.from(excludedIds) },
       },
       take: 1000,
     });
@@ -417,16 +467,10 @@ export class RecommendationService {
     console.log('🔍 Filter input - brand:', filterWhere.brand);
     console.log('🔍 Filter input - category:', filterWhere.category);
 
-    // 3. Get recently viewed items to exclude
+    // 3. Get all product IDs to exclude (recently viewed, liked, saved, trolley)
     const viewedStart = Date.now();
-    const recentViewed = await this.db.viewingHistory.findMany({
-      where: { userId },
-      orderBy: { id: 'desc' },
-      take: 100,
-      select: { productItemId: true },
-    });
-    const viewedIds = new Set(recentViewed.map((v) => v.productItemId));
-    console.log(`✅ Viewed history fetched (${Date.now() - viewedStart}ms)`);
+    const excludedIds = await this.excludeProductIds(userId);
+    console.log(`✅ Exclusion sets fetched (${Date.now() - viewedStart}ms)`);
 
     // 4. Get user's top scored products as seeds
     const scoresStart = Date.now();
@@ -483,11 +527,11 @@ export class RecommendationService {
         `🚀 Performance optimization: Using ${maxSeeds} seeds in batches of ${batchSize} (multiple filters: ${hasMultipleFilters})`,
       );
 
-      // Qdrant batch search
+      // Qdrant batch search, exclude all relevant product IDs
       allSimilarResults = await this.searchQdrantInBatches(
         seedProductIds,
         qdrantFilter,
-        viewedIds,
+        excludedIds,
         limit,
         maxSeeds,
         batchSize,
@@ -560,9 +604,9 @@ export class RecommendationService {
 
       // Get existing IDs to avoid duplicates
       const existingIds = new Set(personalizedProducts.map((p) => p.id));
-      const combinedViewedIds = new Set([
+      const combinedExcludedIds = new Set([
         ...Array.from(existingIds),
-        ...Array.from(viewedIds),
+        ...Array.from(excludedIds),
       ]);
 
       // Get user's sex filter for non-personalized products
@@ -580,7 +624,7 @@ export class RecommendationService {
         await this.getNonPersonalizedFilteredProducts(
           normalizedFilters,
           sexFilter,
-          combinedViewedIds,
+          combinedExcludedIds,
           remaining,
         );
 
