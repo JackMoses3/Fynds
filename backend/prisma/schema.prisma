@@ -52,6 +52,8 @@ model ProductImage {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   productItem   ProductItem @relation(fields: [productItemId], references: [id], onDelete: Cascade)
+
+  @@index([productItemId])
 }
 
 model SiteDataConfig {

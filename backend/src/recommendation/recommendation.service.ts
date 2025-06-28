@@ -10,6 +10,115 @@ export class RecommendationService {
     private readonly qdrantService: QdrantService,
   ) {}
 
+  // HELPER METHODS
+
+  /**
+   * Normalizes frontend filters to database query format
+   */
+  private normalizeFiltersForDatabase(filterWhere: any): any {
+    const normalized: any = {};
+    this.pushStringArrayCondition(
+      normalized,
+      'retailer',
+      this.extractFilterValues(filterWhere.retailer),
+      'prisma',
+    );
+    this.pushStringArrayCondition(
+      normalized,
+      'brand',
+      this.extractFilterValues(filterWhere.brand),
+      'prisma',
+    );
+    this.pushStringArrayCondition(
+      normalized,
+      'category',
+      this.extractFilterValues(filterWhere.category),
+      'prisma',
+    );
+    const price = this.extractPriceRangeCondition(
+      filterWhere.minPrice,
+      filterWhere.maxPrice,
+      'prisma',
+    );
+    if (price) normalized.price = price;
+    return normalized;
+  }
+
+  /**
+   * Counts the number of active filters to determine optimization strategy
+   */
+  private countActiveFilters(qdrantFilter: any): number {
+    if (!qdrantFilter?.must) return 0;
+    return qdrantFilter.must.length;
+  }
+
+  /**
+   * Gets recently viewed product IDs for a user
+   */
+  private async getRecentlyViewedProductIds(
+    userId: number,
+    take: number = 100,
+  ): Promise<Set<number>> {
+    const recentViewed = await this.db.viewingHistory.findMany({
+      where: { userId },
+      orderBy: { id: 'desc' },
+      take,
+      select: { productItemId: true },
+    });
+    return new Set(recentViewed.map((v) => v.productItemId));
+  }
+
+  /**
+   * Maps product database entities to DTOs
+   */
+  private mapProductsToDto(products: any[]): ProductItemTransferDto[] {
+    return products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      brand: p.brand,
+      retailer: p.retailer,
+      price: p.price,
+      url: p.url,
+      images: p.productImages.map((img: { id: any; imageUrl: any }) => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+      })),
+    }));
+  }
+
+  /**
+   * Gets non-personalized products with fallback logic
+   */
+  private async getNonPersonalizedFilteredProducts(
+    filterWhere: any,
+    sexFilter: any,
+    viewedIds: Set<number> = new Set(),
+    limit = 50,
+  ): Promise<ProductItemTransferDto[]> {
+    // Apply filters with quality constraints
+    const combinedWhere = {
+      ...filterWhere,
+      ...sexFilter,
+      embedding: { not: null },
+      category: { not: 'Uncategorized' },
+      ...(viewedIds.size > 0 ? { id: { notIn: Array.from(viewedIds) } } : {}),
+    };
+
+    const items = await this.db.productItem.findMany({
+      where: combinedWhere,
+      take: limit,
+      include: {
+        productImages: {
+          orderBy: { id: 'asc' },
+        },
+      },
+    });
+
+    return this.mapProductsToDto(items);
+  }
+
+  // MAIN METHODS - NOW USING HELPERS
+
   async getRecommendedProductsForUser(
     userId: number,
     limit = 20,
@@ -24,7 +133,7 @@ export class RecommendationService {
     }
 
     // 1. Get user clothing preference
-    const sexFilter = user ? getSexFilter(user.clothingPreferences) : {};
+    const sexFilter = await this.getSexFilterForUser(userId);
 
     // Check for onboarding scenario
     const onboardingProducts = await this.db.onboardingProduct.findMany({
@@ -91,7 +200,7 @@ export class RecommendationService {
           orderBy: { id: 'asc' },
           take: 1000,
         });
-        randomIds = shuffle(randomProducts.map((p) => p.id)).filter(
+        randomIds = this.shuffle(randomProducts.map((p) => p.id)).filter(
           (id) => !onboardingMatches.includes(id),
         );
       }
@@ -106,18 +215,8 @@ export class RecommendationService {
         },
       });
 
-      return products.map((p) => ({
-        id: p.id,
-        name: p.name,
-        brand: p.brand,
-        retailer: p.retailer,
-        price: p.price,
-        url: p.url,
-        images: p.productImages.map((img) => ({
-          id: img.id,
-          imageUrl: img.imageUrl,
-        })),
-      }));
+      // Use helper function instead of duplicated code
+      return this.mapProductsToDto(products);
     }
 
     // 2. Get 100 most recent ProductScores for user
@@ -239,7 +338,7 @@ export class RecommendationService {
       },
       take: 1000,
     });
-    let randomIds = shuffle(randomProducts.map((p) => p.id));
+    let randomIds = this.shuffle(randomProducts.map((p) => p.id));
 
     // If no history, allocate those 3 to random
     if (topOld.length === 0) {
@@ -259,21 +358,6 @@ export class RecommendationService {
       },
     });
 
-<<<<<<< HEAD
-    // Map to DTO
-    return products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      brand: p.brand,
-      retailer: p.retailer,
-      price: p.price,
-      url: p.url,
-      images: p.productImages.map((img) => ({
-        id: img.id,
-        imageUrl: img.imageUrl,
-      })),
-    }));
-=======
     // Use helper function instead of duplicated code
     return this.mapProductsToDto(products);
   }
@@ -719,22 +803,5 @@ export class RecommendationService {
       .map((a) => [Math.random(), a] as [number, T])
       .sort((a, b) => a[0] - b[0])
       .map((a) => a[1]);
->>>>>>> a63db06 (fixed to allow min and max price filtering. Logic now fully complete)
   }
-}
-
-// Helper: get sex filter for clothingPreferences
-function getSexFilter(pref: string) {
-  const p = pref?.toLowerCase?.() ?? '';
-  if (p === 'male') return { sex: { in: ['men', 'unisex'] } };
-  if (p === 'female') return { sex: { in: ['women', 'unisex'] } };
-  return { sex: { in: ['men', 'women', 'unisex'] } };
-}
-
-// Helper: shuffle array
-function shuffle<T>(arr: T[]): T[] {
-  return arr
-    .map((a) => [Math.random(), a] as [number, T])
-    .sort((a, b) => a[0] - b[0])
-    .map((a) => a[1]);
 }
