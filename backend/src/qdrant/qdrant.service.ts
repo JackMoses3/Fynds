@@ -17,6 +17,9 @@ import { SearchDto } from '../embedding-qdrant/dto/embedding-qdrant.dto';
 
 @Injectable()
 export class QdrantService {
+  searchByVector(arg0: { vector: number[]; searchDto: { top_k: number } }) {
+    throw new Error('Method not implemented.');
+  }
   constructor(private readonly db: DatabaseService) {}
   private readonly logger = new Logger(QdrantService.name);
   // The mlServiceUrl is used by other methods like insertVector; not used here.
@@ -596,5 +599,156 @@ export class QdrantService {
       );
       return null;
     }
+  }
+
+  /**
+   * Search products with Qdrant filtering using payloads - OPTIMIZED VERSION
+   */
+  async searchProductWithFilter(params: {
+    productId: number;
+    filter?: any;
+    limit?: number;
+    excludeIds?: number[];
+  }): Promise<Array<{ id: number; score: number; payload: any }>> {
+    this.logger.debug(
+      `Starting OPTIMIZED searchProductWithFilter for productId=${params.productId}`,
+    );
+
+    const collections = [
+      'IMAGE_FRONT_EMBEDDINGS',
+      'IMAGE_BACK_EMBEDDINGS',
+      'TEXT_EMBEDDINGS',
+    ];
+    const searchLimit = params.limit || 50;
+
+    const collectionWeights: Record<string, number> = {
+      IMAGE_FRONT_EMBEDDINGS: 0.4,
+      IMAGE_BACK_EMBEDDINGS: 0.4,
+      TEXT_EMBEDDINGS: 0.2,
+    };
+
+    // OPTIMIZATION: Parallelize all collection searches
+    const collectionPromises = collections.map(async (collection) => {
+      try {
+        // 1. Get the vector for the target product
+        const getUrl = `${process.env.QDRANT_URL}/collections/${collection}/points`;
+        const getPayload = {
+          ids: [params.productId],
+          with_vector: true,
+          with_payload: false,
+        };
+
+        const getResp = await fetch(getUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(getPayload),
+        });
+
+        if (!getResp.ok) {
+          this.logger.warn(
+            `Failed to fetch embedding from ${collection} for productId=${params.productId}`,
+          );
+          return [];
+        }
+
+        const getData = await getResp.json();
+        if (!getData.result?.[0]?.vector) {
+          this.logger.warn(
+            `No vector found in ${collection} for productId=${params.productId}`,
+          );
+          return [];
+        }
+
+        const targetVector = getData.result[0].vector;
+
+        // 2. Search with filter and payload
+        const searchUrl = `${process.env.QDRANT_URL}/collections/${collection}/points/search`;
+        const searchPayload: any = {
+          vector: targetVector,
+          limit: searchLimit,
+          with_payload: true,
+          score_threshold: 0,
+        };
+
+        // Add filter if provided
+        if (params.filter) {
+          searchPayload.filter = params.filter;
+        }
+
+        const searchResp = await fetch(searchUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(searchPayload),
+        });
+
+        if (!searchResp.ok) {
+          this.logger.error(
+            `Qdrant search error for collection ${collection}: ${searchResp.statusText}`,
+          );
+          return [];
+        }
+
+        const searchResult = await searchResp.json();
+        const hits = Array.isArray(searchResult.result)
+          ? searchResult.result
+          : searchResult.result.hits;
+
+        if (Array.isArray(hits)) {
+          const weight = collectionWeights[collection] ?? 1;
+          return hits
+            .filter((r: any) => {
+              // Exclude the queried product and any excluded IDs
+              if (r.id === params.productId) return false;
+              if (params.excludeIds?.includes(r.id)) return false;
+              return true;
+            })
+            .map((r: any) => ({
+              id: r.id,
+              score: r.score * weight,
+              collection,
+              payload: r.payload,
+            }));
+        }
+        return [];
+      } catch (error) {
+        this.logger.error(
+          `Error searching in collection ${collection}:`,
+          error,
+        );
+        return [];
+      }
+    });
+
+    // Wait for all collection searches to complete in parallel
+    const allCollectionResults = await Promise.all(collectionPromises);
+    const allResults = allCollectionResults.flat();
+
+    this.logger.debug(
+      `📊 Total results from all collections: ${allResults.length}`,
+    );
+
+    // Deduplicate and return top results
+    const uniqueResults = allResults.reduce(
+      (acc: any[], current) => {
+        const existing = acc.find((item) => item.id === current.id);
+        if (!existing) {
+          acc.push(current);
+        } else if (current.score > existing.score) {
+          existing.score = current.score;
+          existing.payload = current.payload;
+        }
+        return acc;
+      },
+      [] as Array<{ id: number; score: number; payload: any }>,
+    );
+
+    uniqueResults.sort((a, b) => b.score - a.score);
+    const finalResults = uniqueResults.slice(0, params.limit || 50);
+
+    this.logger.debug(
+      `✅ Returning ${finalResults.length} unique results for productId=${params.productId}`,
+    );
+
+    return finalResults;
   }
 }
